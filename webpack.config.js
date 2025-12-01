@@ -1,5 +1,6 @@
 const path = require('path');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
+const Dotenv = require('dotenv-webpack');
 
 module.exports = {
   entry: './src/main.tsx',
@@ -7,6 +8,9 @@ module.exports = {
     path: path.resolve(__dirname, 'dist'),
     filename: 'index.js',
     clean: true,
+    publicPath: process.env.NODE_ENV === 'production' 
+      ? '/poker-planning-hackathon-2025/' 
+      : '/',
   },
   resolve: {
     extensions: ['.tsx', '.ts', '.js', '.jsx'],
@@ -28,6 +32,9 @@ module.exports = {
     new HtmlWebpackPlugin({
       template: './public/index.html',
       inject: 'body',
+    }),
+    new Dotenv({
+      systemvars: true,
     }),
   ],
   devServer: {

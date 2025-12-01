@@ -31,12 +31,14 @@
   "bugs": {
     "url": "https://github.com/karelhala/poker-planning-hackathon-2025/issues"
   },
-  "homepage": "https://github.com/karelhala/poker-planning-hackathon-2025#readme",
+  "homepage": "https://karelhala.github.io/poker-planning-hackathon-2025",
   "dependencies": {
     "@emotion/react": "^11.11.1",
     "@emotion/styled": "^11.11.0",
     "@mui/icons-material": "^5.15.0",
     "@mui/material": "^5.15.0",
+    "@supabase/supabase-js": "^2.86.0",
+    "dotenv-webpack": "^8.1.1",
     "react": "^18.2.0",
     "react-dom": "^18.2.0"
   },
