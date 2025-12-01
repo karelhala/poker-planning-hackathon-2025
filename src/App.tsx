@@ -5,7 +5,7 @@ import { Sidebar } from './components/Sidebar'
 import { JiraTokenModal } from './components/JiraTokenModal'
 import { CollaborationControls } from './components/CollaborationControls'
 import { NotificationSnackbar } from './components/NotificationSnackbar'
-import { useJira } from './JiraContext'
+import { useUser } from './contexts/UserContext'
 import { useThemeMode } from './hooks/useThemeMode'
 import { useSupabaseRealtime } from './hooks/useSupabaseRealtime'
 
@@ -15,7 +15,7 @@ function App() {
   
   // Custom hooks
   const { mode, toggleColorMode } = useThemeMode()
-  const { hasToken } = useJira()
+  const { hasJiraToken } = useUser()
   const {
     count,
     notification,
@@ -65,7 +65,7 @@ function App() {
         <Header
           open={drawerOpen}
           mode={mode}
-          hasJiraToken={hasToken}
+          hasJiraToken={hasJiraToken}
           onToggleDrawer={toggleDrawer}
           onToggleTheme={toggleColorMode}
           onOpenJiraModal={handleOpenJiraModal}

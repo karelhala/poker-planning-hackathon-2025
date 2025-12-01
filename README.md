@@ -78,11 +78,16 @@ The output will be in the `dist/` folder with `dist/index.js` as the main entry 
   - Respects OS-level theme settings (macOS, Windows, Linux)
   - Manual toggle available to override system preference
   - Saves your preference in localStorage
+- ✅ **User Identity System** - Automatic UUID generation for each user
+  - Unique user ID generated on first visit
+  - Persisted in localStorage across sessions
+  - Displayed in user configuration modal
+  - Optional username field (supports single or multiple words)
 - ✅ **JIRA Integration** - Store and manage your JIRA API token
   - Avatar icon with green check indicator when token is saved
   - Secure modal for token input
   - Token stored in localStorage
-  - Global JIRA context provider for app-wide access
+  - Global user context provider for app-wide access
   - Easy token management (save/remove)
 - ✅ **Real-time collaboration** - All users see the same count instantly
 - ✅ **Collapsible Sidebar Navigation** - Clean, responsive layout
@@ -102,20 +107,32 @@ The app uses Supabase Realtime to synchronize state across all connected users:
 
 - **`button_click_increment`**: When any user clicks the count button
   - All other users instantly see the updated count
-  - Includes: `{ count, action: 'increment', timestamp }`
+  - Includes: `{ count, action: 'increment', userId, userName, timestamp }`
 
 - **`button_click_reset`**: When any user clicks the reset button
   - All users' counts are reset to 0 simultaneously
-  - Includes: `{ count: 0, action: 'reset', timestamp }`
+  - Includes: `{ count: 0, action: 'reset', userId, userName, timestamp }`
 
 ### Real-time Sync:
 
-1. User A clicks "Count" → increments to 5
-2. Event broadcasts via WebSocket to all connected clients
-3. User B, C, D all see the count update to 5 instantly
-4. When User B clicks "Reset" → everyone's count resets to 0
+1. **User A** (John Doe - UUID: abc-123...) clicks "Count" → increments to 5
+2. Event broadcasts via WebSocket including user identity:
+   ```json
+   {
+     "count": 5,
+     "action": "increment",
+     "userId": "abc-123...",
+     "userName": "John Doe",
+     "timestamp": "2025-12-01T10:30:00Z"
+   }
+   ```
+3. **User B, C, D** all see:
+   - Count updates to 5 instantly
+   - Notification: "**John Doe** incremented count to 5"
+4. When **User B** clicks "Reset" → everyone's count resets to 0
+   - Notification shows which user triggered the reset
 
-All events flow through the `poker-planning-events` channel with instant synchronization.
+All events flow through the `poker-planning-events` channel with instant synchronization and user identification.
 
 ## GitHub Pages Deployment
 
@@ -144,13 +161,14 @@ src/
 ├── components/                  # Reusable UI components
 │   ├── Header.tsx              # App bar with theme toggle & avatar
 │   ├── Sidebar.tsx             # Navigation drawer
-│   ├── JiraTokenModal.tsx      # JIRA token configuration dialog
+│   ├── JiraTokenModal.tsx      # JIRA token & user ID configuration
 │   ├── CollaborationControls.tsx # Real-time counter controls
 │   └── NotificationSnackbar.tsx  # Toast notifications
+├── contexts/                    # React Context providers
+│   └── UserContext.tsx         # User ID (UUID) & JIRA token management
 ├── hooks/                       # Custom React hooks
 │   ├── useThemeMode.ts         # Theme management (light/dark)
 │   └── useSupabaseRealtime.ts  # WebSocket event handling
-├── JiraContext.tsx             # Global JIRA token context
 └── supabaseClient.ts           # Supabase configuration
 ```
 
@@ -158,7 +176,8 @@ src/
 
 - **Component Composition:** Small, focused components with clear responsibilities
 - **Custom Hooks:** Business logic extracted from components
-- **Context API:** Global state management for JIRA tokens
+- **Context API:** Global state management for user identity and JIRA tokens
+- **UUID Generation:** Automatic user identification on first visit
 - **Props Drilling Prevention:** Hooks and context reduce prop passing
 - **Separation of Concerns:** UI, logic, and state are cleanly separated
 
@@ -173,40 +192,59 @@ To test the real-time sync:
 
 You can also test with multiple users accessing the same URL!
 
-## JIRA Integration
+## User Identity & JIRA Integration
 
-The app includes a JIRA token management system:
+The app includes automatic user identification and JIRA token management:
 
-### Setting up JIRA Token:
+### User ID (UUID):
+
+Each user automatically gets a unique identifier:
+- **Generated on first visit** - UUID v4 format
+- **Stored in localStorage** - `userId` key
+- **Persists across sessions** - Same ID every time you visit
+- **Displayed in modal** - See your user ID when configuring settings
+
+### Setting up User Profile:
 
 1. Click the **avatar icon** in the top-right corner (next to theme toggle)
-2. Enter your JIRA API token in the modal
-3. Click "Save Token"
-4. A **green check mark** will appear on the avatar indicating the token is active
+2. View your unique user ID in the modal
+3. **Enter your name** (optional) - Can be single word like "John" or multiple words like "John Doe"
+4. **Enter your JIRA API token** (optional) to enable JIRA integration
+5. Click "Save Settings"
+6. A **green check mark** will appear on the avatar when JIRA token is active
 
-### Using the JIRA Token:
+### Using in Your Code:
 
-The token is available throughout the app via the `useJira()` hook:
+The user context is available throughout the app via the `useUser()` hook:
 
 ```typescript
-import { useJira } from './JiraContext'
+import { useUser } from './contexts/UserContext'
 
 function MyComponent() {
-  const { jiraToken, hasToken } = useJira()
+  const { userId, userName, setUserName, jiraToken, hasJiraToken, setJiraToken } = useUser()
+  
+  console.log('User ID:', userId) // e.g., "a3f2b1c4-..."
+  console.log('User Name:', userName) // e.g., "John Doe" or null
+  
+  // Display personalized greeting
+  const greeting = userName ? `Hello, ${userName}!` : `Hello, User!`
   
   // Use jiraToken for API calls
-  if (hasToken) {
-    // Make JIRA API requests
+  if (hasJiraToken) {
+    // Make JIRA API requests with the token
+    // Track events with the userId and userName
   }
 }
 ```
 
-### Token Storage:
+### Storage:
 
-- Tokens are stored securely in **localStorage**
-- Persists across browser sessions
-- Can be removed at any time via the modal
-- The entire app has access via the `JiraProvider` context
+- **User ID** stored in localStorage as `userId` (auto-generated, permanent)
+- **Username** stored in localStorage as `userName` (optional, user-provided)
+- **JIRA token** stored in localStorage as `jiraToken` (optional)
+- All data persists across browser sessions
+- Settings can be cleared at any time via the modal
+- The entire app has access via the `UserProvider` context
 
 ## License
 

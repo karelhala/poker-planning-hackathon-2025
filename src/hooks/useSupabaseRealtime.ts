@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../supabaseClient'
 import type { RealtimeChannel } from '@supabase/supabase-js'
+import { useUser } from '../contexts/UserContext'
 
 interface Notification {
   open: boolean
@@ -9,6 +10,7 @@ interface Notification {
 }
 
 export const useSupabaseRealtime = () => {
+  const { userId, userName } = useUser()
   const [count, setCount] = useState(0)
   const [notification, setNotification] = useState<Notification>({
     open: false,
@@ -27,22 +29,30 @@ export const useSupabaseRealtime = () => {
     channel.on('broadcast', { event: 'button_click_increment' }, (payload) => {
       console.log('Received increment event from another user:', payload)
       const newCount = payload.payload.count
+      const senderName = payload.payload.userName || 'Another user'
+      const senderId = payload.payload.userId
+      
       setCount(newCount)
       setNotification({
         open: true,
-        message: `Another user incremented count to ${newCount}`,
+        message: `${senderName} incremented count to ${newCount}`,
         severity: 'info',
       })
+      console.log(`Event from user ${senderId}: increment to ${newCount}`)
     })
 
     channel.on('broadcast', { event: 'button_click_reset' }, (payload) => {
       console.log('Received reset event from another user:', payload)
+      const senderName = payload.payload.userName || 'Another user'
+      const senderId = payload.payload.userId
+      
       setCount(0)
       setNotification({
         open: true,
-        message: 'Another user reset the count',
+        message: `${senderName} reset the count`,
         severity: 'info',
       })
+      console.log(`Event from user ${senderId}: reset count`)
     })
 
     channel.subscribe((status) => {
@@ -69,6 +79,8 @@ export const useSupabaseRealtime = () => {
         event: eventType,
         payload: {
           ...eventData,
+          userId,
+          userName: userName || null,
           timestamp: new Date().toISOString(),
         },
       })
