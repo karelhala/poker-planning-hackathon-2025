@@ -1,53 +1,113 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { 
   ThemeProvider, 
   createTheme, 
-  Container, 
-  Box, 
-  Typography, 
-  Button,
-  Card,
-  CardContent,
+  CssBaseline,
+  Box,
+  Drawer,
   AppBar,
   Toolbar,
+  List,
+  Typography,
+  Divider,
+  IconButton,
+  ListItem,
+  ListItemButton,
+  ListItemIcon,
+  ListItemText,
+  Container,
+  Grid,
+  Card,
+  CardContent,
+  Button,
   Alert,
-  Snackbar
+  Snackbar,
+  PaletteMode,
+  Chip,
+  useMediaQuery
 } from '@mui/material'
-import { Casino as CasinoIcon } from '@mui/icons-material'
+import {
+  Menu as MenuIcon,
+  ChevronLeft as ChevronLeftIcon,
+  Dashboard as DashboardIcon,
+  People as PeopleIcon,
+  Assignment as AssignmentIcon,
+  Settings as SettingsIcon,
+  Brightness4 as Brightness4Icon,
+  Brightness7 as Brightness7Icon,
+  TrendingUp as TrendingUpIcon,
+  Casino as CasinoIcon,
+} from '@mui/icons-material'
 import { supabase } from './supabaseClient'
 import type { RealtimeChannel } from '@supabase/supabase-js'
 
-const theme = createTheme({
-  palette: {
-    mode: 'light',
-    primary: {
-      main: '#1976d2',
-    },
-    secondary: {
-      main: '#dc004e',
-    },
-  },
-})
+const drawerWidth = 240
 
 function App() {
+  // Detect system color scheme preference
+  const prefersDarkMode = useMediaQuery('(prefers-color-scheme: dark)')
+  
+  // Initialize mode from localStorage or system preference
+  const [mode, setMode] = useState<PaletteMode>(() => {
+    const savedMode = localStorage.getItem('themeMode') as PaletteMode | null
+    return savedMode || (prefersDarkMode ? 'dark' : 'light')
+  })
+  
+  const [open, setOpen] = useState(true)
   const [count, setCount] = useState(0)
-  const [notification, setNotification] = useState<{ open: boolean; message: string; severity: 'success' | 'error' }>({
+  const [notification, setNotification] = useState<{ open: boolean; message: string; severity: 'success' | 'error' | 'info' }>({
     open: false,
     message: '',
     severity: 'success'
   })
   const channelRef = useRef<RealtimeChannel | null>(null)
 
+  // Update theme when system preference changes (if user hasn't manually set a preference)
+  useEffect(() => {
+    const savedMode = localStorage.getItem('themeMode')
+    if (!savedMode) {
+      setMode(prefersDarkMode ? 'dark' : 'light')
+    }
+  }, [prefersDarkMode])
+
+  // Create theme based on mode
+  const theme = useMemo(
+    () =>
+      createTheme({
+        palette: {
+          mode,
+          primary: {
+            main: '#1976d2',
+          },
+          secondary: {
+            main: '#dc004e',
+          },
+        },
+      }),
+    [mode],
+  )
+
+  // Toggle dark/light mode and save to localStorage
+  const toggleColorMode = () => {
+    setMode((prevMode) => {
+      const newMode = prevMode === 'light' ? 'dark' : 'light'
+      localStorage.setItem('themeMode', newMode)
+      return newMode
+    })
+  }
+
+  const toggleDrawer = () => {
+    setOpen(!open)
+  }
+
   // Initialize Supabase Realtime channel
   useEffect(() => {
-    // Create a channel for poker planning events
     const channel = supabase.channel('poker-planning-events', {
       config: {
-        broadcast: { self: false }, // Don't receive our own events
+        broadcast: { self: false },
       },
     })
 
-    // Listen for increment events from other users
     channel.on('broadcast', { event: 'button_click_increment' }, (payload) => {
       console.log('Received increment event from another user:', payload)
       const newCount = payload.payload.count
@@ -55,22 +115,20 @@ function App() {
       setNotification({
         open: true,
         message: `Another user incremented count to ${newCount}`,
-        severity: 'success'
+        severity: 'info'
       })
     })
 
-    // Listen for reset events from other users
     channel.on('broadcast', { event: 'button_click_reset' }, (payload) => {
       console.log('Received reset event from another user:', payload)
       setCount(0)
       setNotification({
         open: true,
         message: 'Another user reset the count',
-        severity: 'success'
+        severity: 'info'
       })
     })
 
-    // Subscribe to the channel
     channel.subscribe((status) => {
       if (status === 'SUBSCRIBED') {
         console.log('Connected to Supabase Realtime channel')
@@ -79,7 +137,6 @@ function App() {
 
     channelRef.current = channel
 
-    // Cleanup on unmount
     return () => {
       channel.unsubscribe()
     }
@@ -91,7 +148,6 @@ function App() {
         throw new Error('Realtime channel not initialized')
       }
 
-      // Send event via WebSocket using broadcast
       const response = await channelRef.current.send({
         type: 'broadcast',
         event: eventType,
@@ -103,7 +159,6 @@ function App() {
 
       if (response === 'ok') {
         console.log('Event sent via WebSocket:', eventType, eventData)
-        // Don't show notification for own events since we see the UI update
       } else {
         throw new Error('Failed to send event')
       }
@@ -134,49 +189,208 @@ function App() {
 
   return (
     <ThemeProvider theme={theme}>
-      <Box sx={{ flexGrow: 1 }}>
-        <AppBar position="static">
-          <Toolbar>
+      <CssBaseline />
+      <Box sx={{ display: 'flex' }}>
+        {/* App Bar */}
+        <AppBar position="absolute" sx={{
+          zIndex: (theme) => theme.zIndex.drawer + 1,
+          transition: (theme) => theme.transitions.create(['width', 'margin'], {
+            easing: theme.transitions.easing.sharp,
+            duration: theme.transitions.duration.leavingScreen,
+          }),
+          ...(open && {
+            marginLeft: drawerWidth,
+            width: `calc(100% - ${drawerWidth}px)`,
+            transition: (theme) => theme.transitions.create(['width', 'margin'], {
+              easing: theme.transitions.easing.sharp,
+              duration: theme.transitions.duration.enteringScreen,
+            }),
+          }),
+        }}>
+          <Toolbar sx={{ pr: '24px' }}>
+            <IconButton
+              edge="start"
+              color="inherit"
+              aria-label="open drawer"
+              onClick={toggleDrawer}
+              sx={{
+                marginRight: '36px',
+                ...(open && { display: 'none' }),
+              }}
+            >
+              <MenuIcon />
+            </IconButton>
             <CasinoIcon sx={{ mr: 2 }} />
-            <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
-              Poker Planning
+            <Typography
+              component="h1"
+              variant="h6"
+              color="inherit"
+              noWrap
+              sx={{ flexGrow: 1 }}
+            >
+              Poker Planning Dashboard
             </Typography>
+            <IconButton onClick={toggleColorMode} color="inherit">
+              {mode === 'dark' ? <Brightness7Icon /> : <Brightness4Icon />}
+            </IconButton>
           </Toolbar>
         </AppBar>
-        
-        <Container maxWidth="md" sx={{ mt: 4 }}>
-          <Card>
-            <CardContent>
-              <Typography variant="h4" component="h1" gutterBottom>
-                Welcome to Poker Planning
-              </Typography>
-              <Typography variant="body1" color="text.secondary" paragraph>
-                Real-time ticket sizing for your team
-              </Typography>
-              
-              <Box sx={{ mt: 3 }}>
-                <Button 
-                  variant="contained" 
-                  onClick={handleIncrement}
-                  sx={{ mr: 2 }}
-                >
-                  Count: {count}
-                </Button>
-                <Button 
-                  variant="outlined" 
-                  onClick={handleReset}
-                >
-                  Reset
-                </Button>
-              </Box>
-            </CardContent>
-          </Card>
-        </Container>
+
+        {/* Drawer */}
+        <Drawer
+          variant="permanent"
+          open={open}
+          sx={{
+            '& .MuiDrawer-paper': {
+              position: 'relative',
+              whiteSpace: 'nowrap',
+              width: drawerWidth,
+              transition: (theme) => theme.transitions.create('width', {
+                easing: theme.transitions.easing.sharp,
+                duration: theme.transitions.duration.enteringScreen,
+              }),
+              boxSizing: 'border-box',
+              ...(!open && {
+                overflowX: 'hidden',
+                transition: (theme) => theme.transitions.create('width', {
+                  easing: theme.transitions.easing.sharp,
+                  duration: theme.transitions.duration.leavingScreen,
+                }),
+                width: (theme) => theme.spacing(7),
+                [theme.breakpoints.up('sm')]: {
+                  width: theme.spacing(9),
+                },
+              }),
+            },
+          }}
+        >
+          <Toolbar
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'flex-end',
+              px: [1],
+            }}
+          >
+            <IconButton onClick={toggleDrawer}>
+              <ChevronLeftIcon />
+            </IconButton>
+          </Toolbar>
+          <Divider />
+          <List component="nav">
+            <ListItem disablePadding>
+              <ListItemButton selected>
+                <ListItemIcon>
+                  <DashboardIcon />
+                </ListItemIcon>
+                <ListItemText primary="Dashboard" />
+              </ListItemButton>
+            </ListItem>
+            <ListItem disablePadding>
+              <ListItemButton>
+                <ListItemIcon>
+                  <PeopleIcon />
+                </ListItemIcon>
+                <ListItemText primary="Users" />
+              </ListItemButton>
+            </ListItem>
+            <ListItem disablePadding>
+              <ListItemButton>
+                <ListItemIcon>
+                  <AssignmentIcon />
+                </ListItemIcon>
+                <ListItemText primary="Tasks" />
+              </ListItemButton>
+            </ListItem>
+            <Divider sx={{ my: 1 }} />
+            <ListItem disablePadding>
+              <ListItemButton>
+                <ListItemIcon>
+                  <SettingsIcon />
+                </ListItemIcon>
+                <ListItemText primary="Settings" />
+              </ListItemButton>
+            </ListItem>
+          </List>
+        </Drawer>
+
+        {/* Main Content */}
+        <Box
+          component="main"
+          sx={{
+            backgroundColor: (theme) =>
+              theme.palette.mode === 'light'
+                ? theme.palette.grey[100]
+                : theme.palette.grey[900],
+            flexGrow: 1,
+            height: '100vh',
+            overflow: 'auto',
+          }}
+        >
+          <Toolbar />
+          <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
+            <Grid container spacing={3}>
+
+              {/* Interactive Controls */}
+              <Grid item xs={12}>
+                <Card>
+                  <CardContent>
+                    <Typography variant="h5" component="h2" gutterBottom>
+                      Real-time Collaboration Controls
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary" paragraph>
+                      Click the buttons below to broadcast events to all connected users via Supabase Realtime.
+                      All users will see the updates instantly through WebSocket connections.
+                    </Typography>
+                    
+                    <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
+                      <Button
+                        variant="contained"
+                        size="large"
+                        onClick={handleIncrement}
+                        startIcon={<TrendingUpIcon />}
+                      >
+                        Increment: {count}
+                      </Button>
+                      <Button
+                        variant="outlined"
+                        size="large"
+                        onClick={handleReset}
+                        color="secondary"
+                      >
+                        Reset Counter
+                      </Button>
+                      <Chip 
+                        label="WebSocket Connected" 
+                        color="success" 
+                        variant="outlined"
+                        icon={<CasinoIcon />}
+                      />
+                    </Box>
+
+                    <Box sx={{ mt: 3 }}>
+                      <Typography variant="subtitle2" gutterBottom>
+                        How it works:
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        • Click increment → all users see the new count instantly<br />
+                        • Click reset → everyone's counter resets to 0<br />
+                        • Open multiple tabs to test real-time synchronization<br />
+                        • All events are broadcast through Supabase Realtime channels
+                      </Typography>
+                    </Box>
+                  </CardContent>
+                </Card>
+              </Grid>
+            </Grid>
+          </Container>
+        </Box>
       </Box>
 
+      {/* Notifications */}
       <Snackbar 
         open={notification.open} 
-        autoHideDuration={3000} 
+        autoHideDuration={4000} 
         onClose={handleCloseNotification}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
       >
@@ -184,6 +398,7 @@ function App() {
           onClose={handleCloseNotification} 
           severity={notification.severity}
           sx={{ width: '100%' }}
+          variant="filled"
         >
           {notification.message}
         </Alert>
@@ -193,4 +408,3 @@ function App() {
 }
 
 export default App
-

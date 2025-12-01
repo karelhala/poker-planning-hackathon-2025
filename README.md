@@ -5,7 +5,8 @@ Poker planning project for realtime ticket sizing with Supabase integration.
 ## Tech Stack
 
 - **React 18** with TypeScript
-- **Material UI** for components
+- **Material UI v5** with professional dashboard template
+- **Dark/Light Mode** theme toggle
 - **Webpack 5** for bundling
 - **Supabase Realtime** for WebSocket events
 - **GitHub Pages** for deployment
@@ -71,12 +72,17 @@ The output will be in the `dist/` folder with `dist/index.js` as the main entry 
 
 ## Features
 
+- ✅ **Professional Dashboard UI** inspired by [Material UI Dashboard Template](https://mui.com/material-ui/getting-started/templates/dashboard/)
+- ✅ **Smart Theme System** - Automatically detects system dark/light mode preference
+  - Respects OS-level theme settings (macOS, Windows, Linux)
+  - Manual toggle available to override system preference
+  - Saves your preference in localStorage
 - ✅ **Real-time collaboration** - All users see the same count instantly
+- ✅ **Collapsible Sidebar Navigation** - Clean, responsive layout
 - ✅ WebSocket event broadcasting with Supabase Realtime
 - ✅ Synchronized state across all connected clients
-- ✅ Button click tracking via WebSocket
-- ✅ Material UI components
-- ✅ TypeScript support
+- ✅ Interactive dashboard cards with live statistics
+- ✅ TypeScript support throughout
 - ✅ Environment variable configuration
 - ✅ Live notifications when other users interact
 - ✅ Automatic GitHub Pages deployment

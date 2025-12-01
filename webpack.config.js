@@ -2,13 +2,17 @@ const path = require('path');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
 const Dotenv = require('dotenv-webpack');
 
-module.exports = {
-  entry: './src/main.tsx',
-  output: {
-    path: path.resolve(__dirname, 'dist'),
-    filename: 'index.js',
-    clean: true,
-  },
+module.exports = (env, argv) => {
+  const isProduction = argv.mode === 'production';
+  
+  return {
+    entry: './src/main.tsx',
+    output: {
+      path: path.resolve(__dirname, 'dist'),
+      filename: 'index.js',
+      clean: true,
+      publicPath: isProduction ? '/poker-planning-hackathon-2025/' : '/',
+    },
   resolve: {
     extensions: ['.tsx', '.ts', '.js', '.jsx'],
   },
@@ -34,13 +38,14 @@ module.exports = {
       systemvars: true,
     }),
   ],
-  devServer: {
-    static: {
-      directory: path.join(__dirname, 'public'),
+    devServer: {
+      static: {
+        directory: path.join(__dirname, 'public'),
+      },
+      compress: true,
+      port: 3000,
+      hot: true,
     },
-    compress: true,
-    port: 3000,
-    hot: true,
-  },
+  };
 };
 
