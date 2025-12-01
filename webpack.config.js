@@ -8,9 +8,6 @@ module.exports = {
     path: path.resolve(__dirname, 'dist'),
     filename: 'index.js',
     clean: true,
-    publicPath: process.env.NODE_ENV === 'production' 
-      ? '/poker-planning-hackathon-2025/' 
-      : '/',
   },
   resolve: {
     extensions: ['.tsx', '.ts', '.js', '.jsx'],
