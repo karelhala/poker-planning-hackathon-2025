@@ -10,6 +10,7 @@ Poker planning project for realtime ticket sizing with Supabase integration.
 - **Webpack 5** for bundling
 - **Supabase Realtime** for WebSocket events
 - **GitHub Pages** for deployment
+- **Component-based architecture** with custom hooks
 
 ## Prerequisites
 
@@ -133,6 +134,33 @@ The app automatically deploys to GitHub Pages when you push to the `main` branch
 3. **Push to main branch** - the deployment will happen automatically
 
 Your app will be available at: `https://karelhala.github.io/poker-planning-hackathon-2025/`
+
+## Project Structure
+
+```
+src/
+├── App.tsx                      # Main app component (orchestrates everything)
+├── main.tsx                     # Entry point with providers
+├── components/                  # Reusable UI components
+│   ├── Header.tsx              # App bar with theme toggle & avatar
+│   ├── Sidebar.tsx             # Navigation drawer
+│   ├── JiraTokenModal.tsx      # JIRA token configuration dialog
+│   ├── CollaborationControls.tsx # Real-time counter controls
+│   └── NotificationSnackbar.tsx  # Toast notifications
+├── hooks/                       # Custom React hooks
+│   ├── useThemeMode.ts         # Theme management (light/dark)
+│   └── useSupabaseRealtime.ts  # WebSocket event handling
+├── JiraContext.tsx             # Global JIRA token context
+└── supabaseClient.ts           # Supabase configuration
+```
+
+### Key Design Patterns:
+
+- **Component Composition:** Small, focused components with clear responsibilities
+- **Custom Hooks:** Business logic extracted from components
+- **Context API:** Global state management for JIRA tokens
+- **Props Drilling Prevention:** Hooks and context reduce prop passing
+- **Separation of Concerns:** UI, logic, and state are cleanly separated
 
 ## Testing Real-time Collaboration
 
