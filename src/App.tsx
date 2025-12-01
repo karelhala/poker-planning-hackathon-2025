@@ -19,10 +19,12 @@ function App() {
   
   // Custom hooks
   const { mode, toggleColorMode } = useThemeMode()
-  const { hasJiraToken } = useUser()
+  const { hasJiraToken, userId } = useUser()
   const { roomId } = useRoom()
   const {
     count,
+    roomCreator,
+    activeUsers,
     notification,
     handleIncrement,
     handleReset,
@@ -114,6 +116,9 @@ function App() {
                 <Grid item xs={12}>
                   <CollaborationControls
                     count={count}
+                    roomCreator={roomCreator}
+                    activeUsers={activeUsers}
+                    currentUserId={userId}
                     onIncrement={handleIncrement}
                     onReset={handleReset}
                   />

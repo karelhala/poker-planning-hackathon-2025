@@ -84,6 +84,10 @@ The output will be in the `dist/` folder with `dist/index.js` as the main entry 
   - Share room link with one click
   - URL-based room joining (direct links work)
   - Leave room anytime
+  - **Automatic state sync** when joining existing rooms
+  - **Presence tracking** - See all active users in real-time
+  - **Room creator identification** with star badge
+  - **User avatars** with tooltips showing names and roles
 - ✅ **User Identity System** - Automatic UUID generation for each user
   - Unique user ID generated on first visit
   - Persisted in localStorage across sessions
@@ -148,6 +152,38 @@ All events flow through room-specific channels (`poker-planning-room-A1B2C3D4`) 
 - Events only broadcast to users in the same room
 - Users in different rooms don't affect each other
 - Room state is ephemeral (resets when all users leave)
+
+### State Synchronization:
+
+When a new user joins a room with existing users:
+
+1. **New user joins** room `A1B2C3D4`
+2. **Existing users detect** the new presence
+3. **One existing user sends** current state:
+   ```json
+   {
+     "event": "state_sync",
+     "payload": {
+       "count": 5,
+       "roomCreator": "abc-123...",
+       "activeUsers": [...],
+       "userId": "sender-id",
+       "userName": "John Doe",
+       "timestamp": "2025-12-01T10:30:00Z"
+     }
+   }
+   ```
+4. **New user receives** state and updates their view
+5. **Notification**: "Synced with room. Current count: 5"
+
+### Presence Tracking:
+
+- **Real-time user list** - See all active users with avatars
+- **Room creator badge** - Gold border and star icon
+- **Current user highlight** - Blue avatar for yourself
+- **User tooltips** - Hover to see full name, UUID, and role
+- **Live updates** - User list updates as people join/leave
+- **AvatarGroup** - Shows up to 4 users, "+N" for more
 
 ## GitHub Pages Deployment
 

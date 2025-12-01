@@ -10,34 +10,135 @@ interface Notification {
   severity: 'success' | 'error' | 'info'
 }
 
+interface RoomUser {
+  userId: string
+  userName: string | null
+}
+
 export const useSupabaseRealtime = () => {
   const { userId, userName } = useUser()
   const { roomId } = useRoom()
   const [count, setCount] = useState(0)
+  const [roomCreator, setRoomCreator] = useState<string | null>(null)
+  const [activeUsers, setActiveUsers] = useState<RoomUser[]>([])
   const [notification, setNotification] = useState<Notification>({
     open: false,
     message: '',
     severity: 'success',
   })
   const channelRef = useRef<RealtimeChannel | null>(null)
+  const isFirstUserRef = useRef(false)
+  const countRef = useRef(count)
+  const roomCreatorRef = useRef(roomCreator)
+  const activeUsersRef = useRef(activeUsers)
+
+  // Keep refs in sync with state
+  useEffect(() => {
+    countRef.current = count
+  }, [count])
+
+  useEffect(() => {
+    roomCreatorRef.current = roomCreator
+  }, [roomCreator])
+
+  useEffect(() => {
+    activeUsersRef.current = activeUsers
+  }, [activeUsers])
 
   useEffect(() => {
     // Only connect if in a room
     if (!roomId) {
-      // No room - disconnect any existing channel
+      // No room - disconnect and reset state
       if (channelRef.current) {
         channelRef.current.unsubscribe()
         channelRef.current = null
       }
+      setCount(0)
+      setRoomCreator(null)
+      setActiveUsers([])
+      isFirstUserRef.current = false
       return
     }
 
-    // Create room-specific channel
+    // Create room-specific channel with presence
     const channelName = `poker-planning-room-${roomId}`
     const channel = supabase.channel(channelName, {
       config: {
         broadcast: { self: false },
+        presence: { key: userId },
       },
+    })
+
+    // Track presence (who's in the room)
+    channel
+      .on('presence', { event: 'sync' }, () => {
+        const state = channel.presenceState()
+        const users: RoomUser[] = []
+        
+        Object.keys(state).forEach((key) => {
+          const presences = state[key] as any[]
+          presences.forEach((presence) => {
+            users.push({
+              userId: presence.userId,
+              userName: presence.userName || null,
+            })
+          })
+        })
+        
+        setActiveUsers(users)
+        console.log('Active users in room:', users)
+
+        // If this is the first user in the room, they become the creator
+        if (users.length === 1 && users[0].userId === userId) {
+          isFirstUserRef.current = true
+          setRoomCreator(userId)
+          console.log('You are the room creator')
+        }
+      })
+      .on('presence', { event: 'join' }, ({ newPresences }) => {
+        console.log('User joined:', newPresences)
+        
+        // If we ARE the creator (first user) and someone joins, send them current state
+        if (isFirstUserRef.current && newPresences.length > 0) {
+          const newUserId = newPresences[0].userId
+          if (newUserId !== userId) {
+            // Send current state to new user
+            setTimeout(() => {
+              channel.send({
+                type: 'broadcast',
+                event: 'state_sync',
+                payload: {
+                  count: countRef.current,
+                  roomCreator: roomCreatorRef.current,
+                  activeUsers: activeUsersRef.current,
+                  userId,
+                  userName,
+                  timestamp: new Date().toISOString(),
+                },
+              })
+            }, 500) // Small delay to ensure they're subscribed
+          }
+        }
+      })
+      .on('presence', { event: 'leave' }, ({ leftPresences }) => {
+        console.log('User left:', leftPresences)
+      })
+
+    // Listen for state sync (when we join and someone sends us the state)
+    channel.on('broadcast', { event: 'state_sync' }, (payload) => {
+      console.log('Received room state:', payload)
+      const { count: syncCount, roomCreator: creator } = payload.payload
+      
+      setCount(syncCount)
+      setRoomCreator(creator)
+      
+      const senderName = payload.payload.userName || 'Another user'
+      setNotification({
+        open: true,
+        message: `Synced with room. Current count: ${syncCount}`,
+        severity: 'success',
+      })
+      console.log(`State synced from ${senderName}`)
     })
 
     channel.on('broadcast', { event: 'button_click_increment' }, (payload) => {
@@ -69,9 +170,16 @@ export const useSupabaseRealtime = () => {
       console.log(`Event from user ${senderId}: reset count`)
     })
 
-    channel.subscribe((status) => {
+    channel.subscribe(async (status) => {
       if (status === 'SUBSCRIBED') {
         console.log(`Connected to room: ${roomId}`)
+        
+        // Track this user's presence
+        await channel.track({
+          userId,
+          userName: userName || null,
+          online_at: new Date().toISOString(),
+        })
       }
     })
 
@@ -80,7 +188,7 @@ export const useSupabaseRealtime = () => {
     return () => {
       channel.unsubscribe()
     }
-  }, [roomId])
+  }, [roomId, userId, userName])
 
   const sendEvent = async (eventType: string, eventData: any) => {
     try {
@@ -135,6 +243,8 @@ export const useSupabaseRealtime = () => {
 
   return {
     count,
+    roomCreator,
+    activeUsers,
     notification,
     handleIncrement,
     handleReset,
