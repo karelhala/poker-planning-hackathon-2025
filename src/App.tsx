@@ -1,7 +1,6 @@
 import { useState, useMemo } from 'react'
 import { ThemeProvider, createTheme, CssBaseline, Box, Toolbar, Container, Grid, Paper } from '@mui/material'
 import { Header } from './components/Header'
-import { Sidebar } from './components/Sidebar'
 import { UserModal } from './components/UserModal'
 import { RoomControls } from './components/RoomControls'
 import { JoinRoomModal } from './components/JoinRoomModal'
@@ -13,7 +12,6 @@ import { useThemeMode } from './hooks/useThemeMode'
 import { useSupabaseRealtime } from './hooks/useSupabaseRealtime'
 
 function App() {
-  const [drawerOpen, setDrawerOpen] = useState(true)
   const [userModalOpen, setUserModalOpen] = useState(false)
   const [joinRoomModalOpen, setJoinRoomModalOpen] = useState(false)
   
@@ -49,10 +47,6 @@ function App() {
     [mode]
   )
 
-  const toggleDrawer = () => {
-    setDrawerOpen(!drawerOpen)
-  }
-
   const handleOpenUserModal = () => {
     setUserModalOpen(true)
   }
@@ -78,15 +72,11 @@ function App() {
       <CssBaseline />
       <Box sx={{ display: 'flex' }}>
         <Header
-          open={drawerOpen}
           mode={mode}
           hasJiraToken={hasJiraToken}
-          onToggleDrawer={toggleDrawer}
           onToggleTheme={toggleColorMode}
           onOpenJiraModal={handleOpenUserModal}
         />
-
-        <Sidebar open={drawerOpen} onToggleDrawer={toggleDrawer} />
 
         {/* Main Content */}
         <Box
