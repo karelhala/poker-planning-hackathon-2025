@@ -78,6 +78,12 @@ The output will be in the `dist/` folder with `dist/index.js` as the main entry 
   - Respects OS-level theme settings (macOS, Windows, Linux)
   - Manual toggle available to override system preference
   - Saves your preference in localStorage
+- ✅ **Room-Based Collaboration** - Create or join isolated planning sessions
+  - Create new room with unique ID
+  - Join existing room by ID
+  - Share room link with one click
+  - URL-based room joining (direct links work)
+  - Leave room anytime
 - ✅ **User Identity System** - Automatic UUID generation for each user
   - Unique user ID generated on first visit
   - Persisted in localStorage across sessions
@@ -89,10 +95,10 @@ The output will be in the `dist/` folder with `dist/index.js` as the main entry 
   - Token stored in localStorage
   - Global user context provider for app-wide access
   - Easy token management (save/remove)
-- ✅ **Real-time collaboration** - All users see the same count instantly
+- ✅ **Real-time collaboration** - All users in the same room see updates instantly
 - ✅ **Collapsible Sidebar Navigation** - Clean, responsive layout
 - ✅ WebSocket event broadcasting with Supabase Realtime
-- ✅ Synchronized state across all connected clients
+- ✅ Synchronized state across all connected clients in the room
 - ✅ Interactive dashboard cards with live statistics
 - ✅ TypeScript support throughout
 - ✅ Environment variable configuration
@@ -115,8 +121,10 @@ The app uses Supabase Realtime to synchronize state across all connected users:
 
 ### Real-time Sync:
 
-1. **User A** (John Doe - UUID: abc-123...) clicks "Count" → increments to 5
-2. Event broadcasts via WebSocket including user identity:
+1. **User A** (John Doe - UUID: abc-123...) creates room `A1B2C3D4`
+2. **User B** joins the same room using the room link
+3. **User A** clicks "Count" → increments to 5
+4. Event broadcasts via WebSocket to room channel including user identity:
    ```json
    {
      "count": 5,
@@ -126,13 +134,20 @@ The app uses Supabase Realtime to synchronize state across all connected users:
      "timestamp": "2025-12-01T10:30:00Z"
    }
    ```
-3. **User B, C, D** all see:
+5. **User B** sees:
    - Count updates to 5 instantly
    - Notification: "**John Doe** incremented count to 5"
-4. When **User B** clicks "Reset" → everyone's count resets to 0
+6. When **User B** clicks "Reset" → everyone in the room sees count = 0
    - Notification shows which user triggered the reset
 
-All events flow through the `poker-planning-events` channel with instant synchronization and user identification.
+All events flow through room-specific channels (`poker-planning-room-A1B2C3D4`) with instant synchronization and user identification.
+
+### Room Isolation:
+
+- Each room has its own WebSocket channel
+- Events only broadcast to users in the same room
+- Users in different rooms don't affect each other
+- Room state is ephemeral (resets when all users leave)
 
 ## GitHub Pages Deployment
 
@@ -161,11 +176,14 @@ src/
 ├── components/                  # Reusable UI components
 │   ├── Header.tsx              # App bar with theme toggle & avatar
 │   ├── Sidebar.tsx             # Navigation drawer
-│   ├── JiraTokenModal.tsx      # JIRA token & user ID configuration
+│   ├── UserModal.tsx           # User configuration (name, UUID, JIRA token)
+│   ├── RoomControls.tsx        # Create/join/share room controls
+│   ├── JoinRoomModal.tsx       # Modal to join room by ID
 │   ├── CollaborationControls.tsx # Real-time counter controls
 │   └── NotificationSnackbar.tsx  # Toast notifications
 ├── contexts/                    # React Context providers
-│   └── UserContext.tsx         # User ID (UUID) & JIRA token management
+│   ├── UserContext.tsx         # User ID (UUID) & JIRA token management
+│   └── RoomContext.tsx         # Room management & URL routing
 ├── hooks/                       # Custom React hooks
 │   ├── useThemeMode.ts         # Theme management (light/dark)
 │   └── useSupabaseRealtime.ts  # WebSocket event handling
@@ -181,16 +199,41 @@ src/
 - **Props Drilling Prevention:** Hooks and context reduce prop passing
 - **Separation of Concerns:** UI, logic, and state are cleanly separated
 
-## Testing Real-time Collaboration
+## Room-Based Collaboration
 
-To test the real-time sync:
+### Creating and Joining Rooms:
 
-1. Open the app in two different browser windows/tabs
-2. Click the count button in one window
-3. Watch the count update instantly in the other window
-4. Try resetting from either window - both will reset simultaneously
+1. **Create a New Room:**
+   - Click "Create Room" button
+   - A unique 8-character room ID is generated (e.g., `A1B2C3D4`)
+   - URL updates to `/room/A1B2C3D4`
+   - You're now in the room and can start collaborating
 
-You can also test with multiple users accessing the same URL!
+2. **Join an Existing Room:**
+   - Click "Join Room" button
+   - Enter the room ID in the modal
+   - Click "Join Room" to enter
+
+3. **Share a Room:**
+   - Click the share icon (📤) next to the room ID
+   - Full URL is copied to clipboard
+   - Share the link with others: `https://your-site.com/room/A1B2C3D4`
+
+4. **Direct Room Access:**
+   - Anyone with the room URL can join directly
+   - Open `https://your-site.com/room/A1B2C3D4` → automatically joins room A1B2C3D4
+
+5. **Leave a Room:**
+   - Click the exit icon (→) to leave
+   - Returns to home view with create/join options
+
+### Testing Real-time Collaboration:
+
+1. **Create a room** in one browser window
+2. **Copy the room link** (click share icon)
+3. **Open the link** in another browser window/tab
+4. **Click buttons** in either window - both see updates instantly!
+5. Both users are in the same room with synchronized state
 
 ## User Identity & JIRA Integration
 

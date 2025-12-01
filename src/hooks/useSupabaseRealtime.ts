@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../supabaseClient'
 import type { RealtimeChannel } from '@supabase/supabase-js'
 import { useUser } from '../contexts/UserContext'
+import { useRoom } from '../contexts/RoomContext'
 
 interface Notification {
   open: boolean
@@ -11,6 +12,7 @@ interface Notification {
 
 export const useSupabaseRealtime = () => {
   const { userId, userName } = useUser()
+  const { roomId } = useRoom()
   const [count, setCount] = useState(0)
   const [notification, setNotification] = useState<Notification>({
     open: false,
@@ -20,7 +22,19 @@ export const useSupabaseRealtime = () => {
   const channelRef = useRef<RealtimeChannel | null>(null)
 
   useEffect(() => {
-    const channel = supabase.channel('poker-planning-events', {
+    // Only connect if in a room
+    if (!roomId) {
+      // No room - disconnect any existing channel
+      if (channelRef.current) {
+        channelRef.current.unsubscribe()
+        channelRef.current = null
+      }
+      return
+    }
+
+    // Create room-specific channel
+    const channelName = `poker-planning-room-${roomId}`
+    const channel = supabase.channel(channelName, {
       config: {
         broadcast: { self: false },
       },
@@ -57,7 +71,7 @@ export const useSupabaseRealtime = () => {
 
     channel.subscribe((status) => {
       if (status === 'SUBSCRIBED') {
-        console.log('Connected to Supabase Realtime channel')
+        console.log(`Connected to room: ${roomId}`)
       }
     })
 
@@ -66,7 +80,7 @@ export const useSupabaseRealtime = () => {
     return () => {
       channel.unsubscribe()
     }
-  }, [])
+  }, [roomId])
 
   const sendEvent = async (eventType: string, eventData: any) => {
     try {

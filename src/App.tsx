@@ -1,21 +1,26 @@
 import { useState, useMemo } from 'react'
-import { ThemeProvider, createTheme, CssBaseline, Box, Toolbar, Container, Grid } from '@mui/material'
+import { ThemeProvider, createTheme, CssBaseline, Box, Toolbar, Container, Grid, Paper } from '@mui/material'
 import { Header } from './components/Header'
 import { Sidebar } from './components/Sidebar'
-import { JiraTokenModal } from './components/JiraTokenModal'
+import { UserModal } from './components/UserModal'
+import { RoomControls } from './components/RoomControls'
+import { JoinRoomModal } from './components/JoinRoomModal'
 import { CollaborationControls } from './components/CollaborationControls'
 import { NotificationSnackbar } from './components/NotificationSnackbar'
 import { useUser } from './contexts/UserContext'
+import { useRoom } from './contexts/RoomContext'
 import { useThemeMode } from './hooks/useThemeMode'
 import { useSupabaseRealtime } from './hooks/useSupabaseRealtime'
 
 function App() {
   const [drawerOpen, setDrawerOpen] = useState(true)
-  const [jiraModalOpen, setJiraModalOpen] = useState(false)
+  const [userModalOpen, setUserModalOpen] = useState(false)
+  const [joinRoomModalOpen, setJoinRoomModalOpen] = useState(false)
   
   // Custom hooks
   const { mode, toggleColorMode } = useThemeMode()
   const { hasJiraToken } = useUser()
+  const { roomId } = useRoom()
   const {
     count,
     notification,
@@ -46,16 +51,24 @@ function App() {
     setDrawerOpen(!drawerOpen)
   }
 
-  const handleOpenJiraModal = () => {
-    setJiraModalOpen(true)
+  const handleOpenUserModal = () => {
+    setUserModalOpen(true)
   }
 
-  const handleCloseJiraModal = () => {
-    setJiraModalOpen(false)
+  const handleCloseUserModal = () => {
+    setUserModalOpen(false)
   }
 
-  const handleJiraSave = (message: string, severity: 'success' | 'info') => {
+  const handleUserSave = (message: string, severity: 'success' | 'info') => {
     showNotification(message, severity)
+  }
+
+  const handleOpenJoinRoomModal = () => {
+    setJoinRoomModalOpen(true)
+  }
+
+  const handleCloseJoinRoomModal = () => {
+    setJoinRoomModalOpen(false)
   }
 
   return (
@@ -68,7 +81,7 @@ function App() {
           hasJiraToken={hasJiraToken}
           onToggleDrawer={toggleDrawer}
           onToggleTheme={toggleColorMode}
-          onOpenJiraModal={handleOpenJiraModal}
+          onOpenJiraModal={handleOpenUserModal}
         />
 
         <Sidebar open={drawerOpen} onToggleDrawer={toggleDrawer} />
@@ -89,22 +102,37 @@ function App() {
           <Toolbar />
           <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
             <Grid container spacing={3}>
+              {/* Room Controls */}
               <Grid item xs={12}>
-                <CollaborationControls
-                  count={count}
-                  onIncrement={handleIncrement}
-                  onReset={handleReset}
-                />
+                <Paper sx={{ p: 2 }}>
+                  <RoomControls onOpenJoinModal={handleOpenJoinRoomModal} />
+                </Paper>
               </Grid>
+
+              {/* Collaboration Controls - only show when in a room */}
+              {roomId && (
+                <Grid item xs={12}>
+                  <CollaborationControls
+                    count={count}
+                    onIncrement={handleIncrement}
+                    onReset={handleReset}
+                  />
+                </Grid>
+              )}
             </Grid>
           </Container>
         </Box>
       </Box>
 
-      <JiraTokenModal
-        open={jiraModalOpen}
-        onClose={handleCloseJiraModal}
-        onSave={handleJiraSave}
+      <UserModal
+        open={userModalOpen}
+        onClose={handleCloseUserModal}
+        onSave={handleUserSave}
+      />
+
+      <JoinRoomModal
+        open={joinRoomModalOpen}
+        onClose={handleCloseJoinRoomModal}
       />
 
       <NotificationSnackbar

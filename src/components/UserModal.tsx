@@ -11,13 +11,13 @@ import {
 } from '@mui/material'
 import { useUser } from '../contexts/UserContext'
 
-interface JiraTokenModalProps {
+interface UserModalProps {
   open: boolean
   onClose: () => void
   onSave: (message: string, severity: 'success' | 'info') => void
 }
 
-export const JiraTokenModal: React.FC<JiraTokenModalProps> = ({
+export const UserModal: React.FC<UserModalProps> = ({
   open,
   onClose,
   onSave,
@@ -60,7 +60,7 @@ export const JiraTokenModal: React.FC<JiraTokenModalProps> = ({
     handleClose()
   }
 
-  const handleRemove = () => {
+  const handleRemoveToken = () => {
     setJiraToken(null)
     handleClose()
     onSave('JIRA token removed', 'info')
@@ -74,7 +74,7 @@ export const JiraTokenModal: React.FC<JiraTokenModalProps> = ({
       maxWidth="sm"
       fullWidth
     >
-      <DialogTitle>User & JIRA Configuration</DialogTitle>
+      <DialogTitle>User Configuration</DialogTitle>
       <DialogContent>
         <Typography variant="body2" color="text.secondary" paragraph sx={{ mt: 1 }}>
           Your unique user ID: <strong>{userId}</strong>
@@ -118,7 +118,7 @@ export const JiraTokenModal: React.FC<JiraTokenModalProps> = ({
       <DialogActions>
         <Button onClick={handleClose}>Cancel</Button>
         {hasJiraToken && (
-          <Button onClick={handleRemove} color="error">
+          <Button onClick={handleRemoveToken} color="error">
             Remove Token
           </Button>
         )}
