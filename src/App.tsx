@@ -24,7 +24,14 @@ import {
   Snackbar,
   PaletteMode,
   Chip,
-  useMediaQuery
+  useMediaQuery,
+  Avatar,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  TextField,
+  Badge
 } from '@mui/material'
 import {
   Menu as MenuIcon,
@@ -37,9 +44,12 @@ import {
   Brightness7 as Brightness7Icon,
   TrendingUp as TrendingUpIcon,
   Casino as CasinoIcon,
+  CheckCircle as CheckCircleIcon,
+  Person as PersonIcon
 } from '@mui/icons-material'
 import { supabase } from './supabaseClient'
 import type { RealtimeChannel } from '@supabase/supabase-js'
+import { useJira } from './JiraContext'
 
 const drawerWidth = 240
 
@@ -60,7 +70,12 @@ function App() {
     message: '',
     severity: 'success'
   })
+  const [jiraModalOpen, setJiraModalOpen] = useState(false)
+  const [jiraTokenInput, setJiraTokenInput] = useState('')
   const channelRef = useRef<RealtimeChannel | null>(null)
+  
+  // Use JIRA context
+  const { jiraToken, setJiraToken, hasToken } = useJira()
 
   // Update theme when system preference changes (if user hasn't manually set a preference)
   useEffect(() => {
@@ -187,6 +202,35 @@ function App() {
     setNotification({ ...notification, open: false })
   }
 
+  const handleOpenJiraModal = () => {
+    setJiraTokenInput(jiraToken || '')
+    setJiraModalOpen(true)
+  }
+
+  const handleCloseJiraModal = () => {
+    setJiraModalOpen(false)
+    setJiraTokenInput('')
+  }
+
+  const handleSaveJiraToken = () => {
+    if (jiraTokenInput.trim()) {
+      setJiraToken(jiraTokenInput.trim())
+      setNotification({
+        open: true,
+        message: 'JIRA token saved successfully!',
+        severity: 'success'
+      })
+    } else {
+      setJiraToken(null)
+      setNotification({
+        open: true,
+        message: 'JIRA token removed',
+        severity: 'info'
+      })
+    }
+    handleCloseJiraModal()
+  }
+
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
@@ -232,6 +276,28 @@ function App() {
             </Typography>
             <IconButton onClick={toggleColorMode} color="inherit">
               {mode === 'dark' ? <Brightness7Icon /> : <Brightness4Icon />}
+            </IconButton>
+            <IconButton onClick={handleOpenJiraModal} color="inherit">
+              <Badge
+                overlap="circular"
+                anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+                badgeContent={
+                  hasToken ? (
+                    <CheckCircleIcon 
+                      sx={{ 
+                        fontSize: 16, 
+                        color: 'success.main',
+                        bgcolor: 'background.paper',
+                        borderRadius: '50%'
+                      }} 
+                    />
+                  ) : null
+                }
+              >
+                <Avatar sx={{ width: 32, height: 32, bgcolor: 'primary.main' }}>
+                  <PersonIcon fontSize="small" />
+                </Avatar>
+              </Badge>
             </IconButton>
           </Toolbar>
         </AppBar>
@@ -386,6 +452,64 @@ function App() {
           </Container>
         </Box>
       </Box>
+
+      {/* JIRA Token Modal */}
+      <Dialog 
+        open={jiraModalOpen} 
+        onClose={handleCloseJiraModal}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>
+          JIRA Token Configuration
+        </DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary" paragraph sx={{ mt: 1 }}>
+            Enter your JIRA API token to enable integration with JIRA. This token will be stored locally in your browser.
+          </Typography>
+          <TextField
+            autoFocus
+            margin="dense"
+            label="JIRA API Token"
+            type="password"
+            fullWidth
+            variant="outlined"
+            value={jiraTokenInput}
+            onChange={(e) => setJiraTokenInput(e.target.value)}
+            placeholder="Enter your JIRA token"
+            helperText="Your token is stored securely in localStorage"
+          />
+          {hasToken && (
+            <Alert severity="success" sx={{ mt: 2 }}>
+              Token is currently saved and active
+            </Alert>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseJiraModal}>
+            Cancel
+          </Button>
+          {hasToken && (
+            <Button 
+              onClick={() => {
+                setJiraToken(null)
+                handleCloseJiraModal()
+                setNotification({
+                  open: true,
+                  message: 'JIRA token removed',
+                  severity: 'info'
+                })
+              }} 
+              color="error"
+            >
+              Remove Token
+            </Button>
+          )}
+          <Button onClick={handleSaveJiraToken} variant="contained">
+            Save Token
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       {/* Notifications */}
       <Snackbar 

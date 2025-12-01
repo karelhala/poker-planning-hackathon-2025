@@ -77,6 +77,12 @@ The output will be in the `dist/` folder with `dist/index.js` as the main entry 
   - Respects OS-level theme settings (macOS, Windows, Linux)
   - Manual toggle available to override system preference
   - Saves your preference in localStorage
+- ✅ **JIRA Integration** - Store and manage your JIRA API token
+  - Avatar icon with green check indicator when token is saved
+  - Secure modal for token input
+  - Token stored in localStorage
+  - Global JIRA context provider for app-wide access
+  - Easy token management (save/remove)
 - ✅ **Real-time collaboration** - All users see the same count instantly
 - ✅ **Collapsible Sidebar Navigation** - Clean, responsive layout
 - ✅ WebSocket event broadcasting with Supabase Realtime
@@ -138,6 +144,41 @@ To test the real-time sync:
 4. Try resetting from either window - both will reset simultaneously
 
 You can also test with multiple users accessing the same URL!
+
+## JIRA Integration
+
+The app includes a JIRA token management system:
+
+### Setting up JIRA Token:
+
+1. Click the **avatar icon** in the top-right corner (next to theme toggle)
+2. Enter your JIRA API token in the modal
+3. Click "Save Token"
+4. A **green check mark** will appear on the avatar indicating the token is active
+
+### Using the JIRA Token:
+
+The token is available throughout the app via the `useJira()` hook:
+
+```typescript
+import { useJira } from './JiraContext'
+
+function MyComponent() {
+  const { jiraToken, hasToken } = useJira()
+  
+  // Use jiraToken for API calls
+  if (hasToken) {
+    // Make JIRA API requests
+  }
+}
+```
+
+### Token Storage:
+
+- Tokens are stored securely in **localStorage**
+- Persists across browser sessions
+- Can be removed at any time via the modal
+- The entire app has access via the `JiraProvider` context
 
 ## License
 
