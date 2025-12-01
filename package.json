@@ -1,0 +1,33 @@
+{
+  "name": "poker-planning-hackathon-2025",
+  "version": "1.0.0",
+  "description": "Poker planning project for realtime ticket sizing",
+  "main": "dist/index.js",
+  "scripts": {
+    "test": "exit 0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/karelhala/poker-planning-hackathon-2025.git"
+  },
+  "keywords": [
+    "poker",
+    "planning",
+    "planning",
+    "sizing",
+    "jira"
+  ],
+  "author": {
+    "name": "Karel Hala"
+  },
+  "contributors": [
+    {
+      "name": "Adam Jetmar"
+    }
+  ],
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/karelhala/poker-planning-hackathon-2025/issues"
+  },
+  "homepage": "https://github.com/karelhala/poker-planning-hackathon-2025#readme"
+}
