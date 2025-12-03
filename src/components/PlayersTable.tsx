@@ -1,0 +1,185 @@
+import React from 'react';
+import {
+  Card,
+  CardContent,
+  Typography,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Avatar,
+  Chip,
+  Box,
+} from '@mui/material';
+import {
+  CheckCircle as CheckCircleIcon,
+  HourglassEmpty as HourglassEmptyIcon,
+  Person as PersonIcon,
+  Star as StarIcon,
+} from '@mui/icons-material';
+
+export interface Player {
+  userId: string;
+  userName: string | null;
+  hasVoted: boolean;
+  isOnline: boolean;
+}
+
+interface PlayersTableProps {
+  players: Player[];
+  currentUserId: string;
+  roomCreator: string | null;
+}
+
+export const PlayersTable: React.FC<PlayersTableProps> = ({
+  players,
+  currentUserId,
+  roomCreator,
+}) => {
+  const getStatusChip = (hasVoted: boolean) => {
+    if (hasVoted) {
+      return (
+        <Chip
+          icon={<CheckCircleIcon />}
+          label="Voted"
+          color="success"
+          size="small"
+          variant="outlined"
+        />
+      );
+    }
+    return (
+      <Chip
+        icon={<HourglassEmptyIcon />}
+        label="Thinking..."
+        color="default"
+        size="small"
+        variant="outlined"
+      />
+    );
+  };
+
+  const getUserAvatar = (userId: string, userName: string | null) => {
+    const isCreator = userId === roomCreator;
+    const isCurrentUser = userId === currentUserId;
+    
+    // Get initials from name or first 2 chars of userId
+    const displayText = userName 
+      ? userName
+          .split(' ')
+          .map((n) => n[0])
+          .join('')
+          .toUpperCase()
+          .slice(0, 2)
+      : userId.slice(0, 2).toUpperCase();
+
+    return (
+      <Avatar
+        sx={{
+          bgcolor: isCurrentUser ? 'primary.main' : 'grey.500',
+          border: isCreator ? '2px solid gold' : 'none',
+          width: 40,
+          height: 40,
+        }}
+      >
+        {isCreator ? <StarIcon /> : displayText}
+      </Avatar>
+    );
+  };
+
+  const getDisplayName = (userId: string, userName: string | null) => {
+    const isCurrentUser = userId === currentUserId;
+    const displayName = userName || 'Anonymous';
+    return isCurrentUser ? `${displayName} (You)` : displayName;
+  };
+
+  return (
+    <Card>
+      <CardContent>
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+          <Typography variant="h6" component="h2">
+            Players in Room
+          </Typography>
+          <Chip
+            label={`${players.length} ${players.length === 1 ? 'player' : 'players'}`}
+            color="primary"
+            size="small"
+          />
+        </Box>
+
+        <TableContainer>
+          <Table>
+            <TableHead>
+              <TableRow>
+                <TableCell>Player</TableCell>
+                <TableCell>Name</TableCell>
+                <TableCell align="center">Status</TableCell>
+                <TableCell align="center">Role</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {players.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={4} align="center">
+                    <Typography variant="body2" color="text.secondary">
+                      No players in the room yet
+                    </Typography>
+                  </TableCell>
+                </TableRow>
+              ) : (
+                players.map((player) => {
+                  const isCreator = player.userId === roomCreator;
+                  return (
+                    <TableRow
+                      key={player.userId}
+                      sx={{
+                        '&:hover': { bgcolor: 'action.hover' },
+                        bgcolor: player.userId === currentUserId ? 'action.selected' : 'inherit',
+                      }}
+                    >
+                      <TableCell>
+                        {getUserAvatar(player.userId, player.userName)}
+                      </TableCell>
+                      <TableCell>
+                        <Typography variant="body2" fontWeight="medium">
+                          {getDisplayName(player.userId, player.userName)}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          {player.userId.substring(0, 8)}...
+                        </Typography>
+                      </TableCell>
+                      <TableCell align="center">
+                        {getStatusChip(player.hasVoted)}
+                      </TableCell>
+                      <TableCell align="center">
+                        {isCreator ? (
+                          <Chip
+                            icon={<StarIcon />}
+                            label="Admin"
+                            color="warning"
+                            size="small"
+                            variant="outlined"
+                          />
+                        ) : (
+                          <Chip
+                            icon={<PersonIcon />}
+                            label="Member"
+                            size="small"
+                            variant="outlined"
+                          />
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
+              )}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      </CardContent>
+    </Card>
+  );
+};
+
