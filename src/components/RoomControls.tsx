@@ -14,14 +14,16 @@ import {
   Login as LoginIcon,
   Share as ShareIcon,
   ExitToApp as ExitIcon,
+  CheckCircle as CheckCircleIcon,
 } from '@mui/icons-material'
 import { useRoom } from '../contexts/RoomContext'
 
 interface RoomControlsProps {
   onOpenJoinModal: () => void
+  isConnected?: boolean
 }
 
-export const RoomControls: React.FC<RoomControlsProps> = ({ onOpenJoinModal }) => {
+export const RoomControls: React.FC<RoomControlsProps> = ({ onOpenJoinModal, isConnected = false }) => {
   const { roomId, createRoom, leaveRoom } = useRoom()
   const [copyNotification, setCopyNotification] = useState(false)
 
@@ -81,6 +83,15 @@ export const RoomControls: React.FC<RoomControlsProps> = ({ onOpenJoinModal }) =
           variant="outlined"
           sx={{ fontFamily: 'monospace', fontWeight: 'bold' }}
         />
+        {isConnected && (
+          <Chip
+            icon={<CheckCircleIcon />}
+            label="Connected"
+            color="success"
+            variant="outlined"
+            size="small"
+          />
+        )}
         <Tooltip title="Share room link">
           <IconButton size="small" onClick={handleShare} color="primary">
             <ShareIcon fontSize="small" />

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Card,
   CardContent,
@@ -12,13 +12,17 @@ import {
   Avatar,
   Chip,
   Box,
+  IconButton,
+  Tooltip,
 } from '@mui/material';
 import {
   CheckCircle as CheckCircleIcon,
   HourglassEmpty as HourglassEmptyIcon,
   Person as PersonIcon,
   Star as StarIcon,
+  Edit as EditIcon,
 } from '@mui/icons-material';
+import { EditNameDialog } from './EditNameDialog';
 
 export interface Player {
   userId: string;
@@ -35,6 +39,8 @@ interface PlayersTableProps {
   currentUserId: string;
   roomCreator: string | null;
   gameState: GameState;
+  onNameChange: (newName: string) => void;
+  currentUserName: string | null;
 }
 
 export const PlayersTable: React.FC<PlayersTableProps> = ({
@@ -42,7 +48,22 @@ export const PlayersTable: React.FC<PlayersTableProps> = ({
   currentUserId,
   roomCreator,
   gameState,
+  onNameChange,
+  currentUserName,
 }) => {
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+
+  const handleOpenEditDialog = () => {
+    setEditDialogOpen(true);
+  };
+
+  const handleCloseEditDialog = () => {
+    setEditDialogOpen(false);
+  };
+
+  const handleSaveName = (newName: string) => {
+    onNameChange(newName);
+  };
   const getStatusChip = (hasVoted: boolean, vote: string | null) => {
     // If game is revealed, show the actual vote
     if (gameState === 'REVEALED') {
@@ -151,6 +172,7 @@ export const PlayersTable: React.FC<PlayersTableProps> = ({
                   {gameState === 'REVEALED' ? 'Vote' : 'Status'}
                 </TableCell>
                 <TableCell align="center">Role</TableCell>
+                <TableCell align="center">Actions</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -205,6 +227,21 @@ export const PlayersTable: React.FC<PlayersTableProps> = ({
                           />
                         )}
                       </TableCell>
+                      <TableCell align="center">
+                        {player.userId === currentUserId ? (
+                          <Tooltip title="Edit your name">
+                            <IconButton
+                              size="small"
+                              onClick={handleOpenEditDialog}
+                              color="primary"
+                            >
+                              <EditIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        ) : (
+                          <Box sx={{ width: 40, height: 40 }} />
+                        )}
+                      </TableCell>
                     </TableRow>
                   );
                 })
@@ -213,6 +250,13 @@ export const PlayersTable: React.FC<PlayersTableProps> = ({
           </Table>
         </TableContainer>
       </CardContent>
+
+      <EditNameDialog
+        open={editDialogOpen}
+        currentName={currentUserName}
+        onClose={handleCloseEditDialog}
+        onSave={handleSaveName}
+      />
     </Card>
   );
 };

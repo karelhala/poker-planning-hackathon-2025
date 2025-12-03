@@ -4,7 +4,8 @@ import { Header } from './components/Header'
 import { UserModal } from './components/UserModal'
 import { RoomControls } from './components/RoomControls'
 import { JoinRoomModal } from './components/JoinRoomModal'
-import { CollaborationControls } from './components/CollaborationControls'
+import { GameControls } from './components/GameControls'
+import { VotingStats } from './components/VotingStats'
 import { NotificationSnackbar } from './components/NotificationSnackbar'
 import { VotingCards } from './components/VotingCards'
 import { PlayersTable } from './components/PlayersTable'
@@ -20,11 +21,10 @@ function App() {
   
   // Custom hooks
   const { mode, toggleColorMode } = useThemeMode()
-  const { hasJiraToken, userId, userName } = useUser()
+  const { hasJiraToken, userId, userName, setUserName } = useUser()
   const { roomId } = useRoom()
   const {
     roomCreator,
-    activeUsers,
     players,
     gameState,
     notification,
@@ -86,6 +86,11 @@ function App() {
     }
   }, [gameState])
 
+  const handleNameChange = (newName: string) => {
+    setUserName(newName)
+    showNotification('Name updated successfully!', 'success')
+  }
+
   // Prompt for name if user joins a room without a name
   useEffect(() => {
     if (roomId && !userName) {
@@ -128,9 +133,25 @@ function App() {
               {/* Room Controls */}
               <Grid item xs={12}>
                 <Paper sx={{ p: 2 }}>
-                  <RoomControls onOpenJoinModal={handleOpenJoinRoomModal} />
+                  <RoomControls 
+                    onOpenJoinModal={handleOpenJoinRoomModal}
+                    isConnected={!!roomId}
+                  />
                 </Paper>
               </Grid>
+
+              {/* Game Controls - Admin toolbar */}
+              {roomId && (
+                <Grid item xs={12}>
+                  <GameControls
+                    isAdmin={userId === roomCreator}
+                    gameState={gameState}
+                    onRevealCards={handleRevealCards}
+                    onResetVoting={handleResetVoting}
+                    hasJiraToken={hasJiraToken}
+                  />
+                </Grid>
+              )}
 
               {/* Players Table - only show when in a room */}
               {roomId && (
@@ -140,7 +161,16 @@ function App() {
                     currentUserId={userId}
                     roomCreator={roomCreator}
                     gameState={gameState}
+                    onNameChange={handleNameChange}
+                    currentUserName={userName}
                   />
+                </Grid>
+              )}
+
+              {/* Voting Statistics - only show when cards are revealed */}
+              {roomId && gameState === 'REVEALED' && (
+                <Grid item xs={12}>
+                  <VotingStats players={players} />
                 </Grid>
               )}
 
@@ -154,20 +184,6 @@ function App() {
                       disabled={gameState === 'REVEALED'}
                     />
                   </Paper>
-                </Grid>
-              )}
-
-              {/* Collaboration Controls - only show when in a room */}
-              {roomId && (
-                <Grid item xs={12}>
-                  <CollaborationControls
-                    roomCreator={roomCreator}
-                    activeUsers={activeUsers}
-                    currentUserId={userId}
-                    gameState={gameState}
-                    onResetVoting={handleResetVoting}
-                    onRevealCards={handleRevealCards}
-                  />
                 </Grid>
               )}
             </Grid>
