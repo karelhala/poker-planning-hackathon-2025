@@ -15,12 +15,20 @@ interface RoomUser {
   userName: string | null
 }
 
+export interface Player {
+  userId: string
+  userName: string | null
+  hasVoted: boolean
+  isOnline: boolean
+}
+
 export const useSupabaseRealtime = () => {
   const { userId, userName } = useUser()
   const { roomId } = useRoom()
   const [count, setCount] = useState(0)
   const [roomCreator, setRoomCreator] = useState<string | null>(null)
   const [activeUsers, setActiveUsers] = useState<RoomUser[]>([])
+  const [players, setPlayers] = useState<Player[]>([])
   const [notification, setNotification] = useState<Notification>({
     open: false,
     message: '',
@@ -56,6 +64,7 @@ export const useSupabaseRealtime = () => {
       setCount(0)
       setRoomCreator(null)
       setActiveUsers([])
+      setPlayers([])
       isFirstUserRef.current = false
       return
     }
@@ -74,6 +83,7 @@ export const useSupabaseRealtime = () => {
       .on('presence', { event: 'sync' }, () => {
         const state = channel.presenceState()
         const users: RoomUser[] = []
+        const playersList: Player[] = []
         
         Object.keys(state).forEach((key) => {
           const presences = state[key] as any[]
@@ -82,11 +92,19 @@ export const useSupabaseRealtime = () => {
               userId: presence.userId,
               userName: presence.userName || null,
             })
+            playersList.push({
+              userId: presence.userId,
+              userName: presence.userName || null,
+              hasVoted: presence.hasVoted || false,
+              isOnline: true,
+            })
           })
         })
         
         setActiveUsers(users)
+        setPlayers(playersList)
         console.log('Active users in room:', users)
+        console.log('Players with voting status:', playersList)
 
         // If this is the first user in the room, they become the creator
         if (users.length === 1 && users[0].userId === userId) {
@@ -174,10 +192,11 @@ export const useSupabaseRealtime = () => {
       if (status === 'SUBSCRIBED') {
         console.log(`Connected to room: ${roomId}`)
         
-        // Track this user's presence
+        // Track this user's presence with voting status
         await channel.track({
           userId,
           userName: userName || null,
+          hasVoted: false,
           online_at: new Date().toISOString(),
         })
       }
@@ -231,6 +250,28 @@ export const useSupabaseRealtime = () => {
   const handleReset = () => {
     setCount(0)
     sendEvent('button_click_reset', { count: 0, action: 'reset' })
+    
+    // Reset voting status for all users
+    if (channelRef.current) {
+      channelRef.current.track({
+        userId,
+        userName: userName || null,
+        hasVoted: false,
+        online_at: new Date().toISOString(),
+      })
+    }
+  }
+
+  const updateVotingStatus = async (hasVoted: boolean) => {
+    if (channelRef.current) {
+      await channelRef.current.track({
+        userId,
+        userName: userName || null,
+        hasVoted,
+        online_at: new Date().toISOString(),
+      })
+      console.log(`Updated voting status: ${hasVoted ? 'Voted' : 'Thinking'}`)
+    }
   }
 
   const closeNotification = () => {
@@ -245,9 +286,11 @@ export const useSupabaseRealtime = () => {
     count,
     roomCreator,
     activeUsers,
+    players,
     notification,
     handleIncrement,
     handleReset,
+    updateVotingStatus,
     closeNotification,
     showNotification,
   }

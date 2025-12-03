@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { ThemeProvider, createTheme, CssBaseline, Box, Toolbar, Container, Grid, Paper } from '@mui/material'
 import { Header } from './components/Header'
 import { UserModal } from './components/UserModal'
@@ -6,6 +6,8 @@ import { RoomControls } from './components/RoomControls'
 import { JoinRoomModal } from './components/JoinRoomModal'
 import { CollaborationControls } from './components/CollaborationControls'
 import { NotificationSnackbar } from './components/NotificationSnackbar'
+import { VotingCards } from './components/VotingCards'
+import { PlayersTable } from './components/PlayersTable'
 import { useUser } from './contexts/UserContext'
 import { useRoom } from './contexts/RoomContext'
 import { useThemeMode } from './hooks/useThemeMode'
@@ -14,18 +16,19 @@ import { useSupabaseRealtime } from './hooks/useSupabaseRealtime'
 function App() {
   const [userModalOpen, setUserModalOpen] = useState(false)
   const [joinRoomModalOpen, setJoinRoomModalOpen] = useState(false)
+  const [selectedVote, setSelectedVote] = useState<string | null>(null)
   
   // Custom hooks
   const { mode, toggleColorMode } = useThemeMode()
-  const { hasJiraToken, userId } = useUser()
+  const { hasJiraToken, userId, userName } = useUser()
   const { roomId } = useRoom()
   const {
-    count,
     roomCreator,
     activeUsers,
+    players,
     notification,
-    handleIncrement,
     handleReset,
+    updateVotingStatus,
     closeNotification,
     showNotification,
   } = useSupabaseRealtime()
@@ -67,6 +70,25 @@ function App() {
     setJoinRoomModalOpen(false)
   }
 
+  const handleVote = (value: string) => {
+    console.log('Vote cast:', value)
+    setSelectedVote(value)
+    // Update presence to show user has voted
+    updateVotingStatus(true)
+  }
+
+  // Prompt for name if user joins a room without a name
+  useEffect(() => {
+    if (roomId && !userName) {
+      // Small delay to let the room load first
+      const timer = setTimeout(() => {
+        setUserModalOpen(true)
+        showNotification('Please enter your name to join the room', 'info')
+      }, 500)
+      return () => clearTimeout(timer)
+    }
+  }, [roomId, userName])
+
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
@@ -101,15 +123,37 @@ function App() {
                 </Paper>
               </Grid>
 
+              {/* Players Table - only show when in a room */}
+              {roomId && (
+                <Grid item xs={12}>
+                  <PlayersTable
+                    players={players}
+                    currentUserId={userId}
+                    roomCreator={roomCreator}
+                  />
+                </Grid>
+              )}
+
+              {/* Voting Cards - only show when in a room */}
+              {roomId && (
+                <Grid item xs={12}>
+                  <Paper sx={{ p: 2, display: 'flex', justifyContent: 'center' }}>
+                    <VotingCards
+                      selectedValue={selectedVote}
+                      onVote={handleVote}
+                      disabled={false}
+                    />
+                  </Paper>
+                </Grid>
+              )}
+
               {/* Collaboration Controls - only show when in a room */}
               {roomId && (
                 <Grid item xs={12}>
                   <CollaborationControls
-                    count={count}
                     roomCreator={roomCreator}
                     activeUsers={activeUsers}
                     currentUserId={userId}
-                    onIncrement={handleIncrement}
                     onReset={handleReset}
                   />
                 </Grid>
