@@ -6,6 +6,7 @@ import { RoomControls } from './components/RoomControls'
 import { JoinRoomModal } from './components/JoinRoomModal'
 import { CollaborationControls } from './components/CollaborationControls'
 import { NotificationSnackbar } from './components/NotificationSnackbar'
+import { VotingCards } from './components/VotingCards'
 import { useUser } from './contexts/UserContext'
 import { useRoom } from './contexts/RoomContext'
 import { useThemeMode } from './hooks/useThemeMode'
@@ -14,6 +15,7 @@ import { useSupabaseRealtime } from './hooks/useSupabaseRealtime'
 function App() {
   const [userModalOpen, setUserModalOpen] = useState(false)
   const [joinRoomModalOpen, setJoinRoomModalOpen] = useState(false)
+  const [selectedVote, setSelectedVote] = useState<string | null>(null)
   
   // Custom hooks
   const { mode, toggleColorMode } = useThemeMode()
@@ -67,6 +69,11 @@ function App() {
     setJoinRoomModalOpen(false)
   }
 
+  const handleVote = (value: string) => {
+    console.log('Vote cast:', value)
+    setSelectedVote(value)
+  }
+
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
@@ -112,6 +119,19 @@ function App() {
                     onIncrement={handleIncrement}
                     onReset={handleReset}
                   />
+                </Grid>
+              )}
+
+              {/* Voting Cards - only show when in a room */}
+              {roomId && (
+                <Grid item xs={12}>
+                  <Paper sx={{ p: 2, display: 'flex', justifyContent: 'center' }}>
+                    <VotingCards
+                      selectedValue={selectedVote}
+                      onVote={handleVote}
+                      disabled={false}
+                    />
+                  </Paper>
                 </Grid>
               )}
             </Grid>
