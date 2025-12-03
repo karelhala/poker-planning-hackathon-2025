@@ -24,21 +24,53 @@ export interface Player {
   userId: string;
   userName: string | null;
   hasVoted: boolean;
+  vote: string | null;
   isOnline: boolean;
 }
+
+export type GameState = 'VOTING' | 'REVEALED';
 
 interface PlayersTableProps {
   players: Player[];
   currentUserId: string;
   roomCreator: string | null;
+  gameState: GameState;
 }
 
 export const PlayersTable: React.FC<PlayersTableProps> = ({
   players,
   currentUserId,
   roomCreator,
+  gameState,
 }) => {
-  const getStatusChip = (hasVoted: boolean) => {
+  const getStatusChip = (hasVoted: boolean, vote: string | null) => {
+    // If game is revealed, show the actual vote
+    if (gameState === 'REVEALED') {
+      if (vote) {
+        return (
+          <Chip
+            label={vote}
+            color="primary"
+            size="medium"
+            sx={{
+              fontSize: '1.2rem',
+              fontWeight: 'bold',
+              minWidth: 60,
+            }}
+          />
+        );
+      }
+      return (
+        <Chip
+          label="No Vote"
+          color="default"
+          size="small"
+          variant="outlined"
+        />
+      );
+    }
+
+    // If game is voting, show status
     if (hasVoted) {
       return (
         <Chip
@@ -115,7 +147,9 @@ export const PlayersTable: React.FC<PlayersTableProps> = ({
               <TableRow>
                 <TableCell>Player</TableCell>
                 <TableCell>Name</TableCell>
-                <TableCell align="center">Status</TableCell>
+                <TableCell align="center">
+                  {gameState === 'REVEALED' ? 'Vote' : 'Status'}
+                </TableCell>
                 <TableCell align="center">Role</TableCell>
               </TableRow>
             </TableHead>
@@ -151,7 +185,7 @@ export const PlayersTable: React.FC<PlayersTableProps> = ({
                         </Typography>
                       </TableCell>
                       <TableCell align="center">
-                        {getStatusChip(player.hasVoted)}
+                        {getStatusChip(player.hasVoted, player.vote)}
                       </TableCell>
                       <TableCell align="center">
                         {isCreator ? (

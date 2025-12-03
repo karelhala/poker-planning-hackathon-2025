@@ -14,7 +14,7 @@ export const VotingCards: React.FC<VotingCardsProps> = ({ selectedValue, onVote,
   return (
     <Box sx={{ mt: 4, width: '100%' }}>
       <Typography variant="h6" gutterBottom color="text.secondary">
-        Select your estimate
+        {disabled ? 'Voting is closed - waiting for reset' : 'Select your estimate'}
       </Typography>
       
       <Grid container spacing={2} justifyContent="center">

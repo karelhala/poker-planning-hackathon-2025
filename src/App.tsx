@@ -26,8 +26,10 @@ function App() {
     roomCreator,
     activeUsers,
     players,
+    gameState,
     notification,
-    handleReset,
+    handleResetVoting,
+    handleRevealCards,
     updateVotingStatus,
     closeNotification,
     showNotification,
@@ -73,9 +75,16 @@ function App() {
   const handleVote = (value: string) => {
     console.log('Vote cast:', value)
     setSelectedVote(value)
-    // Update presence to show user has voted
-    updateVotingStatus(true)
+    // Update presence to show user has voted, including the vote value
+    updateVotingStatus(true, value)
   }
+
+  // Reset selected vote when voting is reset
+  useEffect(() => {
+    if (gameState === 'VOTING') {
+      setSelectedVote(null)
+    }
+  }, [gameState])
 
   // Prompt for name if user joins a room without a name
   useEffect(() => {
@@ -130,6 +139,7 @@ function App() {
                     players={players}
                     currentUserId={userId}
                     roomCreator={roomCreator}
+                    gameState={gameState}
                   />
                 </Grid>
               )}
@@ -141,7 +151,7 @@ function App() {
                     <VotingCards
                       selectedValue={selectedVote}
                       onVote={handleVote}
-                      disabled={false}
+                      disabled={gameState === 'REVEALED'}
                     />
                   </Paper>
                 </Grid>
@@ -154,7 +164,9 @@ function App() {
                     roomCreator={roomCreator}
                     activeUsers={activeUsers}
                     currentUserId={userId}
-                    onReset={handleReset}
+                    gameState={gameState}
+                    onResetVoting={handleResetVoting}
+                    onRevealCards={handleRevealCards}
                   />
                 </Grid>
               )}

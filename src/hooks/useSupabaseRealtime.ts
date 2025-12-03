@@ -19,8 +19,11 @@ export interface Player {
   userId: string
   userName: string | null
   hasVoted: boolean
+  vote: string | null
   isOnline: boolean
 }
+
+export type GameState = 'VOTING' | 'REVEALED'
 
 export const useSupabaseRealtime = () => {
   const { userId, userName } = useUser()
@@ -29,6 +32,7 @@ export const useSupabaseRealtime = () => {
   const [roomCreator, setRoomCreator] = useState<string | null>(null)
   const [activeUsers, setActiveUsers] = useState<RoomUser[]>([])
   const [players, setPlayers] = useState<Player[]>([])
+  const [gameState, setGameState] = useState<GameState>('VOTING')
   const [notification, setNotification] = useState<Notification>({
     open: false,
     message: '',
@@ -65,6 +69,7 @@ export const useSupabaseRealtime = () => {
       setRoomCreator(null)
       setActiveUsers([])
       setPlayers([])
+      setGameState('VOTING')
       isFirstUserRef.current = false
       return
     }
@@ -96,6 +101,7 @@ export const useSupabaseRealtime = () => {
               userId: presence.userId,
               userName: presence.userName || null,
               hasVoted: presence.hasVoted || false,
+              vote: presence.vote || null,
               isOnline: true,
             })
           })
@@ -188,6 +194,42 @@ export const useSupabaseRealtime = () => {
       console.log(`Event from user ${senderId}: reset count`)
     })
 
+    // Listen for reveal event
+    channel.on('broadcast', { event: 'reveal_cards' }, (payload) => {
+      console.log('Received reveal event:', payload)
+      const senderName = payload.payload.userName || 'Admin'
+      setGameState('REVEALED')
+      setNotification({
+        open: true,
+        message: `${senderName} revealed all cards`,
+        severity: 'info',
+      })
+    })
+
+    // Listen for reset voting event (different from old reset counter)
+    channel.on('broadcast', { event: 'reset_voting' }, (payload) => {
+      console.log('Received reset voting event:', payload)
+      const senderName = payload.payload.userName || 'Admin'
+      setGameState('VOTING')
+      
+      // Reset our own voting state
+      if (channelRef.current) {
+        channelRef.current.track({
+          userId,
+          userName: userName || null,
+          hasVoted: false,
+          vote: null,
+          online_at: new Date().toISOString(),
+        })
+      }
+      
+      setNotification({
+        open: true,
+        message: `${senderName} reset the voting`,
+        severity: 'info',
+      })
+    })
+
     channel.subscribe(async (status) => {
       if (status === 'SUBSCRIBED') {
         console.log(`Connected to room: ${roomId}`)
@@ -197,6 +239,7 @@ export const useSupabaseRealtime = () => {
           userId,
           userName: userName || null,
           hasVoted: false,
+          vote: null,
           online_at: new Date().toISOString(),
         })
       }
@@ -250,27 +293,39 @@ export const useSupabaseRealtime = () => {
   const handleReset = () => {
     setCount(0)
     sendEvent('button_click_reset', { count: 0, action: 'reset' })
+  }
+
+  const handleResetVoting = () => {
+    setGameState('VOTING')
+    sendEvent('reset_voting', { action: 'reset_voting' })
     
-    // Reset voting status for all users
+    // Reset our own voting status
     if (channelRef.current) {
       channelRef.current.track({
         userId,
         userName: userName || null,
         hasVoted: false,
+        vote: null,
         online_at: new Date().toISOString(),
       })
     }
   }
 
-  const updateVotingStatus = async (hasVoted: boolean) => {
+  const handleRevealCards = () => {
+    setGameState('REVEALED')
+    sendEvent('reveal_cards', { action: 'reveal' })
+  }
+
+  const updateVotingStatus = async (hasVoted: boolean, vote: string | null = null) => {
     if (channelRef.current) {
       await channelRef.current.track({
         userId,
         userName: userName || null,
         hasVoted,
+        vote,
         online_at: new Date().toISOString(),
       })
-      console.log(`Updated voting status: ${hasVoted ? 'Voted' : 'Thinking'}`)
+      console.log(`Updated voting status: ${hasVoted ? 'Voted' : 'Thinking'}`, vote ? `Vote: ${vote}` : '')
     }
   }
 
@@ -287,9 +342,12 @@ export const useSupabaseRealtime = () => {
     roomCreator,
     activeUsers,
     players,
+    gameState,
     notification,
     handleIncrement,
     handleReset,
+    handleResetVoting,
+    handleRevealCards,
     updateVotingStatus,
     closeNotification,
     showNotification,

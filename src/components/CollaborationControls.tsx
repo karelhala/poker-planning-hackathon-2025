@@ -1,24 +1,31 @@
 import { Card, CardContent, Typography, Box, Button, Chip, Avatar, AvatarGroup, Tooltip } from '@mui/material'
-import { Casino as CasinoIcon, Person as PersonIcon, Star as StarIcon, RestartAlt as RestartAltIcon } from '@mui/icons-material'
+import { Casino as CasinoIcon, Person as PersonIcon, Star as StarIcon, RestartAlt as RestartAltIcon, Visibility as VisibilityIcon } from '@mui/icons-material'
 
 interface RoomUser {
   userId: string
   userName: string | null
 }
 
+export type GameState = 'VOTING' | 'REVEALED'
+
 interface CollaborationControlsProps {
   roomCreator: string | null
   activeUsers: RoomUser[]
   currentUserId: string
-  onReset: () => void
+  gameState: GameState
+  onResetVoting: () => void
+  onRevealCards: () => void
 }
 
 export const CollaborationControls: React.FC<CollaborationControlsProps> = ({
   roomCreator,
   activeUsers,
   currentUserId,
-  onReset,
+  gameState,
+  onResetVoting,
+  onRevealCards,
 }) => {
+  const isAdmin = currentUserId === roomCreator;
   return (
     <Card>
       <CardContent>
@@ -82,23 +89,41 @@ export const CollaborationControls: React.FC<CollaborationControlsProps> = ({
         </Box>
 
         {/* Admin Controls */}
-        <Box sx={{ mt: 3, pt: 3, borderTop: 1, borderColor: 'divider' }}>
-          <Typography variant="h6" component="h3" gutterBottom>
-            Admin Controls
-          </Typography>
-          <Typography variant="body2" color="text.secondary" paragraph>
-            Reset the voting session to start a new round of estimation.
-          </Typography>
-          <Button
-            variant="outlined"
-            size="medium"
-            onClick={onReset}
-            color="secondary"
-            startIcon={<RestartAltIcon />}
-          >
-            Reset Voting
-          </Button>
-        </Box>
+        {isAdmin && (
+          <Box sx={{ mt: 3, pt: 3, borderTop: 1, borderColor: 'divider' }}>
+            <Typography variant="h6" component="h3" gutterBottom>
+              Admin Controls
+            </Typography>
+            <Typography variant="body2" color="text.secondary" paragraph>
+              {gameState === 'VOTING' 
+                ? 'Reveal all votes to see the results, or reset to start a new round.'
+                : 'Votes are revealed! Reset to start a new voting round.'
+              }
+            </Typography>
+            <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+              {gameState === 'VOTING' && (
+                <Button
+                  variant="contained"
+                  size="medium"
+                  onClick={onRevealCards}
+                  color="primary"
+                  startIcon={<VisibilityIcon />}
+                >
+                  Reveal Cards
+                </Button>
+              )}
+              <Button
+                variant="outlined"
+                size="medium"
+                onClick={onResetVoting}
+                color="secondary"
+                startIcon={<RestartAltIcon />}
+              >
+                Reset Voting
+              </Button>
+            </Box>
+          </Box>
+        )}
       </CardContent>
     </Card>
   )
