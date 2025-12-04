@@ -6,16 +6,26 @@
     <script type="text/javascript">
       // Single Page Apps for GitHub Pages
       // https://github.com/rafgraph/spa-github-pages
-      // Store the current path and redirect to index.html with path in the query string
-      var pathSegmentsToKeep = 1; // Keep repo name segment: /poker-planning-hackathon-2025/
-      var l = window.location;
-      l.replace(
-        l.protocol + '//' + l.hostname + (l.port ? ':' + l.port : '') +
-        l.pathname.split('/').slice(0, 1 + pathSegmentsToKeep).join('/') + '/?/' +
-        l.pathname.slice(1).split('/').slice(pathSegmentsToKeep).join('/').replace(/&/g, '~and~') +
-        (l.search ? '&' + l.search.slice(1).replace(/&/g, '~and~') : '') +
-        l.hash
-      );
+      // Redirect to index.html with the SPA path in the query string
+      (function() {
+        var basePath = '/poker-planning-hackathon-2025';
+        var l = window.location;
+        
+        // Get the path after the base path (e.g., /room/abc from /poker-planning-hackathon-2025/room/abc)
+        var fullPath = l.pathname;
+        var spaPath = fullPath.indexOf(basePath) === 0 
+          ? fullPath.slice(basePath.length) 
+          : fullPath;
+        
+        // Redirect to base path with SPA path in query string
+        var redirectUrl = l.protocol + '//' + l.hostname + (l.port ? ':' + l.port : '') +
+          basePath + '/?/' +
+          spaPath.replace(/&/g, '~and~') +
+          (l.search ? '&' + l.search.slice(1).replace(/&/g, '~and~') : '') +
+          l.hash;
+        
+        l.replace(redirectUrl);
+      })();
     </script>
   </head>
   <body>

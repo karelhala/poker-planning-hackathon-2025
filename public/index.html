@@ -12,9 +12,10 @@
           var decoded = l.search.slice(1).split('&').map(function(s) { 
             return s.replace(/~and~/g, '&')
           }).join('?');
-          window.history.replaceState(null, null,
-            l.pathname.slice(0, -1) + decoded + l.hash
-          );
+          // Keep the base path /poker-planning-hackathon-2025 and append decoded path
+          var basePath = '/poker-planning-hackathon-2025';
+          var newPath = basePath + decoded;
+          window.history.replaceState(null, null, newPath + l.hash);
         }
       }(window.location))
     </script>
