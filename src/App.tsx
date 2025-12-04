@@ -20,7 +20,6 @@ function App() {
   const [userModalOpen, setUserModalOpen] = useState(false)
   const [joinRoomModalOpen, setJoinRoomModalOpen] = useState(false)
   const [selectedVote, setSelectedVote] = useState<string | null>(null)
-  const [showSidebar, setShowSidebar] = useState(false)
   const [activeTicket, setActiveTicket] = useState<Ticket | null>(null)
   
   // Custom hooks
@@ -97,17 +96,8 @@ function App() {
     showNotification('Name updated successfully!', 'success')
   }
 
-  const handleOpenSidebar = () => {
-    setShowSidebar(true)
-  }
-
-  const handleCloseSidebar = () => {
-    setShowSidebar(false)
-  }
-
   const handleSelectTicket = (ticket: Ticket) => {
     setActiveTicket(ticket)
-    setShowSidebar(false)
     showNotification(`Selected: ${ticket.key}`, 'info')
     // TODO: Broadcast 'new_ticket' event to Supabase here
   }
@@ -146,6 +136,8 @@ function App() {
             flexGrow: 1,
             height: '100vh',
             overflow: 'auto',
+            marginLeft: roomId ? '400px' : 0,
+            transition: 'margin 225ms cubic-bezier(0, 0, 0.2, 1) 0ms',
           }}
         >
           <Toolbar />
@@ -157,8 +149,6 @@ function App() {
                   <RoomControls 
                     onOpenJoinModal={handleOpenJoinRoomModal}
                     isConnected={!!roomId}
-                    onOpenBacklog={handleOpenSidebar}
-                    isAdmin={roomId ? userId === roomCreator : false}
                   />
                 </Paper>
               </Grid>
@@ -238,12 +228,12 @@ function App() {
         onClose={closeNotification}
       />
 
-      <IssuesSidebar
-        isOpen={showSidebar}
-        onClose={handleCloseSidebar}
-        activeTicketId={activeTicket?.id || null}
-        onSelectTicket={handleSelectTicket}
-      />
+      {roomId && (
+        <IssuesSidebar
+          activeTicketId={activeTicket?.id || null}
+          onSelectTicket={handleSelectTicket}
+        />
+      )}
     </ThemeProvider>
   )
 }

@@ -7,13 +7,12 @@ import {
   ListItemText,
   Typography,
   Box,
-  IconButton,
   Divider,
   Chip,
   Link,
+  Toolbar,
 } from '@mui/material';
 import {
-  Close as CloseIcon,
   OpenInNew as OpenInNewIcon,
   Assignment as AssignmentIcon,
 } from '@mui/icons-material';
@@ -59,15 +58,11 @@ const MOCK_TICKETS: Ticket[] = [
 ];
 
 interface IssuesSidebarProps {
-  isOpen: boolean;
-  onClose: () => void;
   activeTicketId: string | null;
   onSelectTicket: (ticket: Ticket) => void;
 }
 
 export const IssuesSidebar: React.FC<IssuesSidebarProps> = ({
-  isOpen,
-  onClose,
   activeTicketId,
   onSelectTicket,
 }) => {
@@ -78,32 +73,51 @@ export const IssuesSidebar: React.FC<IssuesSidebarProps> = ({
   return (
     <Drawer
       anchor="left"
-      open={isOpen}
-      onClose={onClose}
+      variant="permanent"
       sx={{
+        width: 400,
+        flexShrink: 0,
         '& .MuiDrawer-paper': {
           width: 400,
           boxSizing: 'border-box',
         },
       }}
     >
-      <Box sx={{ p: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <AssignmentIcon color="primary" />
-          <Typography variant="h6" component="h2">
-            Backlog
-          </Typography>
-        </Box>
-        <IconButton onClick={onClose} edge="end">
-          <CloseIcon />
-        </IconButton>
+      <Toolbar />
+      <Box sx={{ px: 2, pt: 2, pb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
+        <AssignmentIcon color="primary" />
+        <Typography variant="h6" component="h2">
+          Backlog
+        </Typography>
       </Box>
 
       <Divider />
 
-      <Box sx={{ p: 2, bgcolor: 'info.lighter', borderRadius: 1, m: 2 }}>
-        <Typography variant="body2" color="info.dark" sx={{ fontWeight: 500 }}>
-          🎯 Select a ticket for the team to vote on
+      <Box sx={{ 
+        px: 2, 
+        my: 2, 
+        py: 1.5,
+        bgcolor: 'action.hover',
+        borderRadius: 1,
+        display: 'flex',
+        alignItems: 'center',
+        gap: 1,
+        position: 'relative'
+      }}>
+        <Box sx={{ 
+          width: 3, 
+          height: '100%', 
+          bgcolor: 'primary.main', 
+          position: 'absolute',
+          left: 0,
+          top: 0,
+          borderRadius: '4px 0 0 4px'
+        }} />
+        <Typography variant="body2" sx={{ fontSize: '1.25rem', ml: 0.5 }}>
+          🎯
+        </Typography>
+        <Typography variant="body2" sx={{ fontWeight: 500 }}>
+          Select a ticket for the team to vote on
         </Typography>
       </Box>
 
