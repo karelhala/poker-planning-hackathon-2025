@@ -8,14 +8,22 @@
       // Handle redirect from 404.html for GitHub Pages SPA routing
       // https://github.com/rafgraph/spa-github-pages
       (function(l) {
-        if (l.search[1] === '/') {
+        // Only process if there's a path in the query string (starts with /)
+        if (l.search && l.search[1] === '/') {
           var decoded = l.search.slice(1).split('&').map(function(s) { 
             return s.replace(/~and~/g, '&')
           }).join('?');
-          // Keep the base path /poker-planning-hackathon-2025 and append decoded path
-          var basePath = '/poker-planning-hackathon-2025';
-          var newPath = basePath + decoded;
-          window.history.replaceState(null, null, newPath + l.hash);
+          
+          // Only update URL if decoded path is meaningful (not just /)
+          if (decoded && decoded !== '/') {
+            var basePath = '/poker-planning-hackathon-2025';
+            // Ensure decoded starts with /
+            var newPath = basePath + (decoded[0] === '/' ? decoded : '/' + decoded);
+            window.history.replaceState(null, null, newPath + l.hash);
+          } else {
+            // Clear the query string for root URL
+            window.history.replaceState(null, null, l.pathname + l.hash);
+          }
         }
       }(window.location))
     </script>

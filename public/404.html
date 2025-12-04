@@ -15,12 +15,21 @@
         var fullPath = l.pathname;
         var spaPath = fullPath.indexOf(basePath) === 0 
           ? fullPath.slice(basePath.length) 
-          : fullPath;
+          : '';
         
-        // Redirect to base path with SPA path in query string
+        // Clean up spaPath - remove leading slash and trailing slash
+        spaPath = spaPath.replace(/^\/+/, '').replace(/\/+$/, '');
+        
+        // If there's no SPA path (user visiting root), just redirect to base without query
+        if (!spaPath && !l.search && !l.hash) {
+          l.replace(l.protocol + '//' + l.hostname + (l.port ? ':' + l.port : '') + basePath + '/');
+          return;
+        }
+        
+        // Build redirect URL with SPA path in query string
         var redirectUrl = l.protocol + '//' + l.hostname + (l.port ? ':' + l.port : '') +
-          basePath + '/?/' +
-          spaPath.replace(/&/g, '~and~') +
+          basePath + '/?' +
+          (spaPath ? '/' + spaPath.replace(/&/g, '~and~') : '') +
           (l.search ? '&' + l.search.slice(1).replace(/&/g, '~and~') : '') +
           l.hash;
         
