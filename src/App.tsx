@@ -9,6 +9,8 @@ import { VotingStats } from './components/VotingStats'
 import { NotificationSnackbar } from './components/NotificationSnackbar'
 import { VotingCards } from './components/VotingCards'
 import { PlayersTable } from './components/PlayersTable'
+import { IssuesSidebar, type Ticket } from './components/IssuesSidebar'
+import { ActiveTicketDisplay } from './components/ActiveTicketDisplay'
 import { useUser } from './contexts/UserContext'
 import { useRoom } from './contexts/RoomContext'
 import { useThemeMode } from './hooks/useThemeMode'
@@ -18,6 +20,8 @@ function App() {
   const [userModalOpen, setUserModalOpen] = useState(false)
   const [joinRoomModalOpen, setJoinRoomModalOpen] = useState(false)
   const [selectedVote, setSelectedVote] = useState<string | null>(null)
+  const [showSidebar, setShowSidebar] = useState(false)
+  const [activeTicket, setActiveTicket] = useState<Ticket | null>(null)
   
   // Custom hooks
   const { mode, toggleColorMode } = useThemeMode()
@@ -93,6 +97,21 @@ function App() {
     showNotification('Name updated successfully!', 'success')
   }
 
+  const handleOpenSidebar = () => {
+    setShowSidebar(true)
+  }
+
+  const handleCloseSidebar = () => {
+    setShowSidebar(false)
+  }
+
+  const handleSelectTicket = (ticket: Ticket) => {
+    setActiveTicket(ticket)
+    setShowSidebar(false)
+    showNotification(`Selected: ${ticket.key}`, 'info')
+    // TODO: Broadcast 'new_ticket' event to Supabase here
+  }
+
   // Prompt for name if user joins a room without a name
   useEffect(() => {
     if (roomId && !userName) {
@@ -138,6 +157,8 @@ function App() {
                   <RoomControls 
                     onOpenJoinModal={handleOpenJoinRoomModal}
                     isConnected={!!roomId}
+                    onOpenBacklog={handleOpenSidebar}
+                    isAdmin={roomId ? userId === roomCreator : false}
                   />
                 </Paper>
               </Grid>
@@ -165,6 +186,13 @@ function App() {
                     onNameChange={handleNameChange}
                     currentUserName={userName}
                   />
+                </Grid>
+              )}
+
+              {/* Active Ticket Display - only show when a ticket is selected */}
+              {roomId && activeTicket && (
+                <Grid item xs={12}>
+                  <ActiveTicketDisplay ticket={activeTicket} />
                 </Grid>
               )}
 
@@ -208,6 +236,13 @@ function App() {
         message={notification.message}
         severity={notification.severity}
         onClose={closeNotification}
+      />
+
+      <IssuesSidebar
+        isOpen={showSidebar}
+        onClose={handleCloseSidebar}
+        activeTicketId={activeTicket?.id || null}
+        onSelectTicket={handleSelectTicket}
       />
     </ThemeProvider>
   )
