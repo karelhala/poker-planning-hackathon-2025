@@ -26,7 +26,24 @@ const generateRoomId = (): string => {
   return Math.random().toString(36).substring(2, 10).toUpperCase()
 }
 
+// Get base path from current URL (everything before /room)
+const getBasePath = (): string => {
+  const path = window.location.pathname
+  const roomIndex = path.indexOf('/room')
+  
+  if (roomIndex > 0) {
+    // URL contains /room, extract everything before it
+    return path.substring(0, roomIndex)
+  }
+  
+  // No /room in URL - remove trailing slash and return the path
+  // This handles both "/" (dev) and "/poker-planning-hackathon-2025/" (prod)
+  return path.replace(/\/+$/, '')
+}
+
 export const RoomProvider: React.FC<RoomProviderProps> = ({ children }) => {
+  const basePath = getBasePath()
+  
   const [roomId, setRoomId] = useState<string | null>(() => {
     // Check URL for room ID on initial load
     const path = window.location.pathname
@@ -37,12 +54,13 @@ export const RoomProvider: React.FC<RoomProviderProps> = ({ children }) => {
   // Update URL when room changes
   useEffect(() => {
     if (roomId) {
-      const newPath = `/room/${roomId}`
+      const newPath = `${basePath}/room/${roomId}`
       window.history.pushState({}, '', newPath)
     } else {
-      window.history.pushState({}, '', '/')
+      // Stay on base path, don't go to root domain
+      window.history.pushState({}, '', basePath + '/')
     }
-  }, [roomId])
+  }, [roomId, basePath])
 
   const createRoom = () => {
     const newRoomId = generateRoomId()
