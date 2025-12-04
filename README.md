@@ -93,12 +93,15 @@ The output will be in the `dist/` folder with `dist/index.js` as the main entry 
   - Persisted in localStorage across sessions
   - Displayed in user configuration modal
   - Optional username field (supports single or multiple words)
-- ✅ **JIRA Integration** - Store and manage your JIRA API token
-  - Avatar icon with green check indicator when token is saved
-  - Secure modal for token input
-  - Token stored in localStorage
+- ✅ **JIRA Integration** - Full integration with Atlassian Jira
+  - Load real tickets from your Jira backlog
+  - Configure Jira domain, email, and API token
+  - Avatar icon with green check indicator when connected
+  - Secure credentials stored in localStorage
+  - Automatic ticket refresh
+  - Falls back to mock tickets when not configured
   - Global user context provider for app-wide access
-  - Easy token management (save/remove)
+  - Easy credential management (save/remove)
 - ✅ **Real-time collaboration** - All users in the same room see updates instantly
 - ✅ **Collapsible Sidebar Navigation** - Clean, responsive layout
 - ✅ WebSocket event broadcasting with Supabase Realtime
@@ -288,9 +291,26 @@ Each user automatically gets a unique identifier:
 1. Click the **avatar icon** in the top-right corner (next to theme toggle)
 2. View your unique user ID in the modal
 3. **Enter your name** (optional) - Can be single word like "John" or multiple words like "John Doe"
-4. **Enter your JIRA API token** (optional) to enable JIRA integration
+4. **Configure JIRA integration** (optional):
+   - **JIRA Domain**: Your Atlassian domain (e.g., `your-company.atlassian.net`)
+   - **JIRA Email**: The email associated with your Jira account
+   - **JIRA API Token**: Generate from [Atlassian Account Settings](https://id.atlassian.com/manage-profile/security/api-tokens)
 5. Click "Save Settings"
-6. A **green check mark** will appear on the avatar when JIRA token is active
+6. A **green check mark** will appear on the avatar when JIRA is connected
+7. The **Backlog sidebar** will automatically load your Jira tickets
+
+### Using JQL Queries:
+
+1. Once Jira is configured, the sidebar shows a **JQL Query input field**
+2. **Enter your custom JQL query** or use one of the presets:
+   - Click the **⋮ (More)** button to see JQL preset options
+   - Select a preset to automatically load those tickets
+3. **Click "Load"** to fetch tickets matching your JQL query
+4. Your JQL query is **saved automatically** for next time
+5. Examples:
+   - `project = MYPROJ AND status = "To Do"` - All To Do items in MYPROJ
+   - `assignee = currentUser() AND status != Done` - Your unfinished work
+   - `sprint in openSprints() order by rank` - Current sprint backlog
 
 ### Using in Your Code:
 
@@ -300,7 +320,18 @@ The user context is available throughout the app via the `useUser()` hook:
 import { useUser } from './contexts/UserContext'
 
 function MyComponent() {
-  const { userId, userName, setUserName, jiraToken, hasJiraToken, setJiraToken } = useUser()
+  const { 
+    userId, 
+    userName, 
+    setUserName, 
+    jiraToken, 
+    jiraDomain,
+    jiraEmail,
+    hasJiraToken, 
+    setJiraToken,
+    setJiraDomain,
+    setJiraEmail
+  } = useUser()
   
   console.log('User ID:', userId) // e.g., "a3f2b1c4-..."
   console.log('User Name:', userName) // e.g., "John Doe" or null
@@ -308,10 +339,10 @@ function MyComponent() {
   // Display personalized greeting
   const greeting = userName ? `Hello, ${userName}!` : `Hello, User!`
   
-  // Use jiraToken for API calls
+  // Use Jira credentials for API calls
   if (hasJiraToken) {
-    // Make JIRA API requests with the token
-    // Track events with the userId and userName
+    // Make JIRA API requests with domain, email, and token
+    // Load tickets, track events, etc.
   }
 }
 ```
@@ -320,10 +351,65 @@ function MyComponent() {
 
 - **User ID** stored in localStorage as `userId` (auto-generated, permanent)
 - **Username** stored in localStorage as `userName` (optional, user-provided)
-- **JIRA token** stored in localStorage as `jiraToken` (optional)
+- **JIRA credentials** stored in localStorage (optional):
+  - `jiraDomain` - Your Atlassian domain
+  - `jiraEmail` - Your Jira account email
+  - `jiraToken` - Your Jira API token
 - All data persists across browser sessions
 - Settings can be cleared at any time via the modal
 - The entire app has access via the `UserProvider` context
+
+### Deploying the Jira Proxy Function:
+
+The app requires a Supabase Edge Function to proxy requests to Jira (to handle CORS and authentication). To deploy:
+
+1. **Via Supabase Dashboard** (Recommended):
+   - Go to your [Supabase Dashboard](https://supabase.com/dashboard) → Edge Functions
+   - Create a new function named `jira-proxy`
+   - Copy the code from `supabase/functions/jira-proxy/index.ts`
+   - **Important:** Disable JWT verification for this function (Settings → Verify JWT: OFF)
+   - Deploy the function
+
+2. **Via Supabase CLI** (Alternative):
+   ```bash
+   npx supabase login --token YOUR_ACCESS_TOKEN
+   npx supabase link --project-ref YOUR_PROJECT_REF
+   npx supabase functions deploy jira-proxy
+   ```
+   Then disable JWT verification in the dashboard.
+
+### JIRA Ticket Loading:
+
+Once configured, the Backlog sidebar will:
+- Automatically fetch tickets from your Jira instance using JQL (Jira Query Language)
+- Customize which tickets to load with custom JQL queries
+- Choose from preset JQL queries:
+  - Recent Issues
+  - My Open Issues
+  - Sprint Backlog
+  - To Do
+  - In Progress
+  - High Priority
+- Display tickets in a clean, selectable list
+- Show ticket key, summary, and external link
+- JQL query is saved in localStorage for persistence
+- Load/refresh tickets on demand
+- Fall back to mock tickets if not configured or on error
+
+**Example JQL Queries:**
+```jql
+# Get all issues in a specific project
+project = MYPROJECT order by created DESC
+
+# Get your assigned issues that are in progress
+assignee = currentUser() AND status = "In Progress"
+
+# Get high-priority issues from the current sprint
+sprint in openSprints() AND priority in (Highest, High)
+
+# Get issues from specific epic
+"Epic Link" = PROJ-123 order by rank
+```
 
 ## License
 

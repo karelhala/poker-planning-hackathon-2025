@@ -22,18 +22,35 @@ export const UserModal: React.FC<UserModalProps> = ({
   onClose,
   onSave,
 }) => {
-  const { userId, userName, setUserName, jiraToken, setJiraToken, hasJiraToken } = useUser()
+  const { 
+    userId, 
+    userName, 
+    setUserName, 
+    jiraToken, 
+    setJiraToken, 
+    jiraDomain,
+    setJiraDomain,
+    jiraEmail,
+    setJiraEmail,
+    hasJiraToken 
+  } = useUser()
   const [nameInput, setNameInput] = useState('')
   const [tokenInput, setTokenInput] = useState('')
+  const [domainInput, setDomainInput] = useState('')
+  const [emailInput, setEmailInput] = useState('')
 
   const handleOpen = () => {
     setNameInput(userName || '')
     setTokenInput(jiraToken || '')
+    setDomainInput(jiraDomain || '')
+    setEmailInput(jiraEmail || '')
   }
 
   const handleClose = () => {
     setNameInput('')
     setTokenInput('')
+    setDomainInput('')
+    setEmailInput('')
     onClose()
   }
 
@@ -45,14 +62,18 @@ export const UserModal: React.FC<UserModalProps> = ({
       setUserName(null)
     }
 
-    // Save JIRA token
-    if (tokenInput.trim()) {
+    // Save JIRA credentials
+    if (tokenInput.trim() && domainInput.trim() && emailInput.trim()) {
       setJiraToken(tokenInput.trim())
-      onSave('User settings saved successfully!', 'success')
+      setJiraDomain(domainInput.trim())
+      setJiraEmail(emailInput.trim())
+      onSave('User settings and JIRA credentials saved successfully!', 'success')
     } else {
       setJiraToken(null)
+      setJiraDomain(null)
+      setJiraEmail(null)
       if (nameInput.trim()) {
-        onSave('Username saved, JIRA token removed', 'info')
+        onSave('Username saved, JIRA credentials removed', 'info')
       } else {
         onSave('Settings cleared', 'info')
       }
@@ -62,8 +83,10 @@ export const UserModal: React.FC<UserModalProps> = ({
 
   const handleRemoveToken = () => {
     setJiraToken(null)
+    setJiraDomain(null)
+    setJiraEmail(null)
     handleClose()
-    onSave('JIRA token removed', 'info')
+    onSave('JIRA credentials removed', 'info')
   }
 
   return (
@@ -94,9 +117,36 @@ export const UserModal: React.FC<UserModalProps> = ({
         />
 
         <Typography variant="body2" color="text.secondary" paragraph>
-          Enter your JIRA API token to enable integration with JIRA. This token will
-          be stored locally in your browser.
+          Enter your JIRA credentials to enable integration with JIRA. All credentials
+          will be stored locally in your browser.
         </Typography>
+        
+        <TextField
+          margin="dense"
+          label="JIRA Domain"
+          type="text"
+          fullWidth
+          variant="outlined"
+          value={domainInput}
+          onChange={(e) => setDomainInput(e.target.value)}
+          placeholder="your-domain.atlassian.net"
+          helperText="Your Jira domain (without https://)"
+          sx={{ mb: 2 }}
+        />
+
+        <TextField
+          margin="dense"
+          label="JIRA Email"
+          type="email"
+          fullWidth
+          variant="outlined"
+          value={emailInput}
+          onChange={(e) => setEmailInput(e.target.value)}
+          placeholder="your-email@example.com"
+          helperText="The email associated with your Jira account"
+          sx={{ mb: 2 }}
+        />
+
         <TextField
           margin="dense"
           label="JIRA API Token"
@@ -105,13 +155,13 @@ export const UserModal: React.FC<UserModalProps> = ({
           variant="outlined"
           value={tokenInput}
           onChange={(e) => setTokenInput(e.target.value)}
-          placeholder="Enter your JIRA token (optional)"
-          helperText="Your token is stored securely in localStorage"
+          placeholder="Enter your JIRA API token"
+          helperText="Generate an API token from your Atlassian account settings"
         />
         {(userName || hasJiraToken) && (
           <Alert severity="success" sx={{ mt: 2 }}>
             {userName && <>Name: <strong>{userName}</strong><br /></>}
-            {hasJiraToken && 'JIRA token is currently saved and active'}
+            {hasJiraToken && 'JIRA credentials are currently saved and active'}
           </Alert>
         )}
       </DialogContent>

@@ -6,6 +6,10 @@ interface UserContextType {
   setUserName: (name: string | null) => void
   jiraToken: string | null
   setJiraToken: (token: string | null) => void
+  jiraDomain: string | null
+  setJiraDomain: (domain: string | null) => void
+  jiraEmail: string | null
+  setJiraEmail: (email: string | null) => void
   hasJiraToken: boolean
 }
 
@@ -63,9 +67,17 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
     }
   }
 
-  // Initialize JIRA token from localStorage
+  // Initialize JIRA credentials from localStorage
   const [jiraToken, setJiraTokenState] = useState<string | null>(() => {
     return localStorage.getItem('jiraToken')
+  })
+
+  const [jiraDomain, setJiraDomainState] = useState<string | null>(() => {
+    return localStorage.getItem('jiraDomain')
+  })
+
+  const [jiraEmail, setJiraEmailState] = useState<string | null>(() => {
+    return localStorage.getItem('jiraEmail')
   })
 
   const setJiraToken = (token: string | null) => {
@@ -78,10 +90,41 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
     }
   }
 
-  const hasJiraToken = Boolean(jiraToken)
+  const setJiraDomain = (domain: string | null) => {
+    if (domain) {
+      localStorage.setItem('jiraDomain', domain)
+      setJiraDomainState(domain)
+    } else {
+      localStorage.removeItem('jiraDomain')
+      setJiraDomainState(null)
+    }
+  }
+
+  const setJiraEmail = (email: string | null) => {
+    if (email) {
+      localStorage.setItem('jiraEmail', email)
+      setJiraEmailState(email)
+    } else {
+      localStorage.removeItem('jiraEmail')
+      setJiraEmailState(null)
+    }
+  }
+
+  const hasJiraToken = Boolean(jiraToken && jiraDomain && jiraEmail)
 
   return (
-    <UserContext.Provider value={{ userId, userName, setUserName, jiraToken, setJiraToken, hasJiraToken }}>
+    <UserContext.Provider value={{ 
+      userId, 
+      userName, 
+      setUserName, 
+      jiraToken, 
+      setJiraToken, 
+      jiraDomain,
+      setJiraDomain,
+      jiraEmail,
+      setJiraEmail,
+      hasJiraToken 
+    }}>
       {children}
     </UserContext.Provider>
   )

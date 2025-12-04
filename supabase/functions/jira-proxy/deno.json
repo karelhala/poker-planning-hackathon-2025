@@ -1,6 +1,3 @@
 {
-  "imports": {},
-  "compilerOptions": {
-    "lib": ["deno.window"]
-  }
+  "imports": {}
 }

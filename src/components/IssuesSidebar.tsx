@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Drawer,
   List,
@@ -11,11 +11,23 @@ import {
   Chip,
   Link,
   Toolbar,
+  CircularProgress,
+  Alert,
+  Button,
+  TextField,
+  IconButton,
+  Tooltip,
+  Menu,
+  MenuItem,
 } from '@mui/material';
 import {
   OpenInNew as OpenInNewIcon,
   Assignment as AssignmentIcon,
+  Refresh as RefreshIcon,
+  MoreVert as MoreVertIcon,
 } from '@mui/icons-material';
+import { useUser } from '../contexts/UserContext';
+import { fetchJiraTickets } from '../services/jiraService';
 
 export interface Ticket {
   id: string;
@@ -62,10 +74,83 @@ interface IssuesSidebarProps {
   onSelectTicket: (ticket: Ticket) => void;
 }
 
+const JQL_PRESETS = [
+  { label: 'Recent Issues', jql: 'order by created DESC' },
+  { label: 'My Open Issues', jql: 'assignee = currentUser() AND status != Done order by updated DESC' },
+  { label: 'Sprint Backlog', jql: 'sprint in openSprints() order by rank' },
+  { label: 'To Do', jql: 'status = "To Do" order by priority DESC' },
+  { label: 'In Progress', jql: 'status = "In Progress" order by updated DESC' },
+  { label: 'High Priority', jql: 'priority in (Highest, High) AND status != Done order by priority DESC' },
+]
+
 export const IssuesSidebar: React.FC<IssuesSidebarProps> = ({
   activeTicketId,
   onSelectTicket,
 }) => {
+  const { jiraToken, jiraDomain, jiraEmail, hasJiraToken } = useUser()
+  const [tickets, setTickets] = useState<Ticket[]>(MOCK_TICKETS)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [jqlQuery, setJqlQuery] = useState<string>(() => {
+    return localStorage.getItem('jqlQuery') || 'order by created DESC'
+  })
+  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null)
+
+  const loadJiraTickets = async (customJql?: string) => {
+    if (!hasJiraToken || !jiraToken || !jiraDomain || !jiraEmail) {
+      setTickets(MOCK_TICKETS)
+      return
+    }
+
+    setLoading(true)
+    setError(null)
+
+    try {
+      const queryToUse = customJql || jqlQuery
+      const jiraTickets = await fetchJiraTickets({
+        domain: jiraDomain,
+        email: jiraEmail,
+        token: jiraToken,
+      }, queryToUse)
+      setTickets(jiraTickets)
+    } catch (err: any) {
+      console.error('Error loading Jira tickets:', err)
+      setError(err.message || 'Failed to load Jira tickets')
+      setTickets(MOCK_TICKETS)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    loadJiraTickets()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasJiraToken, jiraToken, jiraDomain, jiraEmail])
+
+  const handleJqlChange = (newJql: string) => {
+    setJqlQuery(newJql)
+    localStorage.setItem('jqlQuery', newJql)
+  }
+
+  const handleJqlSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    loadJiraTickets()
+  }
+
+  const handlePresetClick = (preset: string) => {
+    handleJqlChange(preset)
+    loadJiraTickets(preset)
+    setAnchorEl(null)
+  }
+
+  const handleMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
+    setAnchorEl(event.currentTarget)
+  }
+
+  const handleMenuClose = () => {
+    setAnchorEl(null)
+  }
+
   const handleTicketClick = (ticket: Ticket) => {
     onSelectTicket(ticket);
   };
@@ -116,13 +201,92 @@ export const IssuesSidebar: React.FC<IssuesSidebarProps> = ({
         <Typography variant="body2" sx={{ fontSize: '1.25rem', ml: 0.5 }}>
           🎯
         </Typography>
-        <Typography variant="body2" sx={{ fontWeight: 500 }}>
+        <Typography variant="body2" sx={{ fontWeight: 500, flexGrow: 1 }}>
           Select a ticket for the team to vote on
         </Typography>
       </Box>
 
-      <List sx={{ flexGrow: 1, overflow: 'auto' }}>
-        {MOCK_TICKETS.map((ticket) => {
+      {hasJiraToken && (
+        <Box sx={{ px: 2, pb: 2 }}>
+          <Box component="form" onSubmit={handleJqlSubmit}>
+            <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5, display: 'block' }}>
+              JQL Query
+            </Typography>
+            <Box sx={{ display: 'flex', gap: 1 }}>
+              <TextField
+                size="small"
+                fullWidth
+                value={jqlQuery}
+                onChange={(e) => handleJqlChange(e.target.value)}
+                placeholder="e.g., project = PROJ AND status = 'To Do'"
+                variant="outlined"
+                sx={{ flexGrow: 1 }}
+              />
+              <Tooltip title="JQL Presets">
+                <IconButton size="small" onClick={handleMenuOpen}>
+                  <MoreVertIcon />
+                </IconButton>
+              </Tooltip>
+              <Button
+                size="small"
+                variant="contained"
+                startIcon={<RefreshIcon />}
+                onClick={() => loadJiraTickets()}
+                disabled={loading}
+                type="submit"
+              >
+                Load
+              </Button>
+            </Box>
+          </Box>
+          <Menu
+            anchorEl={anchorEl}
+            open={Boolean(anchorEl)}
+            onClose={handleMenuClose}
+          >
+            {JQL_PRESETS.map((preset) => (
+              <MenuItem 
+                key={preset.label} 
+                onClick={() => handlePresetClick(preset.jql)}
+                dense
+              >
+                <Box>
+                  <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                    {preset.label}
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    {preset.jql}
+                  </Typography>
+                </Box>
+              </MenuItem>
+            ))}
+          </Menu>
+        </Box>
+      )}
+
+      {error && (
+        <Box sx={{ px: 2, pb: 2 }}>
+          <Alert severity="error" onClose={() => setError(null)}>
+            {error}
+          </Alert>
+        </Box>
+      )}
+
+      {!hasJiraToken && (
+        <Box sx={{ px: 2, pb: 2 }}>
+          <Alert severity="info">
+            Configure your Jira credentials to load real tickets
+          </Alert>
+        </Box>
+      )}
+
+      {loading ? (
+        <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
+          <CircularProgress />
+        </Box>
+      ) : (
+        <List sx={{ flexGrow: 1, overflow: 'auto' }}>
+          {tickets.map((ticket) => {
           const isActive = ticket.id === activeTicketId;
           
           return (
@@ -173,13 +337,22 @@ export const IssuesSidebar: React.FC<IssuesSidebarProps> = ({
           );
         })}
       </List>
+      )}
 
       <Divider />
 
-      <Box sx={{ p: 2 }}>
+      <Box sx={{ p: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <Typography variant="caption" color="text.secondary">
-          {MOCK_TICKETS.length} tickets in backlog
+          {tickets.length} ticket{tickets.length !== 1 ? 's' : ''} in backlog
         </Typography>
+        {hasJiraToken && (
+          <Chip 
+            label="Jira Connected" 
+            color="success" 
+            size="small" 
+            variant="outlined"
+          />
+        )}
       </Box>
     </Drawer>
   );
