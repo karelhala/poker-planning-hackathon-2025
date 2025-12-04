@@ -13,9 +13,6 @@ interface GameControlsProps {
   gameState: GameState;
   onRevealCards: () => void;
   onResetVoting: () => void;
-  onNextTicket: () => void;
-  hasTickets: boolean;
-  activeTicketKey?: string | null;
 }
 
 export const GameControls: React.FC<GameControlsProps> = ({
@@ -23,9 +20,6 @@ export const GameControls: React.FC<GameControlsProps> = ({
   gameState,
   onRevealCards,
   onResetVoting,
-  onNextTicket,
-  hasTickets,
-  activeTicketKey,
 }) => {
   if (!isAdmin) {
     return null;
@@ -49,11 +43,6 @@ export const GameControls: React.FC<GameControlsProps> = ({
         <Box>
           <Typography variant="h6" component="h2" sx={{ fontWeight: 600 }}>
             Game Controls
-            {activeTicketKey && (
-              <Typography component="span" variant="body2" color="primary.main" sx={{ ml: 2, fontWeight: 500 }}>
-                Voting on: {activeTicketKey}
-              </Typography>
-            )}
           </Typography>
           <Typography variant="caption" color="text.secondary">
             {gameState === 'VOTING' 
@@ -100,23 +89,19 @@ export const GameControls: React.FC<GameControlsProps> = ({
             Reset Round
           </Button>
 
-          {hasTickets && (
-            <>
-              <Divider orientation="vertical" flexItem />
+          <Divider orientation="vertical" flexItem />
               <Button
                 variant="outlined"
                 size="large"
                 color="secondary"
                 startIcon={<ArrowForwardIcon />}
-                onClick={onNextTicket}
+                onClick={() => {}}
                 sx={{
                   fontWeight: 600,
                 }}
               >
                 Next Ticket
               </Button>
-            </>
-          )}
         </Box>
       </Box>
     </Paper>

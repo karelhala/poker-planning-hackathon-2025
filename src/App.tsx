@@ -1,7 +1,6 @@
 import { useState, useMemo, useEffect } from 'react'
 import { ThemeProvider, createTheme, CssBaseline, Box, Toolbar, Container, Grid, Paper } from '@mui/material'
 import { Header } from './components/Header'
-import { Sidebar } from './components/Sidebar'
 import { UserModal } from './components/UserModal'
 import { RoomControls } from './components/RoomControls'
 import { JoinRoomModal } from './components/JoinRoomModal'
@@ -28,22 +27,15 @@ function App() {
     roomCreator,
     players,
     gameState,
-    tickets,
-    activeTicketId,
     notification,
     handleResetVoting,
     handleRevealCards,
     updateVotingStatus,
-    handleAddTicket,
-    handleRemoveTicket,
-    handleSelectTicket,
-    handleNextTicket,
     closeNotification,
     showNotification,
   } = useSupabaseRealtime()
 
   const isRoomCreator = userId === roomCreator
-  const activeTicket = tickets.find(t => t.id === activeTicketId)
 
   // Create theme
   const theme = useMemo(
@@ -124,18 +116,6 @@ function App() {
           onOpenJiraModal={handleOpenUserModal}
         />
 
-        {/* Only show sidebar when in a room */}
-        {roomId && (
-          <Sidebar
-            tickets={tickets}
-            activeTicketId={activeTicketId}
-            isRoomCreator={isRoomCreator}
-            onAddTicket={handleAddTicket}
-            onRemoveTicket={handleRemoveTicket}
-            onSelectTicket={handleSelectTicket}
-          />
-        )}
-
         {/* Main Content */}
         <Box
           component="main"
@@ -147,7 +127,6 @@ function App() {
             flexGrow: 1,
             height: '100vh',
             overflow: 'auto',
-            marginRight: roomId ? '320px' : 0,
           }}
         >
           <Toolbar />
@@ -171,9 +150,6 @@ function App() {
                     gameState={gameState}
                     onRevealCards={handleRevealCards}
                     onResetVoting={handleResetVoting}
-                    onNextTicket={handleNextTicket}
-                    hasTickets={tickets.length > 0}
-                    activeTicketKey={activeTicket?.key}
                   />
                 </Grid>
               )}

@@ -299,6 +299,22 @@ export const useSupabaseRealtime = () => {
       })
     })
 
+    // Listen for ticket edit event
+    channel.on('broadcast', { event: 'ticket_edit' }, (payload) => {
+      console.log('Received ticket edit event:', payload)
+      const { ticketId, newKey } = payload.payload
+      const senderName = payload.payload.userName || 'Another user'
+      
+      setTickets((prev) => 
+        prev.map((t) => t.id === ticketId ? { ...t, key: newKey } : t)
+      )
+      setNotification({
+        open: true,
+        message: `${senderName} updated ticket to ${newKey}`,
+        severity: 'info',
+      })
+    })
+
     channel.subscribe(async (status) => {
       if (status === 'SUBSCRIBED') {
         console.log(`Connected to room: ${roomId}`)
@@ -440,6 +456,13 @@ export const useSupabaseRealtime = () => {
     sendEvent('ticket_select', { ticketId: nextTicket.id, ticketKey: nextTicket.key })
   }
 
+  const handleEditTicket = (ticketId: string, newKey: string) => {
+    setTickets((prev) => 
+      prev.map((t) => t.id === ticketId ? { ...t, key: newKey } : t)
+    )
+    sendEvent('ticket_edit', { ticketId, newKey })
+  }
+
   const closeNotification = () => {
     setNotification({ ...notification, open: false })
   }
@@ -464,6 +487,7 @@ export const useSupabaseRealtime = () => {
     updateVotingStatus,
     handleAddTicket,
     handleRemoveTicket,
+    handleEditTicket,
     handleSelectTicket,
     handleNextTicket,
     closeNotification,
