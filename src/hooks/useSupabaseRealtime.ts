@@ -25,6 +25,14 @@ export interface Player {
 
 export type GameState = 'VOTING' | 'REVEALED'
 
+export interface JiraTicket {
+  id: string
+  key: string
+  addedBy: string
+  addedByName: string | null
+  timestamp: string
+}
+
 export const useSupabaseRealtime = () => {
   const { userId, userName } = useUser()
   const { roomId } = useRoom()
@@ -33,6 +41,8 @@ export const useSupabaseRealtime = () => {
   const [activeUsers, setActiveUsers] = useState<RoomUser[]>([])
   const [players, setPlayers] = useState<Player[]>([])
   const [gameState, setGameState] = useState<GameState>('VOTING')
+  const [tickets, setTickets] = useState<JiraTicket[]>([])
+  const [activeTicketId, setActiveTicketId] = useState<string | null>(null)
   const [notification, setNotification] = useState<Notification>({
     open: false,
     message: '',
@@ -43,6 +53,8 @@ export const useSupabaseRealtime = () => {
   const countRef = useRef(count)
   const roomCreatorRef = useRef(roomCreator)
   const activeUsersRef = useRef(activeUsers)
+  const ticketsRef = useRef(tickets)
+  const activeTicketIdRef = useRef(activeTicketId)
 
   // Keep refs in sync with state
   useEffect(() => {
@@ -58,6 +70,14 @@ export const useSupabaseRealtime = () => {
   }, [activeUsers])
 
   useEffect(() => {
+    ticketsRef.current = tickets
+  }, [tickets])
+
+  useEffect(() => {
+    activeTicketIdRef.current = activeTicketId
+  }, [activeTicketId])
+
+  useEffect(() => {
     // Only connect if in a room
     if (!roomId) {
       // No room - disconnect and reset state
@@ -70,6 +90,8 @@ export const useSupabaseRealtime = () => {
       setActiveUsers([])
       setPlayers([])
       setGameState('VOTING')
+      setTickets([])
+      setActiveTicketId(null)
       isFirstUserRef.current = false
       return
     }
@@ -135,6 +157,8 @@ export const useSupabaseRealtime = () => {
                   count: countRef.current,
                   roomCreator: roomCreatorRef.current,
                   activeUsers: activeUsersRef.current,
+                  tickets: ticketsRef.current,
+                  activeTicketId: activeTicketIdRef.current,
                   userId,
                   userName,
                   timestamp: new Date().toISOString(),
@@ -151,10 +175,12 @@ export const useSupabaseRealtime = () => {
     // Listen for state sync (when we join and someone sends us the state)
     channel.on('broadcast', { event: 'state_sync' }, (payload) => {
       console.log('Received room state:', payload)
-      const { count: syncCount, roomCreator: creator } = payload.payload
+      const { count: syncCount, roomCreator: creator, tickets: syncTickets, activeTicketId: syncActiveTicketId } = payload.payload
       
       setCount(syncCount)
       setRoomCreator(creator)
+      setTickets(syncTickets || [])
+      setActiveTicketId(syncActiveTicketId || null)
       
       const senderName = payload.payload.userName || 'Another user'
       setNotification({
@@ -226,6 +252,49 @@ export const useSupabaseRealtime = () => {
       setNotification({
         open: true,
         message: `${senderName} reset the voting`,
+        severity: 'info',
+      })
+    })
+
+    // Listen for ticket events
+    channel.on('broadcast', { event: 'ticket_add' }, (payload) => {
+      console.log('Received ticket add event:', payload)
+      const ticket: JiraTicket = payload.payload.ticket
+      const senderName = payload.payload.userName || 'Another user'
+      
+      setTickets((prev) => [...prev, ticket])
+      setNotification({
+        open: true,
+        message: `${senderName} added ticket ${ticket.key}`,
+        severity: 'info',
+      })
+    })
+
+    channel.on('broadcast', { event: 'ticket_remove' }, (payload) => {
+      console.log('Received ticket remove event:', payload)
+      const ticketId = payload.payload.ticketId
+      const senderName = payload.payload.userName || 'Another user'
+      
+      setTickets((prev) => prev.filter((t) => t.id !== ticketId))
+      // If removed ticket was active, clear active ticket
+      setActiveTicketId((prev) => prev === ticketId ? null : prev)
+      setNotification({
+        open: true,
+        message: `${senderName} removed a ticket`,
+        severity: 'info',
+      })
+    })
+
+    // Listen for ticket selection event
+    channel.on('broadcast', { event: 'ticket_select' }, (payload) => {
+      console.log('Received ticket select event:', payload)
+      const { ticketId, ticketKey } = payload.payload
+      const senderName = payload.payload.userName || 'Admin'
+      
+      setActiveTicketId(ticketId)
+      setNotification({
+        open: true,
+        message: ticketKey ? `${senderName} selected ticket ${ticketKey}` : `${senderName} cleared active ticket`,
         severity: 'info',
       })
     })
@@ -329,6 +398,48 @@ export const useSupabaseRealtime = () => {
     }
   }
 
+  const handleAddTicket = (key: string) => {
+    const ticket: JiraTicket = {
+      id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      key,
+      addedBy: userId,
+      addedByName: userName || null,
+      timestamp: new Date().toISOString(),
+    }
+    
+    setTickets((prev) => [...prev, ticket])
+    sendEvent('ticket_add', { ticket })
+  }
+
+  const handleRemoveTicket = (ticketId: string) => {
+    setTickets((prev) => prev.filter((t) => t.id !== ticketId))
+    // If removed ticket was active, clear active ticket
+    if (activeTicketId === ticketId) {
+      setActiveTicketId(null)
+    }
+    sendEvent('ticket_remove', { ticketId })
+  }
+
+  const handleSelectTicket = (ticketId: string | null) => {
+    const ticket = tickets.find((t) => t.id === ticketId)
+    setActiveTicketId(ticketId)
+    sendEvent('ticket_select', { ticketId, ticketKey: ticket?.key || null })
+  }
+
+  const handleNextTicket = () => {
+    if (tickets.length === 0) return
+    
+    const currentIndex = activeTicketId 
+      ? tickets.findIndex((t) => t.id === activeTicketId)
+      : -1
+    
+    const nextIndex = (currentIndex + 1) % tickets.length
+    const nextTicket = tickets[nextIndex]
+    
+    setActiveTicketId(nextTicket.id)
+    sendEvent('ticket_select', { ticketId: nextTicket.id, ticketKey: nextTicket.key })
+  }
+
   const closeNotification = () => {
     setNotification({ ...notification, open: false })
   }
@@ -343,12 +454,18 @@ export const useSupabaseRealtime = () => {
     activeUsers,
     players,
     gameState,
+    tickets,
+    activeTicketId,
     notification,
     handleIncrement,
     handleReset,
     handleResetVoting,
     handleRevealCards,
     updateVotingStatus,
+    handleAddTicket,
+    handleRemoveTicket,
+    handleSelectTicket,
+    handleNextTicket,
     closeNotification,
     showNotification,
   }
