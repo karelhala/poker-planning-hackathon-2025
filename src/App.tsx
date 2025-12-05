@@ -12,6 +12,7 @@ import { PlayersTable } from './components/PlayersTable'
 import { IssuesSidebar, type Ticket } from './components/IssuesSidebar'
 import { ActiveTicketDisplay } from './components/ActiveTicketDisplay'
 import { PokeEffect } from './components/PokeEffect'
+import { CopycatRevealEffect } from './components/CopycatRevealEffect'
 import { useUser } from './contexts/UserContext'
 import { useRoom } from './contexts/RoomContext'
 import { useThemeMode } from './hooks/useThemeMode'
@@ -32,11 +33,27 @@ function App() {
     players,
     gameState,
     pokeEvent,
+    specialCards,
+    blockedPlayers,
+    activeTargeting,
+    isCurrentUserBlocked,
+    copyVoteRelations,
+    copyRevealEffects,
+    currentUserCopyTarget,
+    shuffleEffect,
     notification,
     handleResetVoting,
     handleRevealCards,
     updateVotingStatus,
     handlePokeUser,
+    handleGrantSpecialCard,
+    handleUseSpecialCard,
+    handleTargetSelect,
+    cancelTargeting,
+    calculateAverageVote,
+    getEffectiveVote,
+    triggerCopyRevealEffects,
+    clearCopyRevealEffects,
     clearPokeEvent,
     closeNotification,
     showNotification,
@@ -94,6 +111,38 @@ function App() {
       setSelectedVote(null)
     }
   }, [gameState])
+
+  // Auto-set vote for blocked players when cards are revealed
+  useEffect(() => {
+    if (gameState === 'REVEALED' && isCurrentUserBlocked) {
+      const avgVote = calculateAverageVote()
+      setSelectedVote(avgVote)
+      updateVotingStatus(true, avgVote)
+      showNotification(`Your vote was automatically set to ${avgVote} (average of other votes)`, 'info')
+    }
+  }, [gameState, isCurrentUserBlocked])
+
+  // Trigger copy reveal effects when cards are revealed
+  useEffect(() => {
+    if (gameState === 'REVEALED' && copyVoteRelations.length > 0) {
+      // Small delay to let the reveal settle, then show the copycat effect
+      const timer = setTimeout(() => {
+        triggerCopyRevealEffects()
+      }, 500)
+      return () => clearTimeout(timer)
+    }
+  }, [gameState, copyVoteRelations.length])
+
+  // Update copier's vote to match target when revealed
+  useEffect(() => {
+    if (gameState === 'REVEALED' && currentUserCopyTarget) {
+      const targetPlayer = players.find(p => p.userId === currentUserCopyTarget.targetUserId)
+      if (targetPlayer?.vote) {
+        setSelectedVote(targetPlayer.vote)
+        updateVotingStatus(true, targetPlayer.vote)
+      }
+    }
+  }, [gameState, currentUserCopyTarget, players])
 
   const handleNameChange = (newName: string) => {
     setUserName(newName)
@@ -187,6 +236,13 @@ function App() {
                     onNameChange={handleNameChange}
                     currentUserName={userName}
                     onPokeUser={handlePokeUser}
+                    onGrantSpecialCard={handleGrantSpecialCard}
+                    isAdmin={isRoomCreator}
+                    blockedPlayers={blockedPlayers}
+                    activeTargeting={activeTargeting}
+                    onTargetSelect={handleTargetSelect}
+                    copyVoteRelations={copyVoteRelations}
+                    getEffectiveVote={getEffectiveVote}
                   />
                 </Grid>
               )}
@@ -213,6 +269,13 @@ function App() {
                       selectedValue={selectedVote}
                       onVote={handleVote}
                       disabled={gameState === 'REVEALED'}
+                      specialCards={specialCards}
+                      onUseSpecialCard={handleUseSpecialCard}
+                      isBlocked={isCurrentUserBlocked}
+                      activeTargeting={activeTargeting}
+                      onCancelTargeting={cancelTargeting}
+                      currentUserCopyTarget={currentUserCopyTarget}
+                      shuffleEffect={shuffleEffect}
                     />
                   </Paper>
                 </Grid>
@@ -251,6 +314,12 @@ function App() {
       <PokeEffect
         pokeId={pokeEvent.id}
         onAnimationEnd={clearPokeEvent}
+      />
+
+      {/* Copycat Reveal Effect - shows funny animation when copy cards are revealed */}
+      <CopycatRevealEffect
+        effects={copyRevealEffects}
+        onAnimationEnd={clearCopyRevealEffects}
       />
     </ThemeProvider>
   )

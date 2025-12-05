@@ -21,6 +21,7 @@ export interface Player {
   hasVoted: boolean
   vote: string | null
   isOnline: boolean
+  availableCards: SpecialCardType[]
 }
 
 export type GameState = 'VOTING' | 'REVEALED'
@@ -39,6 +40,86 @@ export interface PokeEvent {
   pokedByName: string | null;
 }
 
+// Special action card types
+export type SpecialCardType = 'COPY' | 'SHUFFLE' | 'BLOCK';
+
+export interface SpecialCard {
+  id: string;
+  type: SpecialCardType;
+  grantedBy: string;
+  grantedByName: string | null;
+  grantedAt: string;
+}
+
+export interface BlockedPlayer {
+  oderId: string;
+  blockedByName: string | null;
+  blockedAt: string;
+}
+
+export interface ActiveTargeting {
+  cardId: string;
+  cardType: SpecialCardType;
+}
+
+export interface CopyVoteRelation {
+  copierUserId: string;
+  copierUserName: string | null;
+  targetUserId: string;
+  targetUserName: string | null;
+}
+
+export interface CopyRevealEffect {
+  id: string;
+  copierUserId: string;
+  copierUserName: string | null;
+  targetUserId: string;
+  targetUserName: string | null;
+  copiedVote: string | null;
+}
+
+export interface ShuffleEffect {
+  shuffledBy: string;
+  shuffledByName: string | null;
+  cardOrder: number[]; // Randomized indices
+  isAnimating: boolean;
+}
+
+export const SPECIAL_CARD_INFO: Record<SpecialCardType, { label: string; description: string; icon: string; color: string }> = {
+  COPY: {
+    label: 'Copy Vote',
+    description: 'Copy someone\'s value when they vote',
+    icon: '📋',
+    color: '#9c27b0', // Purple
+  },
+  SHUFFLE: {
+    label: 'Shuffle',
+    description: 'Hide and shuffle someone\'s card values',
+    icon: '🔀',
+    color: '#ff9800', // Orange
+  },
+  BLOCK: {
+    label: 'Block',
+    description: 'Block someone from voting',
+    icon: '🚫',
+    color: '#f44336', // Red
+  },
+};
+
+// All available special card types
+export const ALL_SPECIAL_CARD_TYPES: SpecialCardType[] = ['COPY', 'SHUFFLE', 'BLOCK'];
+
+// Generate initial set of all special cards for a player
+const generateInitialCards = (grantedBy: string, grantedByName: string | null): SpecialCard[] => {
+  return ALL_SPECIAL_CARD_TYPES.map(type => ({
+    id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}-${type}`,
+    type,
+    grantedBy,
+    grantedByName,
+    grantedAt: new Date().toISOString(),
+  }));
+};
+
 export const useSupabaseRealtime = () => {
   const { userId, userName } = useUser()
   const { roomId } = useRoom()
@@ -50,6 +131,12 @@ export const useSupabaseRealtime = () => {
   const [tickets, setTickets] = useState<JiraTicket[]>([])
   const [activeTicketId, setActiveTicketId] = useState<string | null>(null)
   const [pokeEvent, setPokeEvent] = useState<PokeEvent>({ id: null, pokedBy: null, pokedByName: null })
+  const [specialCards, setSpecialCards] = useState<SpecialCard[]>([])
+  const [blockedPlayers, setBlockedPlayers] = useState<Map<string, { blockedBy: string; blockedByName: string | null }>>(new Map())
+  const [activeTargeting, setActiveTargeting] = useState<ActiveTargeting | null>(null)
+  const [copyVoteRelations, setCopyVoteRelations] = useState<CopyVoteRelation[]>([])
+  const [copyRevealEffects, setCopyRevealEffects] = useState<CopyRevealEffect[]>([])
+  const [shuffleEffect, setShuffleEffect] = useState<ShuffleEffect | null>(null)
   const [notification, setNotification] = useState<Notification>({
     open: false,
     message: '',
@@ -62,6 +149,9 @@ export const useSupabaseRealtime = () => {
   const activeUsersRef = useRef(activeUsers)
   const ticketsRef = useRef(tickets)
   const activeTicketIdRef = useRef(activeTicketId)
+  const specialCardsRef = useRef(specialCards)
+  const blockedPlayersRef = useRef(blockedPlayers)
+  const copyVoteRelationsRef = useRef(copyVoteRelations)
 
   // Keep refs in sync with state
   useEffect(() => {
@@ -85,6 +175,18 @@ export const useSupabaseRealtime = () => {
   }, [activeTicketId])
 
   useEffect(() => {
+    specialCardsRef.current = specialCards
+  }, [specialCards])
+
+  useEffect(() => {
+    blockedPlayersRef.current = blockedPlayers
+  }, [blockedPlayers])
+
+  useEffect(() => {
+    copyVoteRelationsRef.current = copyVoteRelations
+  }, [copyVoteRelations])
+
+  useEffect(() => {
     // Only connect if in a room
     if (!roomId) {
       // No room - disconnect and reset state
@@ -99,6 +201,12 @@ export const useSupabaseRealtime = () => {
       setGameState('VOTING')
       setTickets([])
       setActiveTicketId(null)
+      setSpecialCards([])
+      setBlockedPlayers(new Map())
+      setActiveTargeting(null)
+      setCopyVoteRelations([])
+      setCopyRevealEffects([])
+      setShuffleEffect(null)
       isFirstUserRef.current = false
       return
     }
@@ -132,6 +240,7 @@ export const useSupabaseRealtime = () => {
               hasVoted: presence.hasVoted || false,
               vote: presence.vote || null,
               isOnline: true,
+              availableCards: presence.availableCards || [],
             })
           })
         })
@@ -245,13 +354,21 @@ export const useSupabaseRealtime = () => {
       const senderName = payload.payload.userName || 'Admin'
       setGameState('VOTING')
       
-      // Reset our own voting state
+      // Clear blocked players, copy relations, and shuffle for new round
+      // Note: Special cards are NOT refreshed - they persist from game start
+      setBlockedPlayers(new Map())
+      setCopyVoteRelations([])
+      setCopyRevealEffects([])
+      setShuffleEffect(null)
+      
+      // Reset our own voting state (keep current available cards)
       if (channelRef.current) {
         channelRef.current.track({
           userId,
           userName: userName || null,
           hasVoted: false,
           vote: null,
+          availableCards: specialCardsRef.current.map(c => c.type),
           online_at: new Date().toISOString(),
         })
       }
@@ -338,16 +455,123 @@ export const useSupabaseRealtime = () => {
       }
     })
 
+    // Listen for special card grant events
+    channel.on('broadcast', { event: 'grant_special_card' }, (payload) => {
+      console.log('Received special card grant event:', payload)
+      const { targetUserId, card } = payload.payload
+      const senderName = payload.payload.userName || 'Admin'
+      
+      // Only add the card if we are the target
+      if (targetUserId === userId) {
+        setSpecialCards((prev) => [...prev, card])
+        const cardInfo = SPECIAL_CARD_INFO[card.type as SpecialCardType]
+        setNotification({
+          open: true,
+          message: `${senderName} granted you a ${cardInfo.label} card! ${cardInfo.icon}`,
+          severity: 'success',
+        })
+      }
+    })
+
+    // Listen for block player events
+    channel.on('broadcast', { event: 'block_player' }, (payload) => {
+      console.log('Received block player event:', payload)
+      const { targetUserId, targetUserName } = payload.payload
+      const blockerName = payload.payload.userName || 'Someone'
+      const blockerId = payload.payload.userId
+      
+      // Add to blocked players map
+      setBlockedPlayers((prev) => {
+        const newMap = new Map(prev)
+        newMap.set(targetUserId, { blockedBy: blockerId, blockedByName: blockerName })
+        return newMap
+      })
+      
+      // If we are the target, show notification
+      if (targetUserId === userId) {
+        setNotification({
+          open: true,
+          message: `${blockerName} blocked you from voting! 🚫 You will get the average vote.`,
+          severity: 'info',
+        })
+      } else {
+        setNotification({
+          open: true,
+          message: `${blockerName} blocked ${targetUserName || 'a player'} from voting! 🚫`,
+          severity: 'info',
+        })
+      }
+    })
+
+    // Listen for copy vote events (secret - no notification until reveal)
+    channel.on('broadcast', { event: 'copy_vote' }, (payload) => {
+      console.log('Received copy vote event:', payload)
+      const { targetUserId, targetUserName } = payload.payload
+      const copierUserId = payload.payload.userId
+      const copierUserName = payload.payload.userName || 'Someone'
+      
+      // Store the copy relationship - will be revealed later
+      setCopyVoteRelations((prev) => [
+        ...prev,
+        { copierUserId, copierUserName, targetUserId, targetUserName }
+      ])
+      
+      // Only show subtle notification to the copier
+      if (copierUserId === userId) {
+        // Already handled in handleCopyPlayer
+      }
+    })
+
+    // Listen for shuffle player events
+    channel.on('broadcast', { event: 'shuffle_player' }, (payload) => {
+      console.log('Received shuffle player event:', payload)
+      const { targetUserId, cardOrder } = payload.payload
+      const shufflerName = payload.payload.userName || 'Someone'
+      const shufflerId = payload.payload.userId
+      
+      // Only apply shuffle effect if we are the target
+      if (targetUserId === userId) {
+        setShuffleEffect({
+          shuffledBy: shufflerId,
+          shuffledByName: shufflerName,
+          cardOrder,
+          isAnimating: true,
+        })
+        
+        // Stop animation after 2 seconds
+        setTimeout(() => {
+          setShuffleEffect((prev) => prev ? { ...prev, isAnimating: false } : null)
+        }, 2000)
+        
+        setNotification({
+          open: true,
+          message: `🔀 ${shufflerName} shuffled your cards! Good luck finding the right one!`,
+          severity: 'info',
+        })
+      } else {
+        setNotification({
+          open: true,
+          message: `🔀 ${shufflerName} shuffled ${payload.payload.targetUserName || 'someone'}'s cards!`,
+          severity: 'info',
+        })
+      }
+    })
+
     channel.subscribe(async (status) => {
       if (status === 'SUBSCRIBED') {
         console.log(`Connected to room: ${roomId}`)
         
-        // Track this user's presence with voting status
+        // Grant all special cards to the user when joining
+        const initialCards = generateInitialCards('system', 'Game Start')
+        setSpecialCards(initialCards)
+        
+        // Track this user's presence with voting status and available cards
         await channel.track({
           userId,
           userName: userName || null,
           hasVoted: false,
           vote: null,
+          availableCards: ALL_SPECIAL_CARD_TYPES,
           online_at: new Date().toISOString(),
         })
       }
@@ -405,15 +629,25 @@ export const useSupabaseRealtime = () => {
 
   const handleResetVoting = () => {
     setGameState('VOTING')
+    setBlockedPlayers(new Map())
+    setActiveTargeting(null)
+    setCopyVoteRelations([])
+    setCopyRevealEffects([])
+    setShuffleEffect(null)
+    
+    // Note: Special cards are NOT refreshed - they persist from game start
+    // Cards are only granted when joining the room
+    
     sendEvent('reset_voting', { action: 'reset_voting' })
     
-    // Reset our own voting status
+    // Reset our own voting status (keep current available cards)
     if (channelRef.current) {
       channelRef.current.track({
         userId,
         userName: userName || null,
         hasVoted: false,
         vote: null,
+        availableCards: getAvailableCardTypes(),
         online_at: new Date().toISOString(),
       })
     }
@@ -424,6 +658,11 @@ export const useSupabaseRealtime = () => {
     sendEvent('reveal_cards', { action: 'reveal' })
   }
 
+  // Get available card types from current special cards
+  const getAvailableCardTypes = (): SpecialCardType[] => {
+    return specialCardsRef.current.map(c => c.type)
+  }
+
   const updateVotingStatus = async (hasVoted: boolean, vote: string | null = null) => {
     if (channelRef.current) {
       await channelRef.current.track({
@@ -431,6 +670,7 @@ export const useSupabaseRealtime = () => {
         userName: userName || null,
         hasVoted,
         vote,
+        availableCards: getAvailableCardTypes(),
         online_at: new Date().toISOString(),
       })
       console.log(`Updated voting status: ${hasVoted ? 'Voted' : 'Thinking'}`, vote ? `Vote: ${vote}` : '')
@@ -495,6 +735,241 @@ export const useSupabaseRealtime = () => {
     })
   }
 
+  const handleGrantSpecialCard = (targetUserId: string, targetUserName: string | null, cardType: SpecialCardType) => {
+    const card: SpecialCard = {
+      id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      type: cardType,
+      grantedBy: userId,
+      grantedByName: userName || null,
+      grantedAt: new Date().toISOString(),
+    }
+    
+    sendEvent('grant_special_card', { targetUserId, targetUserName, card })
+    
+    const cardInfo = SPECIAL_CARD_INFO[cardType]
+    setNotification({
+      open: true,
+      message: `Granted ${cardInfo.label} card to ${targetUserName || 'player'}! ${cardInfo.icon}`,
+      severity: 'success',
+    })
+  }
+
+  // Activate a special card and enter targeting mode
+  const activateSpecialCard = (cardId: string, cardType: SpecialCardType) => {
+    setActiveTargeting({ cardId, cardType })
+    const cardInfo = SPECIAL_CARD_INFO[cardType]
+    setNotification({
+      open: true,
+      message: `${cardInfo.icon} Select a player to use ${cardInfo.label} on!`,
+      severity: 'info',
+    })
+  }
+
+  // Cancel targeting mode
+  const cancelTargeting = () => {
+    setActiveTargeting(null)
+  }
+
+  // Block a player from voting
+  const handleBlockPlayer = (targetUserId: string, targetUserName: string | null) => {
+    if (!activeTargeting || activeTargeting.cardType !== 'BLOCK') return
+    
+    // Add to local blocked players
+    setBlockedPlayers((prev) => {
+      const newMap = new Map(prev)
+      newMap.set(targetUserId, { blockedBy: userId, blockedByName: userName || null })
+      return newMap
+    })
+    
+    // Broadcast the block event
+    sendEvent('block_player', { targetUserId, targetUserName })
+    
+    // Consume the card
+    const newCards = specialCardsRef.current.filter((c) => c.id !== activeTargeting.cardId)
+    setSpecialCards(newCards)
+    
+    // Update presence with new available cards
+    if (channelRef.current) {
+      const currentPresence = channelRef.current.presenceState()[userId]?.[0] as any
+      channelRef.current.track({
+        ...currentPresence,
+        availableCards: newCards.map(c => c.type),
+        online_at: new Date().toISOString(),
+      })
+    }
+    
+    // Exit targeting mode
+    setActiveTargeting(null)
+    
+    setNotification({
+      open: true,
+      message: `You blocked ${targetUserName || 'a player'} from voting! 🚫`,
+      severity: 'success',
+    })
+  }
+
+  const handleUseSpecialCard = (cardId: string, cardType: SpecialCardType) => {
+    // For cards that need targeting, activate targeting mode
+    if (cardType === 'BLOCK' || cardType === 'COPY' || cardType === 'SHUFFLE') {
+      activateSpecialCard(cardId, cardType)
+    }
+  }
+
+  // Check if current user is blocked
+  const isCurrentUserBlocked = blockedPlayers.has(userId)
+
+  // Calculate average vote from non-blocked players
+  const calculateAverageVote = (): string => {
+    const validVotes = players
+      .filter((p) => !blockedPlayers.has(p.userId) && p.vote !== null)
+      .map((p) => parseFloat(p.vote!))
+      .filter((v) => !isNaN(v))
+    
+    if (validVotes.length === 0) return '0'
+    
+    const sum = validVotes.reduce((acc, v) => acc + v, 0)
+    const avg = sum / validVotes.length
+    
+    // Round to nearest Fibonacci-ish number
+    const fibNumbers = [0, 1, 2, 3, 5, 8, 13, 21]
+    const closest = fibNumbers.reduce((prev, curr) => 
+      Math.abs(curr - avg) < Math.abs(prev - avg) ? curr : prev
+    )
+    
+    return closest.toString()
+  }
+
+  // Copy another player's vote (secret until reveal)
+  const handleCopyPlayer = (targetUserId: string, targetUserName: string | null) => {
+    if (!activeTargeting || activeTargeting.cardType !== 'COPY') return
+    
+    // Store the copy relationship locally
+    setCopyVoteRelations((prev) => [
+      ...prev,
+      { 
+        copierUserId: userId, 
+        copierUserName: userName || null, 
+        targetUserId, 
+        targetUserName 
+      }
+    ])
+    
+    // Broadcast the copy event (other players will know but it's secret until reveal)
+    sendEvent('copy_vote', { targetUserId, targetUserName })
+    
+    // Consume the card
+    const newCards = specialCardsRef.current.filter((c) => c.id !== activeTargeting.cardId)
+    setSpecialCards(newCards)
+    
+    // Update presence with new available cards
+    if (channelRef.current) {
+      const currentPresence = channelRef.current.presenceState()[userId]?.[0] as any
+      channelRef.current.track({
+        ...currentPresence,
+        availableCards: newCards.map(c => c.type),
+        online_at: new Date().toISOString(),
+      })
+    }
+    
+    // Exit targeting mode
+    setActiveTargeting(null)
+    
+    setNotification({
+      open: true,
+      message: `🤫 Secretly copying ${targetUserName || 'a player'}'s vote... Shh!`,
+      severity: 'success',
+    })
+  }
+
+  // Shuffle another player's cards
+  const handleShufflePlayer = (targetUserId: string, targetUserName: string | null) => {
+    if (!activeTargeting || activeTargeting.cardType !== 'SHUFFLE') return
+    
+    // Generate random card order (shuffle the indices 0-7)
+    const cardOrder = [0, 1, 2, 3, 4, 5, 6, 7]
+    for (let i = cardOrder.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [cardOrder[i], cardOrder[j]] = [cardOrder[j], cardOrder[i]];
+    }
+    
+    // Broadcast the shuffle event
+    sendEvent('shuffle_player', { targetUserId, targetUserName, cardOrder })
+    
+    // Consume the card
+    const newCards = specialCardsRef.current.filter((c) => c.id !== activeTargeting.cardId)
+    setSpecialCards(newCards)
+    
+    // Update presence with new available cards
+    if (channelRef.current) {
+      const currentPresence = channelRef.current.presenceState()[userId]?.[0] as any
+      channelRef.current.track({
+        ...currentPresence,
+        availableCards: newCards.map(c => c.type),
+        online_at: new Date().toISOString(),
+      })
+    }
+    
+    // Exit targeting mode
+    setActiveTargeting(null)
+    
+    setNotification({
+      open: true,
+      message: `🔀 You shuffled ${targetUserName || 'a player'}'s cards! Let's see them try to vote now!`,
+      severity: 'success',
+    })
+  }
+
+  // Get the vote a player should have (handles copy relationships)
+  const getEffectiveVote = (playerId: string): string | null => {
+    // Find if this player is copying someone
+    const copyRelation = copyVoteRelations.find(r => r.copierUserId === playerId)
+    if (copyRelation) {
+      // Get the target player's vote
+      const targetPlayer = players.find(p => p.userId === copyRelation.targetUserId)
+      return targetPlayer?.vote || null
+    }
+    // Return the player's own vote
+    const player = players.find(p => p.userId === playerId)
+    return player?.vote || null
+  }
+
+  // Check if current user is copying someone
+  const currentUserCopyTarget = copyVoteRelations.find(r => r.copierUserId === userId)
+
+  // Trigger copy reveal effects when cards are revealed
+  const triggerCopyRevealEffects = () => {
+    const effects: CopyRevealEffect[] = copyVoteRelations.map(relation => {
+      const targetPlayer = players.find(p => p.userId === relation.targetUserId)
+      return {
+        id: `${Date.now()}-${Math.random()}`,
+        copierUserId: relation.copierUserId,
+        copierUserName: relation.copierUserName,
+        targetUserId: relation.targetUserId,
+        targetUserName: relation.targetUserName,
+        copiedVote: targetPlayer?.vote || null,
+      }
+    })
+    setCopyRevealEffects(effects)
+  }
+
+  // Clear copy reveal effects
+  const clearCopyRevealEffects = () => {
+    setCopyRevealEffects([])
+  }
+
+  // Handle target selection based on active targeting mode
+  const handleTargetSelect = (targetUserId: string, targetUserName: string | null) => {
+    if (!activeTargeting) return
+    
+    if (activeTargeting.cardType === 'BLOCK') {
+      handleBlockPlayer(targetUserId, targetUserName)
+    } else if (activeTargeting.cardType === 'COPY') {
+      handleCopyPlayer(targetUserId, targetUserName)
+    } else if (activeTargeting.cardType === 'SHUFFLE') {
+      handleShufflePlayer(targetUserId, targetUserName)
+    }
+  }
+
   const clearPokeEvent = () => {
     setPokeEvent({ id: null, pokedBy: null, pokedByName: null })
   }
@@ -516,6 +991,14 @@ export const useSupabaseRealtime = () => {
     tickets,
     activeTicketId,
     pokeEvent,
+    specialCards,
+    blockedPlayers,
+    activeTargeting,
+    isCurrentUserBlocked,
+    copyVoteRelations,
+    copyRevealEffects,
+    currentUserCopyTarget,
+    shuffleEffect,
     notification,
     handleIncrement,
     handleReset,
@@ -528,6 +1011,14 @@ export const useSupabaseRealtime = () => {
     handleSelectTicket,
     handleNextTicket,
     handlePokeUser,
+    handleGrantSpecialCard,
+    handleUseSpecialCard,
+    handleTargetSelect,
+    cancelTargeting,
+    calculateAverageVote,
+    getEffectiveVote,
+    triggerCopyRevealEffects,
+    clearCopyRevealEffects,
     clearPokeEvent,
     closeNotification,
     showNotification,

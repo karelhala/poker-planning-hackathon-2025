@@ -14,6 +14,11 @@ import {
   Box,
   IconButton,
   Tooltip,
+  Menu,
+  MenuItem,
+  ListItemIcon,
+  ListItemText,
+  Divider,
 } from '@mui/material';
 import {
   CheckCircle as CheckCircleIcon,
@@ -21,16 +26,14 @@ import {
   Person as PersonIcon,
   Star as StarIcon,
   Edit as EditIcon,
+  CardGiftcard as CardGiftcardIcon,
+  Block as BlockIcon,
+  GpsFixed as TargetIcon,
 } from '@mui/icons-material';
 import { EditNameDialog } from './EditNameDialog';
+import { SPECIAL_CARD_INFO, type SpecialCardType, type ActiveTargeting, type CopyVoteRelation, type Player } from '../hooks/useSupabaseRealtime';
 
-export interface Player {
-  userId: string;
-  userName: string | null;
-  hasVoted: boolean;
-  vote: string | null;
-  isOnline: boolean;
-}
+export type { Player };
 
 export type GameState = 'VOTING' | 'REVEALED';
 
@@ -42,6 +45,13 @@ interface PlayersTableProps {
   onNameChange: (newName: string) => void;
   currentUserName: string | null;
   onPokeUser?: (userId: string, userName: string | null) => void;
+  onGrantSpecialCard?: (userId: string, userName: string | null, cardType: SpecialCardType) => void;
+  isAdmin?: boolean;
+  blockedPlayers?: Map<string, { blockedBy: string; blockedByName: string | null }>;
+  activeTargeting?: ActiveTargeting | null;
+  onTargetSelect?: (userId: string, userName: string | null) => void;
+  copyVoteRelations?: CopyVoteRelation[];
+  getEffectiveVote?: (playerId: string) => string | null;
 }
 
 export const PlayersTable: React.FC<PlayersTableProps> = ({
@@ -52,8 +62,29 @@ export const PlayersTable: React.FC<PlayersTableProps> = ({
   onNameChange,
   currentUserName,
   onPokeUser,
+  onGrantSpecialCard,
+  isAdmin = false,
+  blockedPlayers = new Map(),
+  activeTargeting = null,
+  onTargetSelect,
+  copyVoteRelations = [],
+  getEffectiveVote,
 }) => {
   const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [grantMenuAnchor, setGrantMenuAnchor] = useState<{ element: HTMLElement; player: Player } | null>(null);
+
+  // Check if in targeting mode
+  const isTargetingMode = activeTargeting !== null;
+
+  // Check if a player is copying someone
+  const getPlayerCopyInfo = (playerId: string) => {
+    return copyVoteRelations.find(r => r.copierUserId === playerId);
+  };
+
+  // Check if a player is being copied
+  const isBeingCopied = (playerId: string) => {
+    return copyVoteRelations.some(r => r.targetUserId === playerId);
+  };
 
   const handleOpenEditDialog = () => {
     setEditDialogOpen(true);
@@ -66,13 +97,110 @@ export const PlayersTable: React.FC<PlayersTableProps> = ({
   const handleSaveName = (newName: string) => {
     onNameChange(newName);
   };
-  const getStatusChip = (hasVoted: boolean, vote: string | null) => {
+
+  const handleOpenGrantMenu = (event: React.MouseEvent<HTMLElement>, player: Player) => {
+    event.stopPropagation();
+    setGrantMenuAnchor({ element: event.currentTarget, player });
+  };
+
+  const handleCloseGrantMenu = () => {
+    setGrantMenuAnchor(null);
+  };
+
+  const handleGrantCard = (cardType: SpecialCardType) => {
+    if (grantMenuAnchor && onGrantSpecialCard) {
+      onGrantSpecialCard(grantMenuAnchor.player.userId, grantMenuAnchor.player.userName, cardType);
+    }
+    handleCloseGrantMenu();
+  };
+  const getStatusChip = (player: Player) => {
+    const { hasVoted, vote, userId } = player;
+    const isPlayerBlocked = blockedPlayers.has(userId);
+    const copyInfo = getPlayerCopyInfo(userId);
+    const playerIsBeingCopied = isBeingCopied(userId);
+
+    // Get effective vote (handles copies)
+    const effectiveVote = getEffectiveVote ? getEffectiveVote(userId) : vote;
+
     // If game is revealed, show the actual vote
     if (gameState === 'REVEALED') {
-      if (vote) {
+      if (isPlayerBlocked) {
+        return (
+          <Tooltip title="Vote was auto-calculated (blocked)">
+            <Chip
+              label={effectiveVote || 'Avg'}
+              color="warning"
+              size="medium"
+              icon={<BlockIcon />}
+              sx={{
+                fontSize: '1rem',
+                fontWeight: 'bold',
+                minWidth: 70,
+              }}
+            />
+          </Tooltip>
+        );
+      }
+      
+      // If this player copied someone
+      if (copyInfo) {
+        return (
+          <Tooltip title={`Copied from ${copyInfo.targetUserName || 'someone'} 🐱`}>
+            <Chip
+              label={
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                  <span>📋</span>
+                  <span>{effectiveVote || '?'}</span>
+                </Box>
+              }
+              size="medium"
+              sx={{
+                fontSize: '1rem',
+                fontWeight: 'bold',
+                minWidth: 70,
+                bgcolor: '#9c27b0',
+                color: '#fff',
+                animation: 'copyPulse 1s ease-in-out infinite',
+                '@keyframes copyPulse': {
+                  '0%, 100%': { boxShadow: '0 0 5px rgba(156, 39, 176, 0.5)' },
+                  '50%': { boxShadow: '0 0 15px rgba(156, 39, 176, 0.8)' },
+                }
+              }}
+            />
+          </Tooltip>
+        );
+      }
+
+      // If this player is being copied by someone
+      if (playerIsBeingCopied) {
+        const copiers = copyVoteRelations.filter(r => r.targetUserId === userId);
+        const copierNames = copiers.map(c => c.copierUserName || 'Someone').join(', ');
+        return (
+          <Tooltip title={`Copied by: ${copierNames} 🎯`}>
+            <Chip
+              label={
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                  <span>{effectiveVote}</span>
+                  <span style={{ fontSize: '0.8rem' }}>🎯</span>
+                </Box>
+              }
+              color="primary"
+              size="medium"
+              sx={{
+                fontSize: '1.2rem',
+                fontWeight: 'bold',
+                minWidth: 60,
+                border: '2px solid #9c27b0',
+              }}
+            />
+          </Tooltip>
+        );
+      }
+
+      if (effectiveVote) {
         return (
           <Chip
-            label={vote}
+            label={effectiveVote}
             color="primary"
             size="medium"
             sx={{
@@ -90,6 +218,29 @@ export const PlayersTable: React.FC<PlayersTableProps> = ({
           size="small"
           variant="outlined"
         />
+      );
+    }
+
+    // If player is blocked during voting
+    if (isPlayerBlocked) {
+      const blocker = blockedPlayers.get(userId);
+      return (
+        <Tooltip title={`Blocked by ${blocker?.blockedByName || 'someone'}`}>
+          <Chip
+            icon={<BlockIcon />}
+            label="Blocked"
+            color="error"
+            size="small"
+            variant="outlined"
+            sx={{
+              animation: 'pulse 1.5s ease-in-out infinite',
+              '@keyframes pulse': {
+                '0%, 100%': { opacity: 1 },
+                '50%': { opacity: 0.6 },
+              }
+            }}
+          />
+        </Tooltip>
       );
     }
 
@@ -174,6 +325,7 @@ export const PlayersTable: React.FC<PlayersTableProps> = ({
                   {gameState === 'REVEALED' ? 'Vote' : 'Status'}
                 </TableCell>
                 <TableCell align="center">Role</TableCell>
+                {isAdmin && <TableCell align="center">Cards</TableCell>}
                 <TableCell align="center">Actions</TableCell>
               </TableRow>
             </TableHead>
@@ -190,13 +342,24 @@ export const PlayersTable: React.FC<PlayersTableProps> = ({
                 players.map((player) => {
                   const isCreator = player.userId === roomCreator;
                   const isCurrentUser = player.userId === currentUserId;
-                  const canPoke = !isCurrentUser;
+                  const isPlayerBlocked = blockedPlayers.has(player.userId);
+                  const canTarget = isTargetingMode && !isCurrentUser;
+                  const canPoke = !isCurrentUser && !isTargetingMode;
                   
                   const handleRowClick = () => {
+                    // If in targeting mode, select this player as target
+                    if (canTarget) {
+                      onTargetSelect?.(player.userId, player.userName);
+                      return;
+                    }
+                    // Otherwise, poke
                     if (canPoke) {
                       onPokeUser?.(player.userId, player.userName);
                     }
                   };
+
+                  // Get targeting card info for styling
+                  const targetingColor = activeTargeting ? SPECIAL_CARD_INFO[activeTargeting.cardType].color : '#f44336';
 
                   return (
                     <TableRow
@@ -204,15 +367,46 @@ export const PlayersTable: React.FC<PlayersTableProps> = ({
                       onClick={handleRowClick}
                       sx={{
                         '&:hover': { 
-                          bgcolor: canPoke ? 'rgba(255, 107, 107, 0.1)' : 'action.hover',
+                          bgcolor: canTarget 
+                            ? `${targetingColor}20` 
+                            : canPoke 
+                              ? 'rgba(255, 107, 107, 0.1)' 
+                              : 'action.hover',
                         },
-                        bgcolor: isCurrentUser ? 'action.selected' : 'inherit',
-                        cursor: canPoke ? 'pointer' : 'default',
-                        transition: 'background-color 0.2s ease',
+                        bgcolor: isCurrentUser 
+                          ? 'action.selected' 
+                          : isPlayerBlocked 
+                            ? 'rgba(244, 67, 54, 0.08)' 
+                            : 'inherit',
+                        cursor: canTarget || canPoke ? 'pointer' : 'default',
+                        transition: 'all 0.2s ease',
+                        ...(canTarget && {
+                          border: `2px dashed ${targetingColor}`,
+                          animation: 'targetPulse 1s ease-in-out infinite',
+                          '@keyframes targetPulse': {
+                            '0%, 100%': { borderColor: targetingColor },
+                            '50%': { borderColor: 'transparent' },
+                          }
+                        }),
                       }}
                     >
                       <TableCell>
-                        {getUserAvatar(player.userId, player.userName)}
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          {getUserAvatar(player.userId, player.userName)}
+                          {canTarget && (
+                            <TargetIcon 
+                              sx={{ 
+                                color: targetingColor,
+                                fontSize: '1rem',
+                                animation: 'spin 2s linear infinite',
+                                '@keyframes spin': {
+                                  '0%': { transform: 'rotate(0deg)' },
+                                  '100%': { transform: 'rotate(360deg)' },
+                                }
+                              }} 
+                            />
+                          )}
+                        </Box>
                       </TableCell>
                       <TableCell>
                         <Typography variant="body2" fontWeight="medium">
@@ -223,7 +417,7 @@ export const PlayersTable: React.FC<PlayersTableProps> = ({
                         </Typography>
                       </TableCell>
                       <TableCell align="center">
-                        {getStatusChip(player.hasVoted, player.vote)}
+                        {getStatusChip(player)}
                       </TableCell>
                       <TableCell align="center">
                         {isCreator ? (
@@ -243,22 +437,74 @@ export const PlayersTable: React.FC<PlayersTableProps> = ({
                           />
                         )}
                       </TableCell>
+                      {isAdmin && (
+                        <TableCell align="center">
+                          <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'center', flexWrap: 'wrap' }}>
+                            {player.availableCards && player.availableCards.length > 0 ? (
+                              player.availableCards.map((cardType) => {
+                                const cardInfo = SPECIAL_CARD_INFO[cardType];
+                                return (
+                                  <Tooltip key={cardType} title={cardInfo.label}>
+                                    <Box
+                                      sx={{
+                                        width: 24,
+                                        height: 24,
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        bgcolor: `${cardInfo.color}20`,
+                                        borderRadius: 1,
+                                        border: `1px solid ${cardInfo.color}`,
+                                        fontSize: '0.8rem',
+                                      }}
+                                    >
+                                      {cardInfo.icon}
+                                    </Box>
+                                  </Tooltip>
+                                );
+                              })
+                            ) : (
+                              <Typography variant="caption" color="text.secondary">
+                                None
+                              </Typography>
+                            )}
+                          </Box>
+                        </TableCell>
+                      )}
                       <TableCell 
                         align="center"
                         onClick={(e) => e.stopPropagation()}
                         sx={{ cursor: 'default' }}
                       >
-                        {isCurrentUser && (
-                          <Tooltip title="Edit your name">
-                            <IconButton
-                              size="small"
-                              onClick={handleOpenEditDialog}
-                              color="primary"
-                            >
-                              <EditIcon fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
-                        )}
+                        <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'center' }}>
+                          {isCurrentUser && (
+                            <Tooltip title="Edit your name">
+                              <IconButton
+                                size="small"
+                                onClick={handleOpenEditDialog}
+                                color="primary"
+                              >
+                                <EditIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                          )}
+                          {isAdmin && !isCurrentUser && (
+                            <Tooltip title="Grant special card">
+                              <IconButton
+                                size="small"
+                                onClick={(e) => handleOpenGrantMenu(e, player)}
+                                sx={{ 
+                                  color: '#9c27b0',
+                                  '&:hover': {
+                                    bgcolor: 'rgba(156, 39, 176, 0.1)',
+                                  }
+                                }}
+                              >
+                                <CardGiftcardIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                          )}
+                        </Box>
                       </TableCell>
                     </TableRow>
                   );
@@ -275,6 +521,58 @@ export const PlayersTable: React.FC<PlayersTableProps> = ({
         onClose={handleCloseEditDialog}
         onSave={handleSaveName}
       />
+
+      {/* Grant Special Card Menu */}
+      <Menu
+        anchorEl={grantMenuAnchor?.element}
+        open={Boolean(grantMenuAnchor)}
+        onClose={handleCloseGrantMenu}
+        anchorOrigin={{
+          vertical: 'bottom',
+          horizontal: 'right',
+        }}
+        transformOrigin={{
+          vertical: 'top',
+          horizontal: 'right',
+        }}
+      >
+        <MenuItem disabled sx={{ opacity: 1 }}>
+          <Typography variant="caption" color="text.secondary">
+            Grant special card to {grantMenuAnchor?.player.userName || 'player'}
+          </Typography>
+        </MenuItem>
+        <Divider />
+        {(Object.keys(SPECIAL_CARD_INFO) as SpecialCardType[]).map((cardType) => {
+          const cardInfo = SPECIAL_CARD_INFO[cardType];
+          return (
+            <MenuItem 
+              key={cardType} 
+              onClick={() => handleGrantCard(cardType)}
+              sx={{
+                '&:hover': {
+                  bgcolor: `${cardInfo.color}15`,
+                }
+              }}
+            >
+              <ListItemIcon sx={{ fontSize: '1.2rem', minWidth: 36 }}>
+                {cardInfo.icon}
+              </ListItemIcon>
+              <ListItemText 
+                primary={cardInfo.label}
+                secondary={cardInfo.description}
+                primaryTypographyProps={{ 
+                  fontWeight: 600,
+                  color: cardInfo.color,
+                }}
+                secondaryTypographyProps={{ 
+                  variant: 'caption',
+                  sx: { fontSize: '0.7rem' }
+                }}
+              />
+            </MenuItem>
+          );
+        })}
+      </Menu>
     </Card>
   );
 };
