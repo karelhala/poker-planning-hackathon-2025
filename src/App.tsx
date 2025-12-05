@@ -95,6 +95,14 @@ function App() {
     return false
   }, [roomId, userId, roomCreator, players, isCreator])
 
+  // Debug: Log players array
+  useEffect(() => {
+    if (roomId) {
+      console.log('Players in room:', players)
+      console.log('Players count:', players.length)
+    }
+  }, [roomId, players])
+
   // Create theme
   const theme = useMemo(
     () =>
@@ -189,7 +197,7 @@ function App() {
     
     // Broadcast ticket selection to all players
     if (roomId) {
-      const channelName = `poker-planning-room-${roomId}`
+      const channelName = `poker-planning-room-${roomId}:active-ticket`
       const channel = supabase.channel(channelName)
       channel.send({
         type: 'broadcast',
@@ -208,7 +216,7 @@ function App() {
   useEffect(() => {
     if (!roomId) return
 
-    const channelName = `poker-planning-room-${roomId}`
+    const channelName = `poker-planning-room-${roomId}:active-ticket`
     const channel = supabase.channel(channelName, {
       config: {
         broadcast: { self: false },

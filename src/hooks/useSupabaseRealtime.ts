@@ -303,6 +303,8 @@ export const useSupabaseRealtime = () => {
         const users: RoomUser[] = []
         const playersList: Player[] = []
         
+        console.log('Presence sync - raw state:', state)
+        
         Object.keys(state).forEach((key) => {
           const presences = state[key] as any[]
           presences.forEach((presence) => {
@@ -320,6 +322,9 @@ export const useSupabaseRealtime = () => {
             })
           })
         })
+        
+        console.log('Presence sync - users:', users)
+        console.log('Presence sync - players:', playersList)
         
         setActiveUsers(users)
         setPlayers(playersList)
@@ -827,14 +832,17 @@ export const useSupabaseRealtime = () => {
         setSpecialCards(initialCards)
         
         // Track this user's presence with voting status and available cards
-        await channel.track({
+        const presenceData = {
           userId,
           userName: userNameRef.current || null,
           hasVoted: false,
           vote: null,
           availableCards: ALL_SPECIAL_CARD_TYPES,
           online_at: new Date().toISOString(),
-        })
+        }
+        console.log('Tracking presence:', presenceData)
+        await channel.track(presenceData)
+        console.log('Presence tracked successfully')
       }
     })
 

@@ -87,7 +87,7 @@ export const IssuesSidebar: React.FC<IssuesSidebarProps> = ({
 
       // Broadcast loaded tickets to all players in the room
       if (roomId && isAdmin) {
-        const channelName = `poker-planning-room-${roomId}`
+        const channelName = `poker-planning-room-${roomId}:jira-tickets`
         const channel = supabase.channel(channelName)
         await channel.send({
           type: 'broadcast',
@@ -112,7 +112,7 @@ export const IssuesSidebar: React.FC<IssuesSidebarProps> = ({
   useEffect(() => {
     if (!roomId) return
 
-    const channelName = `poker-planning-room-${roomId}`
+    const channelName = `poker-planning-room-${roomId}:jira-tickets`
     const channel = supabase.channel(channelName, {
       config: {
         broadcast: { self: false },
