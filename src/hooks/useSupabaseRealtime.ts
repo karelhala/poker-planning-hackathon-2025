@@ -1050,18 +1050,21 @@ export const useSupabaseRealtime = () => {
     // Broadcast the block event
     sendEvent('block_player', { targetUserId, targetUserName })
     
-    // Consume the card
-    const newCards = specialCardsRef.current.filter((c) => c.id !== activeTargeting.cardId)
-    setSpecialCards(newCards)
-    
-    // Update presence with new available cards
-    if (channelRef.current) {
-      const currentPresence = channelRef.current.presenceState()[userId]?.[0] as any
-      channelRef.current.track({
-        ...currentPresence,
-        availableCards: newCards.map(c => c.type),
-        online_at: new Date().toISOString(),
-      })
+    // Consume the card (unless admin - admin has unlimited cards)
+    const isAdmin = userId === roomCreatorRef.current
+    if (!isAdmin) {
+      const newCards = specialCardsRef.current.filter((c) => c.id !== activeTargeting.cardId)
+      setSpecialCards(newCards)
+      
+      // Update presence with new available cards
+      if (channelRef.current) {
+        const currentPresence = channelRef.current.presenceState()[userId]?.[0] as any
+        channelRef.current.track({
+          ...currentPresence,
+          availableCards: newCards.map(c => c.type),
+          online_at: new Date().toISOString(),
+        })
+      }
     }
     
     // Exit targeting mode
@@ -1123,18 +1126,21 @@ export const useSupabaseRealtime = () => {
     // Broadcast the copy event (other players will know but it's secret until reveal)
     sendEvent('copy_vote', { targetUserId, targetUserName })
     
-    // Consume the card
-    const newCards = specialCardsRef.current.filter((c) => c.id !== activeTargeting.cardId)
-    setSpecialCards(newCards)
-    
-    // Update presence with new available cards
-    if (channelRef.current) {
-      const currentPresence = channelRef.current.presenceState()[userId]?.[0] as any
-      channelRef.current.track({
-        ...currentPresence,
-        availableCards: newCards.map(c => c.type),
-        online_at: new Date().toISOString(),
-      })
+    // Consume the card (unless admin - admin has unlimited cards)
+    const isAdmin = userId === roomCreatorRef.current
+    if (!isAdmin) {
+      const newCards = specialCardsRef.current.filter((c) => c.id !== activeTargeting.cardId)
+      setSpecialCards(newCards)
+      
+      // Update presence with new available cards
+      if (channelRef.current) {
+        const currentPresence = channelRef.current.presenceState()[userId]?.[0] as any
+        channelRef.current.track({
+          ...currentPresence,
+          availableCards: newCards.map(c => c.type),
+          online_at: new Date().toISOString(),
+        })
+      }
     }
     
     // Exit targeting mode
@@ -1161,18 +1167,21 @@ export const useSupabaseRealtime = () => {
     // Broadcast the shuffle event
     sendEvent('shuffle_player', { targetUserId, targetUserName, cardOrder })
     
-    // Consume the card
-    const newCards = specialCardsRef.current.filter((c) => c.id !== activeTargeting.cardId)
-    setSpecialCards(newCards)
-    
-    // Update presence with new available cards
-    if (channelRef.current) {
-      const currentPresence = channelRef.current.presenceState()[userId]?.[0] as any
-      channelRef.current.track({
-        ...currentPresence,
-        availableCards: newCards.map(c => c.type),
-        online_at: new Date().toISOString(),
-      })
+    // Consume the card (unless admin - admin has unlimited cards)
+    const isAdmin = userId === roomCreatorRef.current
+    if (!isAdmin) {
+      const newCards = specialCardsRef.current.filter((c) => c.id !== activeTargeting.cardId)
+      setSpecialCards(newCards)
+      
+      // Update presence with new available cards
+      if (channelRef.current) {
+        const currentPresence = channelRef.current.presenceState()[userId]?.[0] as any
+        channelRef.current.track({
+          ...currentPresence,
+          availableCards: newCards.map(c => c.type),
+          online_at: new Date().toISOString(),
+        })
+      }
     }
     
     // Exit targeting mode
