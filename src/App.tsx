@@ -11,6 +11,7 @@ import { VotingCards } from './components/VotingCards'
 import { PlayersTable } from './components/PlayersTable'
 import { IssuesSidebar, type Ticket } from './components/IssuesSidebar'
 import { ActiveTicketDisplay } from './components/ActiveTicketDisplay'
+import { PokeEffect } from './components/PokeEffect'
 import { useUser } from './contexts/UserContext'
 import { useRoom } from './contexts/RoomContext'
 import { useThemeMode } from './hooks/useThemeMode'
@@ -30,10 +31,13 @@ function App() {
     roomCreator,
     players,
     gameState,
+    pokeEvent,
     notification,
     handleResetVoting,
     handleRevealCards,
     updateVotingStatus,
+    handlePokeUser,
+    clearPokeEvent,
     closeNotification,
     showNotification,
   } = useSupabaseRealtime()
@@ -114,6 +118,13 @@ function App() {
     }
   }, [roomId, userName])
 
+  // Show notification when poked
+  useEffect(() => {
+    if (pokeEvent.id && pokeEvent.pokedByName) {
+      showNotification(`${pokeEvent.pokedByName} poked you! 👆`, 'info')
+    }
+  }, [pokeEvent.id])
+
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
@@ -175,6 +186,7 @@ function App() {
                     gameState={gameState}
                     onNameChange={handleNameChange}
                     currentUserName={userName}
+                    onPokeUser={handlePokeUser}
                   />
                 </Grid>
               )}
@@ -234,6 +246,12 @@ function App() {
           onSelectTicket={handleSelectTicket}
         />
       )}
+
+      {/* Poke Effect - shows particles and screen shake when poked */}
+      <PokeEffect
+        pokeId={pokeEvent.id}
+        onAnimationEnd={clearPokeEvent}
+      />
     </ThemeProvider>
   )
 }

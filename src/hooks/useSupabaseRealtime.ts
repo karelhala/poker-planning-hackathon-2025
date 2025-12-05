@@ -33,6 +33,12 @@ export interface JiraTicket {
   timestamp: string
 }
 
+export interface PokeEvent {
+  id: string | null;
+  pokedBy: string | null;
+  pokedByName: string | null;
+}
+
 export const useSupabaseRealtime = () => {
   const { userId, userName } = useUser()
   const { roomId } = useRoom()
@@ -43,6 +49,7 @@ export const useSupabaseRealtime = () => {
   const [gameState, setGameState] = useState<GameState>('VOTING')
   const [tickets, setTickets] = useState<JiraTicket[]>([])
   const [activeTicketId, setActiveTicketId] = useState<string | null>(null)
+  const [pokeEvent, setPokeEvent] = useState<PokeEvent>({ id: null, pokedBy: null, pokedByName: null })
   const [notification, setNotification] = useState<Notification>({
     open: false,
     message: '',
@@ -315,6 +322,22 @@ export const useSupabaseRealtime = () => {
       })
     })
 
+    // Listen for poke events
+    channel.on('broadcast', { event: 'poke' }, (payload) => {
+      console.log('Received poke event:', payload)
+      const { targetUserId } = payload.payload
+      const senderName = payload.payload.userName || 'Someone'
+      
+      // Only show poke effect if we are the target
+      if (targetUserId === userId) {
+        setPokeEvent({
+          id: `${Date.now()}-${Math.random()}`,
+          pokedBy: payload.payload.userId,
+          pokedByName: senderName,
+        })
+      }
+    })
+
     channel.subscribe(async (status) => {
       if (status === 'SUBSCRIBED') {
         console.log(`Connected to room: ${roomId}`)
@@ -463,6 +486,19 @@ export const useSupabaseRealtime = () => {
     sendEvent('ticket_edit', { ticketId, newKey })
   }
 
+  const handlePokeUser = (targetUserId: string, targetUserName: string | null) => {
+    sendEvent('poke', { targetUserId, targetUserName })
+    setNotification({
+      open: true,
+      message: `You poked ${targetUserName || 'someone'}! 👆`,
+      severity: 'info',
+    })
+  }
+
+  const clearPokeEvent = () => {
+    setPokeEvent({ id: null, pokedBy: null, pokedByName: null })
+  }
+
   const closeNotification = () => {
     setNotification({ ...notification, open: false })
   }
@@ -479,6 +515,7 @@ export const useSupabaseRealtime = () => {
     gameState,
     tickets,
     activeTicketId,
+    pokeEvent,
     notification,
     handleIncrement,
     handleReset,
@@ -490,6 +527,8 @@ export const useSupabaseRealtime = () => {
     handleEditTicket,
     handleSelectTicket,
     handleNextTicket,
+    handlePokeUser,
+    clearPokeEvent,
     closeNotification,
     showNotification,
   }

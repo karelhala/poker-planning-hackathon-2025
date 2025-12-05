@@ -41,6 +41,7 @@ interface PlayersTableProps {
   gameState: GameState;
   onNameChange: (newName: string) => void;
   currentUserName: string | null;
+  onPokeUser?: (userId: string, userName: string | null) => void;
 }
 
 export const PlayersTable: React.FC<PlayersTableProps> = ({
@@ -50,6 +51,7 @@ export const PlayersTable: React.FC<PlayersTableProps> = ({
   gameState,
   onNameChange,
   currentUserName,
+  onPokeUser,
 }) => {
   const [editDialogOpen, setEditDialogOpen] = useState(false);
 
@@ -187,12 +189,26 @@ export const PlayersTable: React.FC<PlayersTableProps> = ({
               ) : (
                 players.map((player) => {
                   const isCreator = player.userId === roomCreator;
+                  const isCurrentUser = player.userId === currentUserId;
+                  const canPoke = !isCurrentUser;
+                  
+                  const handleRowClick = () => {
+                    if (canPoke) {
+                      onPokeUser?.(player.userId, player.userName);
+                    }
+                  };
+
                   return (
                     <TableRow
                       key={player.userId}
+                      onClick={handleRowClick}
                       sx={{
-                        '&:hover': { bgcolor: 'action.hover' },
-                        bgcolor: player.userId === currentUserId ? 'action.selected' : 'inherit',
+                        '&:hover': { 
+                          bgcolor: canPoke ? 'rgba(255, 107, 107, 0.1)' : 'action.hover',
+                        },
+                        bgcolor: isCurrentUser ? 'action.selected' : 'inherit',
+                        cursor: canPoke ? 'pointer' : 'default',
+                        transition: 'background-color 0.2s ease',
                       }}
                     >
                       <TableCell>
@@ -227,8 +243,12 @@ export const PlayersTable: React.FC<PlayersTableProps> = ({
                           />
                         )}
                       </TableCell>
-                      <TableCell align="center">
-                        {player.userId === currentUserId ? (
+                      <TableCell 
+                        align="center"
+                        onClick={(e) => e.stopPropagation()}
+                        sx={{ cursor: 'default' }}
+                      >
+                        {isCurrentUser && (
                           <Tooltip title="Edit your name">
                             <IconButton
                               size="small"
@@ -238,8 +258,6 @@ export const PlayersTable: React.FC<PlayersTableProps> = ({
                               <EditIcon fontSize="small" />
                             </IconButton>
                           </Tooltip>
-                        ) : (
-                          <Box sx={{ width: 40, height: 40 }} />
                         )}
                       </TableCell>
                     </TableRow>
