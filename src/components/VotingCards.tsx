@@ -5,6 +5,8 @@ import { type SpecialCard, type ActiveTargeting, type SpecialCardType, type Copy
 
 // Standard Fibonacci scale for agile estimation
 const CARDS = ['0', '1', '2', '3', '5', '8', '13', '21'];
+// Numeric cards for random selection
+const NUMERIC_CARDS = ['0', '1', '2', '3', '5', '8', '13', '21'];
 
 // Shimmer animation for special cards
 const shimmer = keyframes`
@@ -76,6 +78,7 @@ interface VotingCardsProps {
   onCancelTargeting?: () => void;
   currentUserCopyTarget?: CopyVoteRelation | undefined;
   shuffleEffect?: ShuffleEffect | null;
+  onCoffeeSelect?: () => void;
 }
 
 export const VotingCards: React.FC<VotingCardsProps> = ({ 
@@ -89,7 +92,9 @@ export const VotingCards: React.FC<VotingCardsProps> = ({
   onCancelTargeting,
   currentUserCopyTarget,
   shuffleEffect = null,
+  onCoffeeSelect,
 }) => {
+  const [lastRandomValue, setLastRandomValue] = useState<string | null>(null);
   const [revealedCards, setRevealedCards] = useState<Set<number>>(new Set());
 
   // Reset revealed cards when shuffle effect changes, and pre-reveal 0 and 21
@@ -337,6 +342,86 @@ export const VotingCards: React.FC<VotingCardsProps> = ({
             </Grid>
           );
         })}
+
+        {/* Divider between number cards and special vote cards */}
+        <Grid item>
+          <Divider orientation="vertical" flexItem sx={{ height: 80, mx: 1 }} />
+        </Grid>
+
+        {/* Random Card (?) */}
+        <Grid item>
+          <Tooltip title="Pick a random value from 0-21" arrow>
+            <Button
+              variant={selectedValue === '?' || lastRandomValue ? "contained" : "outlined"}
+              color="secondary"
+              disabled={votingDisabled}
+              onClick={() => {
+                if (!votingDisabled) {
+                  const randomValue = NUMERIC_CARDS[Math.floor(Math.random() * NUMERIC_CARDS.length)];
+                  setLastRandomValue(randomValue);
+                  onVote(randomValue);
+                }
+              }}
+              sx={{
+                width: 70,
+                height: 90,
+                fontSize: '2rem',
+                borderRadius: 2,
+                boxShadow: 2,
+                borderWidth: 2,
+                position: 'relative',
+                '&:hover': {
+                  transform: votingDisabled ? 'none' : 'translateY(-4px)',
+                  boxShadow: votingDisabled ? 2 : 4,
+                  borderWidth: 2,
+                },
+              }}
+            >
+              {lastRandomValue ? (
+                <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                  <Typography variant="caption" sx={{ fontSize: '0.6rem', opacity: 0.7 }}>🎲</Typography>
+                  <span>{lastRandomValue}</span>
+                </Box>
+              ) : '?'}
+            </Button>
+          </Tooltip>
+        </Grid>
+
+        {/* Coffee Card (☕) */}
+        <Grid item>
+          <Tooltip title="Take a break - your next round vote counts as 0.5x" arrow>
+            <Button
+              variant={selectedValue === '☕' ? "contained" : "outlined"}
+              color="warning"
+              disabled={votingDisabled}
+              onClick={() => {
+                if (!votingDisabled) {
+                  onVote('☕');
+                  onCoffeeSelect?.();
+                }
+              }}
+              sx={{
+                width: 70,
+                height: 90,
+                fontSize: '2rem',
+                borderRadius: 2,
+                boxShadow: 2,
+                borderWidth: 2,
+                bgcolor: selectedValue === '☕' ? '#795548' : 'transparent',
+                borderColor: '#795548',
+                color: selectedValue === '☕' ? '#fff' : '#795548',
+                '&:hover': {
+                  transform: votingDisabled ? 'none' : 'translateY(-4px)',
+                  boxShadow: votingDisabled ? 2 : 4,
+                  borderWidth: 2,
+                  bgcolor: selectedValue === '☕' ? '#5d4037' : 'rgba(121, 85, 72, 0.1)',
+                },
+              }}
+            >
+              ☕
+            </Button>
+          </Tooltip>
+        </Grid>
       </Grid>
 
       {/* Special Cards Section */}

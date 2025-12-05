@@ -53,6 +53,9 @@ interface PlayersTableProps {
   copyVoteRelations?: CopyVoteRelation[];
   getEffectiveVote?: (playerId: string) => string | null;
   hasDoublePower?: (playerId: string) => boolean;
+  hasHalfPower?: (playerId: string) => boolean;
+  onGrantDoublePower?: (userId: string, userName: string | null) => void;
+  onGrantHalfPower?: (userId: string, userName: string | null) => void;
 }
 
 export const PlayersTable: React.FC<PlayersTableProps> = ({
@@ -71,6 +74,9 @@ export const PlayersTable: React.FC<PlayersTableProps> = ({
   copyVoteRelations = [],
   getEffectiveVote,
   hasDoublePower,
+  hasHalfPower,
+  onGrantDoublePower,
+  onGrantHalfPower,
 }) => {
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [grantMenuAnchor, setGrantMenuAnchor] = useState<{ element: HTMLElement; player: Player } | null>(null);
@@ -434,6 +440,21 @@ export const PlayersTable: React.FC<PlayersTableProps> = ({
                               />
                             </Tooltip>
                           )}
+                          {hasHalfPower?.(player.userId) && (
+                            <Tooltip title="Coffee break! This player's vote counts as 0.5x">
+                              <Chip
+                                label="☕ 0.5x"
+                                size="small"
+                                sx={{
+                                  height: 20,
+                                  fontSize: '0.7rem',
+                                  fontWeight: 700,
+                                  bgcolor: '#795548',
+                                  color: '#fff',
+                                }}
+                              />
+                            </Tooltip>
+                          )}
                         </Box>
                         <Typography variant="caption" color="text.secondary">
                           {player.userId.substring(0, 8)}...
@@ -595,6 +616,72 @@ export const PlayersTable: React.FC<PlayersTableProps> = ({
             </MenuItem>
           );
         })}
+        <Divider sx={{ my: 1 }} />
+        <MenuItem disabled sx={{ opacity: 1 }}>
+          <Typography variant="caption" color="text.secondary">
+            Power Modifiers
+          </Typography>
+        </MenuItem>
+        <MenuItem 
+          onClick={() => {
+            if (grantMenuAnchor?.player) {
+              onGrantDoublePower?.(grantMenuAnchor.player.userId, grantMenuAnchor.player.userName);
+              handleCloseGrantMenu();
+            }
+          }}
+          disabled={grantMenuAnchor?.player && hasDoublePower?.(grantMenuAnchor.player.userId)}
+          sx={{
+            '&:hover': {
+              bgcolor: 'rgba(255, 193, 7, 0.15)',
+            }
+          }}
+        >
+          <ListItemIcon sx={{ fontSize: '1.2rem', minWidth: 36 }}>
+            ⚡
+          </ListItemIcon>
+          <ListItemText 
+            primary="Double Power"
+            secondary="Next round vote counts for 2x"
+            primaryTypographyProps={{ 
+              fontWeight: 600,
+              color: '#ffc107',
+            }}
+            secondaryTypographyProps={{ 
+              variant: 'caption',
+              sx: { fontSize: '0.7rem' }
+            }}
+          />
+        </MenuItem>
+        <MenuItem 
+          onClick={() => {
+            if (grantMenuAnchor?.player) {
+              onGrantHalfPower?.(grantMenuAnchor.player.userId, grantMenuAnchor.player.userName);
+              handleCloseGrantMenu();
+            }
+          }}
+          disabled={grantMenuAnchor?.player && hasHalfPower?.(grantMenuAnchor.player.userId)}
+          sx={{
+            '&:hover': {
+              bgcolor: 'rgba(121, 85, 72, 0.15)',
+            }
+          }}
+        >
+          <ListItemIcon sx={{ fontSize: '1.2rem', minWidth: 36 }}>
+            ☕
+          </ListItemIcon>
+          <ListItemText 
+            primary="Half Power"
+            secondary="Next round vote counts for 0.5x"
+            primaryTypographyProps={{ 
+              fontWeight: 600,
+              color: '#795548',
+            }}
+            secondaryTypographyProps={{ 
+              variant: 'caption',
+              sx: { fontSize: '0.7rem' }
+            }}
+          />
+        </MenuItem>
       </Menu>
     </Card>
   );

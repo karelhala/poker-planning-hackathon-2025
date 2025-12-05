@@ -164,6 +164,7 @@ export const useSupabaseRealtime = () => {
     triggeredByName: null,
   })
   const [doublePowerPlayers, setDoublePowerPlayers] = useState<Set<string>>(new Set())
+  const [halfPowerPlayers, setHalfPowerPlayers] = useState<Set<string>>(new Set())
   const [actionLog, setActionLog] = useState<ActionLogEntry[]>([])
   const [notification, setNotification] = useState<Notification>({
     open: false,
@@ -433,8 +434,9 @@ export const useSupabaseRealtime = () => {
       console.log('Received reveal event:', payload)
       const senderName = payload.payload.userName || 'Admin'
       setGameState('REVEALED')
-      // Clear double power after it's been used for this round
+      // Clear double/half power after it's been used for this round
       setDoublePowerPlayers(new Set())
+      setHalfPowerPlayers(new Set())
       addLogEntry('reveal', `${senderName} revealed all cards`, senderName)
       setNotification({
         open: true,
@@ -753,6 +755,69 @@ export const useSupabaseRealtime = () => {
       }
     })
 
+    // Listen for coffee select events
+    channel.on('broadcast', { event: 'coffee_select' }, (payload) => {
+      console.log('Received coffee select event:', payload)
+      const { oderId, odeName } = payload.payload
+      
+      // Add to half power players
+      setHalfPowerPlayers((prev) => {
+        const newSet = new Set(prev)
+        newSet.add(oderId)
+        return newSet
+      })
+      
+      if (oderId !== userId) {
+        addLogEntry('info', `☕ ${odeName || 'Someone'} is taking a coffee break (0.5x next round)`, odeName)
+      }
+    })
+
+    // Listen for grant double power events
+    channel.on('broadcast', { event: 'grant_double_power' }, (payload) => {
+      console.log('Received grant double power event:', payload)
+      const { targetUserId, targetUserName } = payload.payload
+      const senderName = payload.payload.userName || 'Admin'
+      
+      setDoublePowerPlayers((prev) => {
+        const newSet = new Set(prev)
+        newSet.add(targetUserId)
+        return newSet
+      })
+      
+      if (targetUserId === userId) {
+        setNotification({
+          open: true,
+          message: `⚡ ${senderName} granted you Double Power! Your next vote counts for 2!`,
+          severity: 'success',
+        })
+      }
+      
+      addLogEntry('info', `⚡ ${senderName} granted Double Power to ${targetUserName || 'someone'}`, senderName)
+    })
+
+    // Listen for grant half power events
+    channel.on('broadcast', { event: 'grant_half_power' }, (payload) => {
+      console.log('Received grant half power event:', payload)
+      const { targetUserId, targetUserName } = payload.payload
+      const senderName = payload.payload.userName || 'Admin'
+      
+      setHalfPowerPlayers((prev) => {
+        const newSet = new Set(prev)
+        newSet.add(targetUserId)
+        return newSet
+      })
+      
+      if (targetUserId === userId) {
+        setNotification({
+          open: true,
+          message: `☕ ${senderName} gave you Half Power. Your next vote counts for 0.5x`,
+          severity: 'info',
+        })
+      }
+      
+      addLogEntry('info', `☕ ${senderName} gave Half Power to ${targetUserName || 'someone'}`, senderName)
+    })
+
     channel.subscribe(async (status) => {
       if (status === 'SUBSCRIBED') {
         console.log(`Connected to room: ${roomId}`)
@@ -853,8 +918,9 @@ export const useSupabaseRealtime = () => {
 
   const handleRevealCards = () => {
     setGameState('REVEALED')
-    // Clear double power after it's been used for this round
+    // Clear double/half power after it's been used for this round
     setDoublePowerPlayers(new Set())
+    setHalfPowerPlayers(new Set())
     sendEvent('reveal_cards', { action: 'reveal' })
   }
 
@@ -1328,9 +1394,62 @@ export const useSupabaseRealtime = () => {
     return doublePowerPlayers.has(playerId)
   }
 
-  // Clear double power (called after votes are revealed)
-  const clearDoublePower = () => {
-    setDoublePowerPlayers(new Set())
+  // Check if player has half power
+  const hasHalfPower = (playerId: string): boolean => {
+    return halfPowerPlayers.has(playerId)
+  }
+
+  // Handle coffee selection - gives half power for next round
+  const handleCoffeeSelect = () => {
+    // Add current user to half power for next round
+    setHalfPowerPlayers((prev) => {
+      const newSet = new Set(prev)
+      newSet.add(userId)
+      return newSet
+    })
+    
+    // Broadcast coffee selection
+    sendEvent('coffee_select', { oderId: userId, odeName: userNameRef.current })
+    
+    addLogEntry('info', `☕ ${userNameRef.current || 'Someone'} is taking a coffee break (0.5x next round)`, userNameRef.current)
+  }
+
+  // Grant double power to a player (admin action)
+  const handleGrantDoublePower = (targetUserId: string, targetUserName: string | null) => {
+    setDoublePowerPlayers((prev) => {
+      const newSet = new Set(prev)
+      newSet.add(targetUserId)
+      return newSet
+    })
+    
+    sendEvent('grant_double_power', { targetUserId, targetUserName })
+    
+    addLogEntry('info', `⚡ ${userNameRef.current || 'Admin'} granted Double Power to ${targetUserName || 'someone'}`, userNameRef.current)
+    
+    setNotification({
+      open: true,
+      message: `⚡ Granted Double Power to ${targetUserName || 'player'}!`,
+      severity: 'success',
+    })
+  }
+
+  // Grant half power to a player (admin action)
+  const handleGrantHalfPower = (targetUserId: string, targetUserName: string | null) => {
+    setHalfPowerPlayers((prev) => {
+      const newSet = new Set(prev)
+      newSet.add(targetUserId)
+      return newSet
+    })
+    
+    sendEvent('grant_half_power', { targetUserId, targetUserName })
+    
+    addLogEntry('info', `☕ ${userNameRef.current || 'Admin'} gave Half Power to ${targetUserName || 'someone'}`, userNameRef.current)
+    
+    setNotification({
+      open: true,
+      message: `☕ Gave Half Power to ${targetUserName || 'player'}!`,
+      severity: 'success',
+    })
   }
 
   return {
@@ -1352,6 +1471,7 @@ export const useSupabaseRealtime = () => {
     shuffleEffect,
     quickDraw,
     doublePowerPlayers,
+    halfPowerPlayers,
     actionLog,
     notification,
     handleIncrement,
@@ -1376,7 +1496,10 @@ export const useSupabaseRealtime = () => {
     handleTriggerQuickDraw,
     handleQuickDrawVote,
     hasDoublePower,
-    clearDoublePower,
+    hasHalfPower,
+    handleCoffeeSelect,
+    handleGrantDoublePower,
+    handleGrantHalfPower,
     clearActionLog,
     clearCopyRevealEffects,
     clearPokeEvent,

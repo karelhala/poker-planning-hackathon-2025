@@ -63,6 +63,10 @@ function App() {
     handleTriggerQuickDraw,
     handleQuickDrawVote,
     hasDoublePower,
+    hasHalfPower,
+    handleCoffeeSelect,
+    handleGrantDoublePower,
+    handleGrantHalfPower,
     clearCopyRevealEffects,
     clearActionLog,
     clearPokeEvent,
@@ -260,6 +264,9 @@ function App() {
                     copyVoteRelations={copyVoteRelations}
                     getEffectiveVote={getEffectiveVote}
                     hasDoublePower={hasDoublePower}
+                    hasHalfPower={hasHalfPower}
+                    onGrantDoublePower={handleGrantDoublePower}
+                    onGrantHalfPower={handleGrantHalfPower}
                   />
                 </Grid>
               )}
@@ -293,6 +300,7 @@ function App() {
                       onCancelTargeting={cancelTargeting}
                       currentUserCopyTarget={currentUserCopyTarget}
                       shuffleEffect={shuffleEffect}
+                      onCoffeeSelect={handleCoffeeSelect}
                     />
                   </Paper>
                 </Grid>
