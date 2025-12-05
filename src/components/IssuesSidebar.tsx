@@ -169,6 +169,8 @@ export const IssuesSidebar: React.FC<IssuesSidebarProps> = ({
         '& .MuiDrawer-paper': {
           width: 400,
           boxSizing: 'border-box',
+          display: 'flex',
+          flexDirection: 'column',
         },
       }}
     >
@@ -182,33 +184,35 @@ export const IssuesSidebar: React.FC<IssuesSidebarProps> = ({
 
       <Divider />
 
-      <Box sx={{ 
-        px: 2, 
-        my: 2, 
-        py: 1.5,
-        bgcolor: 'action.hover',
-        borderRadius: 1,
-        display: 'flex',
-        alignItems: 'center',
-        gap: 1,
-        position: 'relative'
-      }}>
+      {/* Scrollable content area */}
+      <Box sx={{ flexGrow: 1, overflow: 'auto', display: 'flex', flexDirection: 'column' }}>
         <Box sx={{ 
-          width: 3, 
-          height: '100%', 
-          bgcolor: 'primary.main', 
-          position: 'absolute',
-          left: 0,
-          top: 0,
-          borderRadius: '4px 0 0 4px'
-        }} />
-        <Typography variant="body2" sx={{ fontSize: '1.25rem', ml: 0.5 }}>
-          🎯
-        </Typography>
-        <Typography variant="body2" sx={{ fontWeight: 500, flexGrow: 1 }}>
-          Select a ticket for the team to vote on
-        </Typography>
-      </Box>
+          px: 2, 
+          my: 2, 
+          py: 1.5,
+          bgcolor: 'action.hover',
+          borderRadius: 1,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 1,
+          position: 'relative'
+        }}>
+          <Box sx={{ 
+            width: 3, 
+            height: '100%', 
+            bgcolor: 'primary.main', 
+            position: 'absolute',
+            left: 0,
+            top: 0,
+            borderRadius: '4px 0 0 4px'
+          }} />
+          <Typography variant="body2" sx={{ fontSize: '1.25rem', ml: 0.5 }}>
+            🎯
+          </Typography>
+          <Typography variant="body2" sx={{ fontWeight: 500, flexGrow: 1 }}>
+            Select a ticket for the team to vote on
+          </Typography>
+        </Box>
 
       {isAdmin && hasJiraToken && (
         <Box sx={{ px: 2, pb: 2 }}>
@@ -308,70 +312,72 @@ export const IssuesSidebar: React.FC<IssuesSidebarProps> = ({
         <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
           <CircularProgress />
         </Box>
-      ) : tickets.length === 0 ? (
-        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', p: 4, flexGrow: 1 }}>
-          <Typography variant="body1" color="text.secondary" sx={{ mb: 1 }}>
-            No tickets loaded
-          </Typography>
-          <Typography variant="caption" color="text.secondary">
-            {isAdmin && hasJiraToken ? 'Use the form above to load JIRA tickets' : 'Waiting for admin to load tickets'}
-          </Typography>
-        </Box>
-      ) : (
-        <List sx={{ flexGrow: 1, overflow: 'auto' }}>
-          {tickets.map((ticket) => {
-          const isActive = ticket.id === activeTicketId;
-          
-          return (
-            <ListItem
-              key={ticket.id}
-              disablePadding
-              sx={{
-                bgcolor: isActive ? 'action.selected' : 'transparent',
-                borderLeft: isActive ? 4 : 0,
-                borderColor: 'primary.main',
-              }}
-            >
-              <ListItemButton
-                onClick={() => handleTicketClick(ticket)}
-                selected={isActive}
+        ) : tickets.length === 0 ? (
+          <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', p: 4, flexGrow: 1 }}>
+            <Typography variant="body1" color="text.secondary" sx={{ mb: 1 }}>
+              No tickets loaded
+            </Typography>
+            <Typography variant="caption" color="text.secondary">
+              {isAdmin && hasJiraToken ? 'Use the form above to load JIRA tickets' : 'Waiting for admin to load tickets'}
+            </Typography>
+          </Box>
+        ) : (
+          <List sx={{ flexGrow: 1, overflow: 'auto' }}>
+            {tickets.map((ticket) => {
+            const isActive = ticket.id === activeTicketId;
+            
+            return (
+              <ListItem
+                key={ticket.id}
+                disablePadding
+                sx={{
+                  bgcolor: isActive ? 'action.selected' : 'transparent',
+                  borderLeft: isActive ? 4 : 0,
+                  borderColor: 'primary.main',
+                }}
               >
-                <ListItemText
-                  primary={
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
-                      <Chip
-                        label={ticket.key}
-                        size="small"
-                        color="primary"
-                        variant="outlined"
-                        sx={{ fontFamily: 'monospace', fontWeight: 600 }}
-                      />
-                      {ticket.link && (
-                        <Link
-                          href={ticket.link}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          onClick={(e) => e.stopPropagation()}
-                          sx={{ display: 'flex', alignItems: 'center' }}
-                        >
-                          <OpenInNewIcon fontSize="small" />
-                        </Link>
-                      )}
-                    </Box>
-                  }
-                  secondary={
-                    <Typography variant="body2" color="text.primary">
-                      {ticket.summary}
-                    </Typography>
-                  }
-                />
-              </ListItemButton>
-            </ListItem>
-          );
-        })}
-      </List>
-      )}
+                <ListItemButton
+                  onClick={() => handleTicketClick(ticket)}
+                  selected={isActive}
+                >
+                  <ListItemText
+                    primary={
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+                        <Chip
+                          label={ticket.key}
+                          size="small"
+                          color="primary"
+                          variant="outlined"
+                          sx={{ fontFamily: 'monospace', fontWeight: 600 }}
+                        />
+                        {ticket.link && (
+                          <Link
+                            href={ticket.link}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={(e) => e.stopPropagation()}
+                            sx={{ display: 'flex', alignItems: 'center' }}
+                          >
+                            <OpenInNewIcon fontSize="small" />
+                          </Link>
+                        )}
+                      </Box>
+                    }
+                    secondary={
+                      <Typography variant="body2" color="text.primary">
+                        {ticket.summary}
+                      </Typography>
+                    }
+                  />
+                </ListItemButton>
+              </ListItem>
+            );
+          })}
+        </List>
+        )}
+      </Box>
 
+      {/* Sticky bottom panel */}
       <Divider />
 
       <Box sx={{ p: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
