@@ -38,39 +38,6 @@ export interface Ticket {
   link?: string;
 }
 
-const MOCK_TICKETS: Ticket[] = [
-  {
-    id: '1',
-    key: 'PROJ-101',
-    summary: 'Fix login bug causing session timeout',
-    link: 'https://jira.example.com/browse/PROJ-101',
-  },
-  {
-    id: '2',
-    key: 'PROJ-102',
-    summary: 'Refactor user state management to use Redux',
-    link: 'https://jira.example.com/browse/PROJ-102',
-  },
-  {
-    id: '3',
-    key: 'PROJ-103',
-    summary: 'Add password reset functionality',
-    link: 'https://jira.example.com/browse/PROJ-103',
-  },
-  {
-    id: '4',
-    key: 'PROJ-104',
-    summary: 'Implement dark mode theme toggle',
-    link: 'https://jira.example.com/browse/PROJ-104',
-  },
-  {
-    id: '5',
-    key: 'PROJ-105',
-    summary: 'Optimize database queries for user dashboard',
-    link: 'https://jira.example.com/browse/PROJ-105',
-  },
-];
-
 interface IssuesSidebarProps {
   activeTicketId: string | null;
   onSelectTicket: (ticket: Ticket) => void;
@@ -93,7 +60,7 @@ export const IssuesSidebar: React.FC<IssuesSidebarProps> = ({
 }) => {
   const { userId, userName, jiraToken, jiraDomain, jiraEmail, hasJiraToken } = useUser()
   const { roomId } = useRoom()
-  const [tickets, setTickets] = useState<Ticket[]>(MOCK_TICKETS)
+  const [tickets, setTickets] = useState<Ticket[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [jqlQuery, setJqlQuery] = useState<string>(() => {
@@ -103,7 +70,6 @@ export const IssuesSidebar: React.FC<IssuesSidebarProps> = ({
 
   const loadJiraTickets = async (customJql?: string) => {
     if (!hasJiraToken || !jiraToken || !jiraDomain || !jiraEmail) {
-      setTickets(MOCK_TICKETS)
       return
     }
 
@@ -137,7 +103,6 @@ export const IssuesSidebar: React.FC<IssuesSidebarProps> = ({
     } catch (err: any) {
       console.error('Error loading Jira tickets:', err)
       setError(err.message || 'Failed to load Jira tickets')
-      setTickets(MOCK_TICKETS)
     } finally {
       setLoading(false)
     }
@@ -342,6 +307,15 @@ export const IssuesSidebar: React.FC<IssuesSidebarProps> = ({
       {loading ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
           <CircularProgress />
+        </Box>
+      ) : tickets.length === 0 ? (
+        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', p: 4, flexGrow: 1 }}>
+          <Typography variant="body1" color="text.secondary" sx={{ mb: 1 }}>
+            No tickets loaded
+          </Typography>
+          <Typography variant="caption" color="text.secondary">
+            {isAdmin && hasJiraToken ? 'Use the form above to load JIRA tickets' : 'Waiting for admin to load tickets'}
+          </Typography>
         </Box>
       ) : (
         <List sx={{ flexGrow: 1, overflow: 'auto' }}>
