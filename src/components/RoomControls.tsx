@@ -23,6 +23,21 @@ interface RoomControlsProps {
   isConnected?: boolean
 }
 
+// Get base path from current URL (everything before /room)
+const getBasePath = (): string => {
+  const path = window.location.pathname
+  const roomIndex = path.indexOf('/room')
+  
+  if (roomIndex > 0) {
+    // URL contains /room, extract everything before it
+    return path.substring(0, roomIndex)
+  }
+  
+  // No /room in URL - remove trailing slash and return the path
+  // This handles both "/" (dev) and "/poker-planning-hackathon-2025/" (prod)
+  return path.replace(/\/+$/, '')
+}
+
 export const RoomControls: React.FC<RoomControlsProps> = ({ 
   onOpenJoinModal, 
   isConnected = false,
@@ -32,7 +47,8 @@ export const RoomControls: React.FC<RoomControlsProps> = ({
 
   const handleShare = async () => {
     if (roomId) {
-      const fullUrl = `${window.location.origin}/room/${roomId}`
+      const basePath = getBasePath()
+      const fullUrl = `${window.location.origin}${basePath}/room/${roomId}`
       try {
         await navigator.clipboard.writeText(fullUrl)
         setCopyNotification(true)
