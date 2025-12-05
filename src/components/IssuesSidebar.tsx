@@ -27,7 +27,9 @@ import {
   MoreVert as MoreVertIcon,
 } from '@mui/icons-material';
 import { useUser } from '../contexts/UserContext';
+import { useRoom } from '../contexts/RoomContext';
 import { fetchJiraTickets } from '../services/jiraService';
+import { supabase } from '../supabaseClient';
 
 export interface Ticket {
   id: string;
@@ -72,6 +74,7 @@ const MOCK_TICKETS: Ticket[] = [
 interface IssuesSidebarProps {
   activeTicketId: string | null;
   onSelectTicket: (ticket: Ticket) => void;
+  isAdmin?: boolean;
 }
 
 const JQL_PRESETS = [
@@ -86,8 +89,10 @@ const JQL_PRESETS = [
 export const IssuesSidebar: React.FC<IssuesSidebarProps> = ({
   activeTicketId,
   onSelectTicket,
+  isAdmin = false,
 }) => {
-  const { jiraToken, jiraDomain, jiraEmail, hasJiraToken } = useUser()
+  const { userId, userName, jiraToken, jiraDomain, jiraEmail, hasJiraToken } = useUser()
+  const { roomId } = useRoom()
   const [tickets, setTickets] = useState<Ticket[]>(MOCK_TICKETS)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -113,6 +118,22 @@ export const IssuesSidebar: React.FC<IssuesSidebarProps> = ({
         token: jiraToken,
       }, queryToUse)
       setTickets(jiraTickets)
+
+      // Broadcast loaded tickets to all players in the room
+      if (roomId && isAdmin) {
+        const channelName = `poker-planning-room-${roomId}`
+        const channel = supabase.channel(channelName)
+        await channel.send({
+          type: 'broadcast',
+          event: 'jira_tickets_loaded',
+          payload: {
+            tickets: jiraTickets,
+            userId,
+            userName: userName || null,
+            timestamp: new Date().toISOString(),
+          },
+        })
+      }
     } catch (err: any) {
       console.error('Error loading Jira tickets:', err)
       setError(err.message || 'Failed to load Jira tickets')
@@ -122,10 +143,28 @@ export const IssuesSidebar: React.FC<IssuesSidebarProps> = ({
     }
   }
 
+  // Listen for broadcasted JIRA tickets from admin
   useEffect(() => {
-    loadJiraTickets()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hasJiraToken, jiraToken, jiraDomain, jiraEmail])
+    if (!roomId) return
+
+    const channelName = `poker-planning-room-${roomId}`
+    const channel = supabase.channel(channelName, {
+      config: {
+        broadcast: { self: false },
+      },
+    })
+
+    channel.on('broadcast', { event: 'jira_tickets_loaded' }, (payload) => {
+      const loadedTickets = payload.payload.tickets || []
+      setTickets(loadedTickets)
+    })
+
+    channel.subscribe()
+
+    return () => {
+      channel.unsubscribe()
+    }
+  }, [roomId])
 
   const handleJqlChange = (newJql: string) => {
     setJqlQuery(newJql)
@@ -206,11 +245,11 @@ export const IssuesSidebar: React.FC<IssuesSidebarProps> = ({
         </Typography>
       </Box>
 
-      {hasJiraToken && (
+      {isAdmin && hasJiraToken && (
         <Box sx={{ px: 2, pb: 2 }}>
           <Box component="form" onSubmit={handleJqlSubmit}>
             <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5, display: 'block' }}>
-              JQL Query
+              JQL Query (Admin Only)
             </Typography>
             <Box sx={{ display: 'flex', gap: 1 }}>
               <TextField
@@ -264,6 +303,16 @@ export const IssuesSidebar: React.FC<IssuesSidebarProps> = ({
         </Box>
       )}
 
+      {!isAdmin && hasJiraToken && (
+        <Box sx={{ px: 2, pb: 2 }}>
+          <Alert severity="info" icon={false}>
+            <Typography variant="body2">
+              💡 Only the admin can load JIRA tickets
+            </Typography>
+          </Alert>
+        </Box>
+      )}
+
       {error && (
         <Box sx={{ px: 2, pb: 2 }}>
           <Alert severity="error" onClose={() => setError(null)}>
@@ -272,10 +321,20 @@ export const IssuesSidebar: React.FC<IssuesSidebarProps> = ({
         </Box>
       )}
 
-      {!hasJiraToken && (
+      {!hasJiraToken && isAdmin && (
         <Box sx={{ px: 2, pb: 2 }}>
           <Alert severity="info">
             Configure your Jira credentials to load real tickets
+          </Alert>
+        </Box>
+      )}
+
+      {!hasJiraToken && !isAdmin && (
+        <Box sx={{ px: 2, pb: 2 }}>
+          <Alert severity="info" icon={false}>
+            <Typography variant="body2">
+              💡 The admin can configure JIRA to load real tickets
+            </Typography>
           </Alert>
         </Box>
       )}

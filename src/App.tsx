@@ -30,7 +30,7 @@ function App() {
   // Custom hooks
   const { mode, toggleColorMode } = useThemeMode()
   const { hasJiraToken, userId, userName, setUserName } = useUser()
-  const { roomId } = useRoom()
+  const { roomId, isCreator } = useRoom()
   const {
     roomCreator,
     players,
@@ -74,7 +74,25 @@ function App() {
     showNotification,
   } = useSupabaseRealtime()
 
-  const isRoomCreator = userId === roomCreator
+  // User is admin if they're the room creator OR if they're the only user in the room
+  const isRoomCreator = useMemo(() => {
+    if (!roomId) return false
+    
+    // Check localStorage first - most reliable for the creator
+    if (isCreator(roomId)) return true
+    
+    // If roomCreator is set and matches userId
+    if (roomCreator && userId === roomCreator) return true
+    
+    // If we're the only player in the room
+    if (players.length === 1 && players[0]?.userId === userId) return true
+    
+    // If roomCreator hasn't been set yet but we're in a room with players
+    // and we're the first in the list, assume we're the creator
+    if (!roomCreator && players.length > 0 && players[0]?.userId === userId) return true
+    
+    return false
+  }, [roomId, userId, roomCreator, players, isCreator])
 
   // Create theme
   const theme = useMemo(
@@ -332,6 +350,7 @@ function App() {
         <IssuesSidebar
           activeTicketId={activeTicket?.id || null}
           onSelectTicket={handleSelectTicket}
+          isAdmin={isRoomCreator}
         />
       )}
 

@@ -323,14 +323,14 @@ export const useSupabaseRealtime = () => {
         
         setActiveUsers(users)
         setPlayers(playersList)
-        console.log('Active users in room:', users)
-        console.log('Players with voting status:', playersList)
 
         // If this is the first user in the room, they become the creator
         if (users.length === 1 && users[0].userId === userId) {
           isFirstUserRef.current = true
           setRoomCreator(userId)
-          console.log('You are the room creator')
+        } else if (users.length === 1) {
+          // Someone else is the sole user - they should be creator
+          setRoomCreator(users[0].userId)
         }
       })
       .on('presence', { event: 'join' }, ({ newPresences }) => {
