@@ -19,6 +19,7 @@ import { useUser } from './contexts/UserContext'
 import { useRoom } from './contexts/RoomContext'
 import { useThemeMode } from './hooks/useThemeMode'
 import { useSupabaseRealtime } from './hooks/useSupabaseRealtime'
+import { supabase } from './supabaseClient'
 
 function App() {
   const [userModalOpen, setUserModalOpen] = useState(false)
@@ -185,8 +186,46 @@ function App() {
   const handleSelectTicket = (ticket: Ticket) => {
     setActiveTicket(ticket)
     showNotification(`Selected: ${ticket.key}`, 'info')
-    // TODO: Broadcast 'new_ticket' event to Supabase here
+    
+    // Broadcast ticket selection to all players
+    if (roomId) {
+      const channelName = `poker-planning-room-${roomId}`
+      const channel = supabase.channel(channelName)
+      channel.send({
+        type: 'broadcast',
+        event: 'active_ticket_selected',
+        payload: {
+          ticket,
+          userId,
+          userName: userName || null,
+          timestamp: new Date().toISOString(),
+        },
+      })
+    }
   }
+
+  // Listen for active ticket selection from other players
+  useEffect(() => {
+    if (!roomId) return
+
+    const channelName = `poker-planning-room-${roomId}`
+    const channel = supabase.channel(channelName, {
+      config: {
+        broadcast: { self: false },
+      },
+    })
+
+    channel.on('broadcast', { event: 'active_ticket_selected' }, (payload) => {
+      const selectedTicket = payload.payload.ticket
+      setActiveTicket(selectedTicket)
+    })
+
+    channel.subscribe()
+
+    return () => {
+      channel.unsubscribe()
+    }
+  }, [roomId])
 
   // Prompt for name if user joins a room without a name
   useEffect(() => {
