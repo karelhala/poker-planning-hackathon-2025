@@ -42,6 +42,7 @@ interface IssuesSidebarProps {
   activeTicketId: string | null;
   onSelectTicket: (ticket: Ticket) => void;
   isAdmin?: boolean;
+  onTicketsChange?: (tickets: Ticket[]) => void;
 }
 
 const JQL_PRESETS = [
@@ -57,6 +58,7 @@ export const IssuesSidebar: React.FC<IssuesSidebarProps> = ({
   activeTicketId,
   onSelectTicket,
   isAdmin = false,
+  onTicketsChange,
 }) => {
   const { userId, userName, jiraToken, jiraDomain, jiraEmail, hasJiraToken } = useUser()
   const { roomId } = useRoom()
@@ -67,6 +69,11 @@ export const IssuesSidebar: React.FC<IssuesSidebarProps> = ({
     return localStorage.getItem('jqlQuery') || 'order by created DESC'
   })
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null)
+
+  // Notify parent component when tickets change
+  useEffect(() => {
+    onTicketsChange?.(tickets)
+  }, [tickets, onTicketsChange])
 
   const loadJiraTickets = async (customJql?: string) => {
     if (!hasJiraToken || !jiraToken || !jiraDomain || !jiraEmail) {

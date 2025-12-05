@@ -16,6 +16,7 @@ interface GameControlsProps {
   onResetVoting: () => void;
   voteSpread?: { min: number; max: number; spread: number; average: number };
   onTriggerQuickDraw?: () => void;
+  onNextTicket?: () => void;
   doublePowerCount?: number;
 }
 
@@ -26,6 +27,7 @@ export const GameControls: React.FC<GameControlsProps> = ({
   onResetVoting,
   voteSpread,
   onTriggerQuickDraw,
+  onNextTicket,
   doublePowerCount = 0,
 }) => {
   if (!isAdmin) {
@@ -151,7 +153,7 @@ export const GameControls: React.FC<GameControlsProps> = ({
                 color="secondary"
                 disabled={gameState === 'QUICK_DRAW'}
                 startIcon={<ArrowForwardIcon />}
-                onClick={() => {}}
+                onClick={onNextTicket}
                 sx={{
                   fontWeight: 600,
                 }}

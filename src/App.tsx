@@ -26,6 +26,7 @@ function App() {
   const [joinRoomModalOpen, setJoinRoomModalOpen] = useState(false)
   const [selectedVote, setSelectedVote] = useState<string | null>(null)
   const [activeTicket, setActiveTicket] = useState<Ticket | null>(null)
+  const [tickets, setTickets] = useState<Ticket[]>([])
   const [actionLogOpen, setActionLogOpen] = useState(false)
   
   // Custom hooks
@@ -212,6 +213,19 @@ function App() {
     }
   }
 
+  const handleNextTicket = () => {
+    if (tickets.length === 0) return
+    
+    const currentIndex = activeTicket 
+      ? tickets.findIndex((t) => t.id === activeTicket.id)
+      : -1
+    
+    const nextIndex = (currentIndex + 1) % tickets.length
+    const nextTicket = tickets[nextIndex]
+    
+    handleSelectTicket(nextTicket)
+  }
+
   // Listen for active ticket selection from other players
   useEffect(() => {
     if (!roomId) return
@@ -305,6 +319,7 @@ function App() {
                     onResetVoting={handleResetVoting}
                     voteSpread={calculateVoteSpread()}
                     onTriggerQuickDraw={handleTriggerQuickDraw}
+                    onNextTicket={handleNextTicket}
                     doublePowerCount={doublePowerPlayers.size}
                   />
                 </Grid>
@@ -397,6 +412,7 @@ function App() {
         <IssuesSidebar
           activeTicketId={activeTicket?.id || null}
           onSelectTicket={handleSelectTicket}
+          onTicketsChange={setTickets}
           isAdmin={isRoomCreator}
         />
       )}
