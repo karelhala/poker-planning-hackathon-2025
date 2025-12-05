@@ -1,10 +1,11 @@
-import { AppBar, Toolbar, IconButton, Typography, Badge, Avatar } from '@mui/material'
+import { AppBar, Toolbar, IconButton, Typography, Badge, Avatar, Tooltip } from '@mui/material'
 import {
   Brightness4 as Brightness4Icon,
   Brightness7 as Brightness7Icon,
   CheckCircle as CheckCircleIcon,
   Person as PersonIcon,
   Casino as CasinoIcon,
+  HistoryToggleOff as LogIcon,
 } from '@mui/icons-material'
 
 interface HeaderProps {
@@ -12,6 +13,8 @@ interface HeaderProps {
   hasJiraToken: boolean
   onToggleTheme: () => void
   onOpenJiraModal: () => void
+  onOpenActionLog: () => void
+  actionLogCount: number
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -19,6 +22,8 @@ export const Header: React.FC<HeaderProps> = ({
   hasJiraToken,
   onToggleTheme,
   onOpenJiraModal,
+  onOpenActionLog,
+  actionLogCount,
 }) => {
   return (
     <AppBar
@@ -38,6 +43,17 @@ export const Header: React.FC<HeaderProps> = ({
         >
           Poker Planning Dashboard
         </Typography>
+        <Tooltip title="Action Log">
+          <IconButton onClick={onOpenActionLog} color="inherit">
+            <Badge
+              badgeContent={actionLogCount > 0 ? actionLogCount : null}
+              color="secondary"
+              max={99}
+            >
+              <LogIcon />
+            </Badge>
+          </IconButton>
+        </Tooltip>
         <IconButton onClick={onToggleTheme} color="inherit">
           {mode === 'dark' ? <Brightness7Icon /> : <Brightness4Icon />}
         </IconButton>

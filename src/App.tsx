@@ -13,6 +13,7 @@ import { IssuesSidebar, type Ticket } from './components/IssuesSidebar'
 import { ActiveTicketDisplay } from './components/ActiveTicketDisplay'
 import { PokeEffect } from './components/PokeEffect'
 import { CopycatRevealEffect } from './components/CopycatRevealEffect'
+import { ActionLogDrawer } from './components/ActionLogDrawer'
 import { useUser } from './contexts/UserContext'
 import { useRoom } from './contexts/RoomContext'
 import { useThemeMode } from './hooks/useThemeMode'
@@ -23,6 +24,7 @@ function App() {
   const [joinRoomModalOpen, setJoinRoomModalOpen] = useState(false)
   const [selectedVote, setSelectedVote] = useState<string | null>(null)
   const [activeTicket, setActiveTicket] = useState<Ticket | null>(null)
+  const [actionLogOpen, setActionLogOpen] = useState(false)
   
   // Custom hooks
   const { mode, toggleColorMode } = useThemeMode()
@@ -41,6 +43,7 @@ function App() {
     copyRevealEffects,
     currentUserCopyTarget,
     shuffleEffect,
+    actionLog,
     notification,
     handleResetVoting,
     handleRevealCards,
@@ -54,6 +57,7 @@ function App() {
     getEffectiveVote,
     triggerCopyRevealEffects,
     clearCopyRevealEffects,
+    clearActionLog,
     clearPokeEvent,
     closeNotification,
     showNotification,
@@ -183,6 +187,8 @@ function App() {
           hasJiraToken={hasJiraToken}
           onToggleTheme={toggleColorMode}
           onOpenJiraModal={handleOpenUserModal}
+          onOpenActionLog={() => setActionLogOpen(true)}
+          actionLogCount={actionLog.length}
         />
 
         {/* Main Content */}
@@ -320,6 +326,14 @@ function App() {
       <CopycatRevealEffect
         effects={copyRevealEffects}
         onAnimationEnd={clearCopyRevealEffects}
+      />
+
+      {/* Action Log Drawer */}
+      <ActionLogDrawer
+        open={actionLogOpen}
+        onClose={() => setActionLogOpen(false)}
+        actionLog={actionLog}
+        onClear={clearActionLog}
       />
     </ThemeProvider>
   )

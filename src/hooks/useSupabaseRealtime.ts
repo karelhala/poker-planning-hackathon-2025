@@ -85,6 +85,15 @@ export interface ShuffleEffect {
   isAnimating: boolean;
 }
 
+export interface ActionLogEntry {
+  id: string;
+  timestamp: string;
+  type: 'join' | 'leave' | 'vote' | 'reveal' | 'reset' | 'poke' | 'block' | 'copy' | 'shuffle' | 'ticket' | 'info';
+  message: string;
+  userName?: string | null;
+  icon: string;
+}
+
 export const SPECIAL_CARD_INFO: Record<SpecialCardType, { label: string; description: string; icon: string; color: string }> = {
   COPY: {
     label: 'Copy Vote',
@@ -137,12 +146,53 @@ export const useSupabaseRealtime = () => {
   const [copyVoteRelations, setCopyVoteRelations] = useState<CopyVoteRelation[]>([])
   const [copyRevealEffects, setCopyRevealEffects] = useState<CopyRevealEffect[]>([])
   const [shuffleEffect, setShuffleEffect] = useState<ShuffleEffect | null>(null)
+  const [actionLog, setActionLog] = useState<ActionLogEntry[]>([])
   const [notification, setNotification] = useState<Notification>({
     open: false,
     message: '',
     severity: 'success',
   })
+  
   const channelRef = useRef<RealtimeChannel | null>(null)
+  const userNameRef = useRef(userName)
+  const knownUsersRef = useRef<Set<string>>(new Set()) // Track users we've seen to avoid duplicate join/leave logs
+  
+  // Keep userName ref in sync
+  useEffect(() => {
+    userNameRef.current = userName
+  }, [userName])
+  
+  // Helper to add action log entry - using ref to avoid stale closures in event handlers
+  const addLogEntryRef = useRef<(type: ActionLogEntry['type'], message: string, userName?: string | null) => void>(() => {})
+  
+  addLogEntryRef.current = (type: ActionLogEntry['type'], message: string, userName?: string | null) => {
+    const icons: Record<ActionLogEntry['type'], string> = {
+      join: '👋',
+      leave: '🚪',
+      vote: '🗳️',
+      reveal: '👁️',
+      reset: '🔄',
+      poke: '👆',
+      block: '🚫',
+      copy: '📋',
+      shuffle: '🔀',
+      ticket: '🎫',
+      info: 'ℹ️',
+    }
+    
+    setActionLog(prev => [{
+      id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      timestamp: new Date().toISOString(),
+      type,
+      message,
+      userName,
+      icon: icons[type],
+    }, ...prev].slice(0, 100)) // Keep last 100 entries
+  }
+  
+  const addLogEntry = (type: ActionLogEntry['type'], message: string, userName?: string | null) => {
+    addLogEntryRef.current(type, message, userName)
+  }
   const isFirstUserRef = useRef(false)
   const countRef = useRef(count)
   const roomCreatorRef = useRef(roomCreator)
@@ -208,6 +258,7 @@ export const useSupabaseRealtime = () => {
       setCopyRevealEffects([])
       setShuffleEffect(null)
       isFirstUserRef.current = false
+      knownUsersRef.current.clear()
       return
     }
 
@@ -260,6 +311,14 @@ export const useSupabaseRealtime = () => {
       .on('presence', { event: 'join' }, ({ newPresences }) => {
         console.log('User joined:', newPresences)
         
+        // Log the join event only for truly new users (not presence updates)
+        newPresences.forEach((presence: any) => {
+          if (presence.userId !== userId && !knownUsersRef.current.has(presence.userId)) {
+            knownUsersRef.current.add(presence.userId)
+            addLogEntry('join', `${presence.userName || 'Someone'} joined the room`, presence.userName)
+          }
+        })
+        
         // If we ARE the creator (first user) and someone joins, send them current state
         if (isFirstUserRef.current && newPresences.length > 0) {
           const newUserId = newPresences[0].userId
@@ -276,7 +335,7 @@ export const useSupabaseRealtime = () => {
                   tickets: ticketsRef.current,
                   activeTicketId: activeTicketIdRef.current,
                   userId,
-                  userName,
+                  userName: userNameRef.current,
                   timestamp: new Date().toISOString(),
                 },
               })
@@ -286,6 +345,15 @@ export const useSupabaseRealtime = () => {
       })
       .on('presence', { event: 'leave' }, ({ leftPresences }) => {
         console.log('User left:', leftPresences)
+        // Log the leave event only for users actually leaving (check against current presence state)
+        const currentState = channel.presenceState()
+        leftPresences.forEach((presence: any) => {
+          // Only log if user is not in current state (truly left, not just a presence update)
+          if (!currentState[presence.userId]) {
+            knownUsersRef.current.delete(presence.userId)
+            addLogEntry('leave', `${presence.userName || 'Someone'} left the room`, presence.userName)
+          }
+        })
       })
 
     // Listen for state sync (when we join and someone sends us the state)
@@ -341,6 +409,7 @@ export const useSupabaseRealtime = () => {
       console.log('Received reveal event:', payload)
       const senderName = payload.payload.userName || 'Admin'
       setGameState('REVEALED')
+      addLogEntry('reveal', `${senderName} revealed all cards`, senderName)
       setNotification({
         open: true,
         message: `${senderName} revealed all cards`,
@@ -365,7 +434,7 @@ export const useSupabaseRealtime = () => {
       if (channelRef.current) {
         channelRef.current.track({
           userId,
-          userName: userName || null,
+          userName: userNameRef.current || null,
           hasVoted: false,
           vote: null,
           availableCards: specialCardsRef.current.map(c => c.type),
@@ -373,6 +442,7 @@ export const useSupabaseRealtime = () => {
         })
       }
       
+      addLogEntry('reset', `${senderName} started a new round`, senderName)
       setNotification({
         open: true,
         message: `${senderName} reset the voting`,
@@ -387,6 +457,7 @@ export const useSupabaseRealtime = () => {
       const senderName = payload.payload.userName || 'Another user'
       
       setTickets((prev) => [...prev, ticket])
+      addLogEntry('ticket', `${senderName} added ticket ${ticket.key}`, senderName)
       setNotification({
         open: true,
         message: `${senderName} added ticket ${ticket.key}`,
@@ -442,8 +513,10 @@ export const useSupabaseRealtime = () => {
     // Listen for poke events
     channel.on('broadcast', { event: 'poke' }, (payload) => {
       console.log('Received poke event:', payload)
-      const { targetUserId } = payload.payload
+      const { targetUserId, targetUserName } = payload.payload
       const senderName = payload.payload.userName || 'Someone'
+      
+      addLogEntry('poke', `${senderName} poked ${targetUserName || 'someone'}`, senderName)
       
       // Only show poke effect if we are the target
       if (targetUserId === userId) {
@@ -487,6 +560,8 @@ export const useSupabaseRealtime = () => {
         return newMap
       })
       
+      addLogEntry('block', `${blockerName} blocked ${targetUserName || 'someone'} from voting`, blockerName)
+      
       // If we are the target, show notification
       if (targetUserId === userId) {
         setNotification({
@@ -516,6 +591,9 @@ export const useSupabaseRealtime = () => {
         { copierUserId, copierUserName, targetUserId, targetUserName }
       ])
       
+      // Log the copy action (secretly noted in log)
+      addLogEntry('copy', `${copierUserName} is copying ${targetUserName || 'someone'}`, copierUserName)
+      
       // Only show subtle notification to the copier
       if (copierUserId === userId) {
         // Already handled in handleCopyPlayer
@@ -525,9 +603,11 @@ export const useSupabaseRealtime = () => {
     // Listen for shuffle player events
     channel.on('broadcast', { event: 'shuffle_player' }, (payload) => {
       console.log('Received shuffle player event:', payload)
-      const { targetUserId, cardOrder } = payload.payload
+      const { targetUserId, cardOrder, targetUserName } = payload.payload
       const shufflerName = payload.payload.userName || 'Someone'
       const shufflerId = payload.payload.userId
+      
+      addLogEntry('shuffle', `${shufflerName} shuffled ${targetUserName || 'someone'}'s cards`, shufflerName)
       
       // Only apply shuffle effect if we are the target
       if (targetUserId === userId) {
@@ -568,7 +648,7 @@ export const useSupabaseRealtime = () => {
         // Track this user's presence with voting status and available cards
         await channel.track({
           userId,
-          userName: userName || null,
+          userName: userNameRef.current || null,
           hasVoted: false,
           vote: null,
           availableCards: ALL_SPECIAL_CARD_TYPES,
@@ -582,7 +662,7 @@ export const useSupabaseRealtime = () => {
     return () => {
       channel.unsubscribe()
     }
-  }, [roomId, userId, userName])
+  }, [roomId, userId]) // Removed userName to prevent reconnections on name change
 
   const sendEvent = async (eventType: string, eventData: any) => {
     try {
@@ -982,6 +1062,10 @@ export const useSupabaseRealtime = () => {
     setNotification({ open: true, message, severity })
   }
 
+  const clearActionLog = () => {
+    setActionLog([])
+  }
+
   return {
     count,
     roomCreator,
@@ -999,6 +1083,7 @@ export const useSupabaseRealtime = () => {
     copyRevealEffects,
     currentUserCopyTarget,
     shuffleEffect,
+    actionLog,
     notification,
     handleIncrement,
     handleReset,
@@ -1018,6 +1103,7 @@ export const useSupabaseRealtime = () => {
     calculateAverageVote,
     getEffectiveVote,
     triggerCopyRevealEffects,
+    clearActionLog,
     clearCopyRevealEffects,
     clearPokeEvent,
     closeNotification,
