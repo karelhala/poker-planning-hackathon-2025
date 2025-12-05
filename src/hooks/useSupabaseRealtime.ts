@@ -24,7 +24,7 @@ export interface Player {
   availableCards: SpecialCardType[]
 }
 
-export type GameState = 'VOTING' | 'REVEALED'
+export type GameState = 'VOTING' | 'REVEALED' | 'QUICK_DRAW'
 
 export interface JiraTicket {
   id: string
@@ -88,10 +88,19 @@ export interface ShuffleEffect {
 export interface ActionLogEntry {
   id: string;
   timestamp: string;
-  type: 'join' | 'leave' | 'vote' | 'reveal' | 'reset' | 'poke' | 'block' | 'copy' | 'shuffle' | 'ticket' | 'info';
+  type: 'join' | 'leave' | 'vote' | 'reveal' | 'reset' | 'poke' | 'block' | 'copy' | 'shuffle' | 'ticket' | 'info' | 'quickdraw';
   message: string;
   userName?: string | null;
   icon: string;
+}
+
+export interface QuickDrawState {
+  active: boolean;
+  cards: string[]; // The 3 card options
+  endTime: number; // Timestamp when quick draw ends
+  participants: Map<string, string>; // UserId -> their quick draw vote
+  triggeredBy: string | null;
+  triggeredByName: string | null;
 }
 
 export const SPECIAL_CARD_INFO: Record<SpecialCardType, { label: string; description: string; icon: string; color: string }> = {
@@ -146,6 +155,15 @@ export const useSupabaseRealtime = () => {
   const [copyVoteRelations, setCopyVoteRelations] = useState<CopyVoteRelation[]>([])
   const [copyRevealEffects, setCopyRevealEffects] = useState<CopyRevealEffect[]>([])
   const [shuffleEffect, setShuffleEffect] = useState<ShuffleEffect | null>(null)
+  const [quickDraw, setQuickDraw] = useState<QuickDrawState>({
+    active: false,
+    cards: [],
+    endTime: 0,
+    participants: new Map(),
+    triggeredBy: null,
+    triggeredByName: null,
+  })
+  const [doublePowerPlayers, setDoublePowerPlayers] = useState<Set<string>>(new Set())
   const [actionLog, setActionLog] = useState<ActionLogEntry[]>([])
   const [notification, setNotification] = useState<Notification>({
     open: false,
@@ -178,6 +196,7 @@ export const useSupabaseRealtime = () => {
       shuffle: '🔀',
       ticket: '🎫',
       info: 'ℹ️',
+      quickdraw: '⚡',
     }
     
     setActionLog(prev => [{
@@ -202,6 +221,7 @@ export const useSupabaseRealtime = () => {
   const specialCardsRef = useRef(specialCards)
   const blockedPlayersRef = useRef(blockedPlayers)
   const copyVoteRelationsRef = useRef(copyVoteRelations)
+  const quickDrawRef = useRef(quickDraw)
 
   // Keep refs in sync with state
   useEffect(() => {
@@ -231,6 +251,10 @@ export const useSupabaseRealtime = () => {
   useEffect(() => {
     blockedPlayersRef.current = blockedPlayers
   }, [blockedPlayers])
+
+  useEffect(() => {
+    quickDrawRef.current = quickDraw
+  }, [quickDraw])
 
   useEffect(() => {
     copyVoteRelationsRef.current = copyVoteRelations
@@ -409,6 +433,8 @@ export const useSupabaseRealtime = () => {
       console.log('Received reveal event:', payload)
       const senderName = payload.payload.userName || 'Admin'
       setGameState('REVEALED')
+      // Clear double power after it's been used for this round
+      setDoublePowerPlayers(new Set())
       addLogEntry('reveal', `${senderName} revealed all cards`, senderName)
       setNotification({
         open: true,
@@ -637,6 +663,96 @@ export const useSupabaseRealtime = () => {
       }
     })
 
+    // Listen for quick draw start event
+    channel.on('broadcast', { event: 'quick_draw_start' }, (payload) => {
+      console.log('Received quick draw start event:', payload)
+      const { cards, endTime } = payload.payload
+      const triggeredByName = payload.payload.userName || 'Admin'
+      const triggeredById = payload.payload.userId
+      
+      setGameState('QUICK_DRAW')
+      setQuickDraw({
+        active: true,
+        cards,
+        endTime,
+        participants: new Map(),
+        triggeredBy: triggeredById,
+        triggeredByName,
+      })
+      
+      addLogEntry('quickdraw', `⚡ ${triggeredByName} triggered QUICK DRAW! Choose fast!`, triggeredByName)
+      
+      setNotification({
+        open: true,
+        message: `⚡ QUICK DRAW! Choose one of ${cards.join(', ')} before time runs out!`,
+        severity: 'info',
+      })
+    })
+
+    // Listen for quick draw vote event
+    channel.on('broadcast', { event: 'quick_draw_vote' }, (payload) => {
+      console.log('Received quick draw vote event:', payload)
+      const { oderId, vote } = payload.payload
+      
+      setQuickDraw((prev) => {
+        const newParticipants = new Map(prev.participants)
+        newParticipants.set(oderId, vote)
+        return { ...prev, participants: newParticipants }
+      })
+    })
+
+    // Listen for quick draw end event
+    channel.on('broadcast', { event: 'quick_draw_end' }, (payload) => {
+      console.log('Received quick draw end event:', payload)
+      const { participantIds, participantVotes, winningVote } = payload.payload
+      
+      // Grant double power to participants
+      setDoublePowerPlayers(new Set(participantIds))
+      
+      // Update current user's vote if they participated
+      const myVote = participantVotes?.[userId]
+      if (myVote && channelRef.current) {
+        channelRef.current.track({
+          userId,
+          userName: userNameRef.current || null,
+          hasVoted: true,
+          vote: myVote,
+          availableCards: specialCardsRef.current.map(c => c.type),
+          online_at: new Date().toISOString(),
+        })
+      }
+      
+      // Check if current user participated
+      const participated = participantIds.includes(userId)
+      
+      addLogEntry('quickdraw', `⚡ Quick Draw ended! Consensus: ${winningVote}. ${participantIds.length} players earned DOUBLE POWER!`, null)
+      
+      // Set to REVEALED to show results
+      setGameState('REVEALED')
+      setQuickDraw({
+        active: false,
+        cards: [],
+        endTime: 0,
+        participants: new Map(),
+        triggeredBy: null,
+        triggeredByName: null,
+      })
+      
+      if (participated) {
+        setNotification({
+          open: true,
+          message: `🎉 Quick Draw result: ${winningVote}! You earned DOUBLE POWER for next round!`,
+          severity: 'success',
+        })
+      } else {
+        setNotification({
+          open: true,
+          message: `Quick Draw ended. Consensus: ${winningVote}`,
+          severity: 'info',
+        })
+      }
+    })
+
     channel.subscribe(async (status) => {
       if (status === 'SUBSCRIBED') {
         console.log(`Connected to room: ${roomId}`)
@@ -714,6 +830,8 @@ export const useSupabaseRealtime = () => {
     setCopyVoteRelations([])
     setCopyRevealEffects([])
     setShuffleEffect(null)
+    // Note: Double power is NOT cleared here - it persists for the next round
+    // It will be cleared when the next round is revealed
     
     // Note: Special cards are NOT refreshed - they persist from game start
     // Cards are only granted when joining the room
@@ -735,6 +853,8 @@ export const useSupabaseRealtime = () => {
 
   const handleRevealCards = () => {
     setGameState('REVEALED')
+    // Clear double power after it's been used for this round
+    setDoublePowerPlayers(new Set())
     sendEvent('reveal_cards', { action: 'reveal' })
   }
 
@@ -1066,6 +1186,153 @@ export const useSupabaseRealtime = () => {
     setActionLog([])
   }
 
+  // Calculate vote spread (difference between min and max)
+  const calculateVoteSpread = (): { min: number; max: number; spread: number; average: number } => {
+    const numericVotes = players
+      .filter(p => p.vote !== null)
+      .map(p => parseFloat(p.vote!))
+      .filter(v => !isNaN(v))
+    
+    if (numericVotes.length < 2) return { min: 0, max: 0, spread: 0, average: 0 }
+    
+    const min = Math.min(...numericVotes)
+    const max = Math.max(...numericVotes)
+    const average = numericVotes.reduce((a, b) => a + b, 0) / numericVotes.length
+    
+    return { min, max, spread: max - min, average }
+  }
+
+  // Get 3 card options around the average for quick draw
+  const getQuickDrawCards = (average: number): string[] => {
+    const FIBONACCI = [0, 1, 2, 3, 5, 8, 13, 21]
+    
+    // Find the closest fibonacci numbers to the average
+    const sortedByDistance = [...FIBONACCI].sort((a, b) => 
+      Math.abs(a - average) - Math.abs(b - average)
+    )
+    
+    // Take 3 closest values
+    return sortedByDistance.slice(0, 3).sort((a, b) => a - b).map(String)
+  }
+
+  // Trigger Quick Draw event (admin only)
+  const handleTriggerQuickDraw = () => {
+    const { average } = calculateVoteSpread()
+    const cards = getQuickDrawCards(average)
+    const endTime = Date.now() + 5000 // 5 seconds
+    
+    // Set local state first
+    setGameState('QUICK_DRAW')
+    setQuickDraw({
+      active: true,
+      cards,
+      endTime,
+      participants: new Map(),
+      triggeredBy: userId,
+      triggeredByName: userNameRef.current,
+    })
+    
+    // Broadcast to others
+    sendEvent('quick_draw_start', { cards, endTime })
+    
+    addLogEntry('quickdraw', `⚡ You triggered QUICK DRAW!`, userNameRef.current)
+    
+    // Auto-end quick draw after timer
+    setTimeout(() => {
+      handleEndQuickDraw()
+    }, 5000)
+  }
+
+  // Participate in quick draw
+  const handleQuickDrawVote = (vote: string) => {
+    if (!quickDraw.active) return
+    
+    // Update local state
+    setQuickDraw((prev) => {
+      const newParticipants = new Map(prev.participants)
+      newParticipants.set(userId, vote)
+      return { ...prev, participants: newParticipants }
+    })
+    
+    // Broadcast vote
+    sendEvent('quick_draw_vote', { oderId: userId, odeName: userNameRef.current, vote })
+    
+    setNotification({
+      open: true,
+      message: `⚡ You picked ${vote}! Waiting for Quick Draw to end...`,
+      severity: 'success',
+    })
+  }
+
+  // End quick draw and award double power
+  const handleEndQuickDraw = () => {
+    // Use ref to get current state (avoid stale closure from setTimeout)
+    const currentQuickDraw = quickDrawRef.current
+    
+    // Only end if still active
+    if (!currentQuickDraw.active) return
+    
+    const participantIds = Array.from(currentQuickDraw.participants.keys())
+    const participantVotes = Object.fromEntries(currentQuickDraw.participants)
+    
+    // Calculate winning vote (most common)
+    const voteCounts = new Map<string, number>()
+    currentQuickDraw.participants.forEach((vote) => {
+      voteCounts.set(vote, (voteCounts.get(vote) || 0) + 1)
+    })
+    
+    let winningVote = currentQuickDraw.cards[1] || '5' // Default to middle card
+    let maxCount = 0
+    voteCounts.forEach((count, vote) => {
+      if (count > maxCount) {
+        maxCount = count
+        winningVote = vote
+      }
+    })
+    
+    // Grant double power to participants
+    setDoublePowerPlayers(new Set(participantIds))
+    
+    // Broadcast end event with participant votes
+    sendEvent('quick_draw_end', { participantIds, participantVotes, winningVote })
+    
+    // Update current user's vote if they participated
+    const myVote = currentQuickDraw.participants.get(userId)
+    if (myVote && channelRef.current) {
+      channelRef.current.track({
+        userId,
+        userName: userNameRef.current || null,
+        hasVoted: true,
+        vote: myVote,
+        availableCards: getAvailableCardTypes(),
+        online_at: new Date().toISOString(),
+      })
+    }
+    
+    // Set to REVEALED to show results
+    setGameState('REVEALED')
+    setQuickDraw({
+      active: false,
+      cards: [],
+      endTime: 0,
+      participants: new Map(),
+      triggeredBy: null,
+      triggeredByName: null,
+    })
+    
+    addLogEntry('quickdraw', `⚡ Quick Draw ended! Consensus: ${winningVote}`, null)
+  }
+
+  // Check if player has double power
+  const hasDoublePower = (playerId: string): boolean => {
+    return doublePowerPlayers.has(playerId)
+  }
+
+  // Clear double power (called after votes are revealed)
+  const clearDoublePower = () => {
+    setDoublePowerPlayers(new Set())
+  }
+
   return {
     count,
     roomCreator,
@@ -1083,6 +1350,8 @@ export const useSupabaseRealtime = () => {
     copyRevealEffects,
     currentUserCopyTarget,
     shuffleEffect,
+    quickDraw,
+    doublePowerPlayers,
     actionLog,
     notification,
     handleIncrement,
@@ -1101,8 +1370,13 @@ export const useSupabaseRealtime = () => {
     handleTargetSelect,
     cancelTargeting,
     calculateAverageVote,
+    calculateVoteSpread,
     getEffectiveVote,
     triggerCopyRevealEffects,
+    handleTriggerQuickDraw,
+    handleQuickDrawVote,
+    hasDoublePower,
+    clearDoublePower,
     clearActionLog,
     clearCopyRevealEffects,
     clearPokeEvent,

@@ -42,6 +42,7 @@ const getTypeColor = (type: ActionLogEntry['type']) => {
     shuffle: '#ff9800',
     ticket: '#3f51b5',
     info: '#607d8b',
+    quickdraw: '#ffc107',
   }
   return colors[type]
 }

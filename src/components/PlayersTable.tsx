@@ -35,7 +35,7 @@ import { SPECIAL_CARD_INFO, type SpecialCardType, type ActiveTargeting, type Cop
 
 export type { Player };
 
-export type GameState = 'VOTING' | 'REVEALED';
+export type GameState = 'VOTING' | 'REVEALED' | 'QUICK_DRAW';
 
 interface PlayersTableProps {
   players: Player[];
@@ -52,6 +52,7 @@ interface PlayersTableProps {
   onTargetSelect?: (userId: string, userName: string | null) => void;
   copyVoteRelations?: CopyVoteRelation[];
   getEffectiveVote?: (playerId: string) => string | null;
+  hasDoublePower?: (playerId: string) => boolean;
 }
 
 export const PlayersTable: React.FC<PlayersTableProps> = ({
@@ -69,6 +70,7 @@ export const PlayersTable: React.FC<PlayersTableProps> = ({
   onTargetSelect,
   copyVoteRelations = [],
   getEffectiveVote,
+  hasDoublePower,
 }) => {
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [grantMenuAnchor, setGrantMenuAnchor] = useState<{ element: HTMLElement; player: Player } | null>(null);
@@ -409,9 +411,30 @@ export const PlayersTable: React.FC<PlayersTableProps> = ({
                         </Box>
                       </TableCell>
                       <TableCell>
-                        <Typography variant="body2" fontWeight="medium">
-                          {getDisplayName(player.userId, player.userName)}
-                        </Typography>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                          <Typography variant="body2" fontWeight="medium">
+                            {getDisplayName(player.userId, player.userName)}
+                          </Typography>
+                          {hasDoublePower?.(player.userId) && (
+                            <Tooltip title="Double Power! This player's vote counts for 2">
+                              <Chip
+                                label="⚡ 2x"
+                                size="small"
+                                color="warning"
+                                sx={{
+                                  height: 20,
+                                  fontSize: '0.7rem',
+                                  fontWeight: 700,
+                                  animation: 'glow 1.5s ease-in-out infinite',
+                                  '@keyframes glow': {
+                                    '0%, 100%': { boxShadow: '0 0 5px rgba(255, 193, 7, 0.5)' },
+                                    '50%': { boxShadow: '0 0 15px rgba(255, 193, 7, 0.8)' },
+                                  },
+                                }}
+                              />
+                            </Tooltip>
+                          )}
+                        </Box>
                         <Typography variant="caption" color="text.secondary">
                           {player.userId.substring(0, 8)}...
                         </Typography>

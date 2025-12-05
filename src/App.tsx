@@ -14,6 +14,7 @@ import { ActiveTicketDisplay } from './components/ActiveTicketDisplay'
 import { PokeEffect } from './components/PokeEffect'
 import { CopycatRevealEffect } from './components/CopycatRevealEffect'
 import { ActionLogDrawer } from './components/ActionLogDrawer'
+import { QuickDrawOverlay } from './components/QuickDrawOverlay'
 import { useUser } from './contexts/UserContext'
 import { useRoom } from './contexts/RoomContext'
 import { useThemeMode } from './hooks/useThemeMode'
@@ -43,6 +44,8 @@ function App() {
     copyRevealEffects,
     currentUserCopyTarget,
     shuffleEffect,
+    quickDraw,
+    doublePowerPlayers,
     actionLog,
     notification,
     handleResetVoting,
@@ -54,8 +57,12 @@ function App() {
     handleTargetSelect,
     cancelTargeting,
     calculateAverageVote,
+    calculateVoteSpread,
     getEffectiveVote,
     triggerCopyRevealEffects,
+    handleTriggerQuickDraw,
+    handleQuickDrawVote,
+    hasDoublePower,
     clearCopyRevealEffects,
     clearActionLog,
     clearPokeEvent,
@@ -227,6 +234,9 @@ function App() {
                     gameState={gameState}
                     onRevealCards={handleRevealCards}
                     onResetVoting={handleResetVoting}
+                    voteSpread={calculateVoteSpread()}
+                    onTriggerQuickDraw={handleTriggerQuickDraw}
+                    doublePowerCount={doublePowerPlayers.size}
                   />
                 </Grid>
               )}
@@ -249,6 +259,7 @@ function App() {
                     onTargetSelect={handleTargetSelect}
                     copyVoteRelations={copyVoteRelations}
                     getEffectiveVote={getEffectiveVote}
+                    hasDoublePower={hasDoublePower}
                   />
                 </Grid>
               )}
@@ -274,7 +285,7 @@ function App() {
                     <VotingCards
                       selectedValue={selectedVote}
                       onVote={handleVote}
-                      disabled={gameState === 'REVEALED'}
+                      disabled={gameState === 'REVEALED' || gameState === 'QUICK_DRAW'}
                       specialCards={specialCards}
                       onUseSpecialCard={handleUseSpecialCard}
                       isBlocked={isCurrentUserBlocked}
@@ -334,6 +345,13 @@ function App() {
         onClose={() => setActionLogOpen(false)}
         actionLog={actionLog}
         onClear={clearActionLog}
+      />
+
+      {/* Quick Draw Overlay */}
+      <QuickDrawOverlay
+        quickDraw={quickDraw}
+        onVote={handleQuickDrawVote}
+        currentUserId={userId}
       />
     </ThemeProvider>
   )
