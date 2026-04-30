@@ -140,9 +140,11 @@ const generateInitialCards = (grantedBy: string, grantedByName: string | null): 
 
 export const useSupabaseRealtime = () => {
   const { userId, userName } = useUser()
-  const { roomId } = useRoom()
+  const { roomId, getRoomAdmin, setRoomAdmin } = useRoom()
   const [count, setCount] = useState(0)
-  const [roomCreator, setRoomCreator] = useState<string | null>(null)
+  const [roomCreator, setRoomCreator] = useState<string | null>(() => {
+    return roomId ? getRoomAdmin(roomId) : null
+  })
   const [activeUsers, setActiveUsers] = useState<RoomUser[]>([])
   const [players, setPlayers] = useState<Player[]>([])
   const [gameState, setGameState] = useState<GameState>('VOTING')
@@ -174,8 +176,10 @@ export const useSupabaseRealtime = () => {
   
   const channelRef = useRef<RealtimeChannel | null>(null)
   const userNameRef = useRef(userName)
-  const knownUsersRef = useRef<Set<string>>(new Set()) // Track users we've seen to avoid duplicate join/leave logs
-  
+  const knownUsersRef = useRef<Set<string>>(new Set())
+  const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const isReconnectingRef = useRef(false)
+
   // Keep userName ref in sync
   useEffect(() => {
     userNameRef.current = userName
@@ -213,7 +217,9 @@ export const useSupabaseRealtime = () => {
   const addLogEntry = (type: ActionLogEntry['type'], message: string, userName?: string | null) => {
     addLogEntryRef.current(type, message, userName)
   }
-  const isFirstUserRef = useRef(false)
+  const isFirstUserRef = useRef(
+    roomId ? getRoomAdmin(roomId) === userId : false
+  )
   const countRef = useRef(count)
   const roomCreatorRef = useRef(roomCreator)
   const activeUsersRef = useRef(activeUsers)
@@ -329,13 +335,17 @@ export const useSupabaseRealtime = () => {
         setActiveUsers(users)
         setPlayers(playersList)
 
-        // If this is the first user in the room, they become the creator
-        if (users.length === 1 && users[0].userId === userId) {
+        const persistedAdmin = roomId ? getRoomAdmin(roomId) : null
+        if (persistedAdmin) {
+          setRoomCreator(persistedAdmin)
+          isFirstUserRef.current = persistedAdmin === userId
+        } else if (users.length === 1 && users[0].userId === userId) {
           isFirstUserRef.current = true
           setRoomCreator(userId)
+          if (roomId) setRoomAdmin(roomId, userId)
         } else if (users.length === 1) {
-          // Someone else is the sole user - they should be creator
           setRoomCreator(users[0].userId)
+          if (roomId) setRoomAdmin(roomId, users[0].userId)
         }
       })
       .on('presence', { event: 'join' }, ({ newPresences }) => {
@@ -393,6 +403,7 @@ export const useSupabaseRealtime = () => {
       
       setCount(syncCount)
       setRoomCreator(creator)
+      if (roomId && creator) setRoomAdmin(roomId, creator)
       setTickets(syncTickets || [])
       setActiveTicketId(syncActiveTicketId || null)
       
@@ -823,35 +834,118 @@ export const useSupabaseRealtime = () => {
       addLogEntry('info', `☕ ${senderName} gave Half Power to ${targetUserName || 'someone'}`, senderName)
     })
 
-    channel.subscribe(async (status) => {
+    const trackPresence = async () => {
+      const presenceData = {
+        userId,
+        userName: userNameRef.current || null,
+        hasVoted: false,
+        vote: null,
+        availableCards: specialCardsRef.current.length > 0
+          ? specialCardsRef.current.map(c => c.type)
+          : ALL_SPECIAL_CARD_TYPES,
+        online_at: new Date().toISOString(),
+      }
+      console.log('Tracking presence:', presenceData)
+      await channel.track(presenceData)
+      console.log('Presence tracked successfully')
+    }
+
+    let hasInitialized = false
+
+    const handleSubscriptionStatus = async (status: string) => {
+      console.log(`Channel status: ${status}`)
+
       if (status === 'SUBSCRIBED') {
-        console.log(`Connected to room: ${roomId}`)
-        
-        // Grant all special cards to the user when joining
-        const initialCards = generateInitialCards('system', 'Game Start')
-        setSpecialCards(initialCards)
-        
-        // Track this user's presence with voting status and available cards
-        const presenceData = {
+        isReconnectingRef.current = false
+
+        if (!hasInitialized) {
+          hasInitialized = true
+          console.log(`Connected to room: ${roomId}`)
+          const initialCards = generateInitialCards('system', 'Game Start')
+          setSpecialCards(initialCards)
+        } else {
+          console.log(`Reconnected to room: ${roomId}`)
+          setNotification({
+            open: true,
+            message: 'Reconnected to room',
+            severity: 'success',
+          })
+        }
+
+        await trackPresence()
+      }
+
+      if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+        console.warn(`Channel ${status}, will attempt reconnect...`)
+        isReconnectingRef.current = true
+        setNotification({
+          open: true,
+          message: 'Connection lost. Reconnecting...',
+          severity: 'error',
+        })
+      }
+
+      if (status === 'CLOSED') {
+        console.log('Channel closed')
+        isReconnectingRef.current = false
+      }
+    }
+
+    channel.subscribe(handleSubscriptionStatus)
+
+    channelRef.current = channel
+
+    const handleVisibilityChange = async () => {
+      if (document.visibilityState !== 'visible' || !channelRef.current) return
+
+      console.log('Tab became visible, checking connection...')
+
+      const socket = (supabase as any).realtime
+      const isConnected = socket?.isConnected?.() ?? socket?.conn?.readyState === 1
+
+      if (!isConnected) {
+        console.log('Socket disconnected, reconnecting...')
+        setNotification({
+          open: true,
+          message: 'Reconnecting after inactivity...',
+          severity: 'info',
+        })
+        socket?.connect?.()
+        return
+      }
+
+      try {
+        await channelRef.current.track({
           userId,
           userName: userNameRef.current || null,
           hasVoted: false,
           vote: null,
-          availableCards: ALL_SPECIAL_CARD_TYPES,
+          availableCards: specialCardsRef.current.length > 0
+            ? specialCardsRef.current.map(c => c.type)
+            : ALL_SPECIAL_CARD_TYPES,
           online_at: new Date().toISOString(),
-        }
-        console.log('Tracking presence:', presenceData)
-        await channel.track(presenceData)
-        console.log('Presence tracked successfully')
+        })
+        console.log('Presence re-tracked after visibility change')
+      } catch (err) {
+        console.error('Failed to re-track presence, forcing reconnect:', err)
+        channel.unsubscribe()
+        setTimeout(() => {
+          channel.subscribe(handleSubscriptionStatus)
+        }, 1000)
       }
-    })
+    }
 
-    channelRef.current = channel
+    document.addEventListener('visibilitychange', handleVisibilityChange)
 
     return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+      if (reconnectTimerRef.current) {
+        clearTimeout(reconnectTimerRef.current)
+        reconnectTimerRef.current = null
+      }
       channel.unsubscribe()
     }
-  }, [roomId, userId]) // Removed userName to prevent reconnections on name change
+  }, [roomId, userId])
 
   const sendEvent = async (eventType: string, eventData: any) => {
     try {

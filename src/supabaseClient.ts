@@ -7,5 +7,11 @@ if (!supabaseUrl || !supabasePublishableKey) {
   console.warn('Supabase URL or publishable Key is missing. Please check your .env file.')
 }
 
-export const supabase = createClient(supabaseUrl, supabasePublishableKey)
+export const supabase = createClient(supabaseUrl, supabasePublishableKey, {
+  realtime: {
+    params: {
+      eventsPerSecond: 10,
+    },
+  },
+})
 

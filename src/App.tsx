@@ -242,9 +242,28 @@ function App() {
       setActiveTicket(selectedTicket)
     })
 
-    channel.subscribe()
+    const handleStatus = (status: string) => {
+      if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+        console.warn(`Active-ticket channel ${status}, reconnecting...`)
+      }
+    }
+
+    channel.subscribe(handleStatus)
+
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        const socket = (supabase as any).realtime
+        const isConnected = socket?.isConnected?.() ?? socket?.conn?.readyState === 1
+        if (!isConnected) {
+          socket?.connect?.()
+        }
+      }
+    }
+
+    document.addEventListener('visibilitychange', handleVisibility)
 
     return () => {
+      document.removeEventListener('visibilitychange', handleVisibility)
       channel.unsubscribe()
     }
   }, [roomId])

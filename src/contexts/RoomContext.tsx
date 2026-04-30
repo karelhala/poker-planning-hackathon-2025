@@ -6,6 +6,8 @@ interface RoomContextType {
   joinRoom: (id: string) => void
   leaveRoom: () => void
   isCreator: (roomId: string) => boolean
+  getRoomAdmin: (roomId: string) => string | null
+  setRoomAdmin: (roomId: string, userId: string) => void
 }
 
 const RoomContext = createContext<RoomContextType | undefined>(undefined)
@@ -82,8 +84,16 @@ export const RoomProvider: React.FC<RoomProviderProps> = ({ children }) => {
     return localStorage.getItem(`room_creator_${roomId}`) === 'true'
   }
 
+  const getRoomAdmin = (roomId: string): string | null => {
+    return localStorage.getItem(`room_admin_${roomId}`)
+  }
+
+  const setRoomAdmin = (roomId: string, userId: string) => {
+    localStorage.setItem(`room_admin_${roomId}`, userId)
+  }
+
   return (
-    <RoomContext.Provider value={{ roomId, createRoom, joinRoom, leaveRoom, isCreator }}>
+    <RoomContext.Provider value={{ roomId, createRoom, joinRoom, leaveRoom, isCreator, getRoomAdmin, setRoomAdmin }}>
       {children}
     </RoomContext.Provider>
   )

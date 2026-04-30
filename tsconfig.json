@@ -3,11 +3,12 @@
     "target": "ES2020",
     "useDefineForClassFields": true,
     "lib": ["ES2020", "DOM", "DOM.Iterable"],
+    "types": ["node"],
     "module": "ESNext",
     "skipLibCheck": true,
 
     /* Module Resolution */
-    "moduleResolution": "node",
+    "moduleResolution": "bundler",
     "resolveJsonModule": true,
     "isolatedModules": true,
     "jsx": "react-jsx",
