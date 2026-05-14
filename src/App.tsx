@@ -70,6 +70,9 @@ function App() {
     handleCoffeeSelect,
     handleGrantDoublePower,
     handleGrantHalfPower,
+    handleSetVotingMode,
+    votingMode,
+    lastHeartbeat,
     clearCopyRevealEffects,
     clearActionLog,
     clearPokeEvent,
@@ -299,6 +302,7 @@ function App() {
           onOpenJiraModal={handleOpenUserModal}
           onOpenActionLog={() => setActionLogOpen(true)}
           actionLogCount={actionLog.length}
+          lastHeartbeat={lastHeartbeat}
         />
 
         {/* Main Content */}
@@ -342,6 +346,8 @@ function App() {
                     onTriggerQuickDraw={handleTriggerQuickDraw}
                     onNextTicket={handleNextTicket}
                     doublePowerCount={doublePowerPlayers.size}
+                    votingMode={votingMode}
+                    onSetVotingMode={handleSetVotingMode}
                   />
                 </Grid>
               )}
@@ -382,7 +388,7 @@ function App() {
               {/* Voting Statistics - only show when cards are revealed */}
               {roomId && gameState === 'REVEALED' && (
                 <Grid item xs={12}>
-                  <VotingStats players={players} />
+                  <VotingStats players={players} votingMode={votingMode} />
                 </Grid>
               )}
 
@@ -402,6 +408,7 @@ function App() {
                       currentUserCopyTarget={currentUserCopyTarget}
                       shuffleEffect={shuffleEffect}
                       onCoffeeSelect={handleCoffeeSelect}
+                      votingMode={votingMode}
                     />
                   </Paper>
                 </Grid>

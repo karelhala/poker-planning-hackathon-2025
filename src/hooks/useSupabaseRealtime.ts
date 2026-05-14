@@ -26,6 +26,11 @@ export interface Player {
 }
 
 export type GameState = 'VOTING' | 'REVEALED' | 'QUICK_DRAW'
+export type VotingMode = 'fibonacci' | 'tshirt'
+
+export const TSHIRT_SIZES = ['S', 'M', 'L', 'XL'] as const
+export const TSHIRT_NUMERIC_MAP: Record<string, number> = { S: 2, M: 5, L: 8, XL: 13 }
+export const NUMERIC_TSHIRT_MAP: Record<number, string> = { 2: 'S', 5: 'M', 8: 'L', 13: 'XL' }
 
 export interface JiraTicket {
   id: string
@@ -168,6 +173,8 @@ export const useSupabaseRealtime = () => {
   })
   const [doublePowerPlayers, setDoublePowerPlayers] = useState<Set<string>>(new Set())
   const [halfPowerPlayers, setHalfPowerPlayers] = useState<Set<string>>(new Set())
+  const [votingMode, setVotingMode] = useState<VotingMode>('fibonacci')
+  const [lastHeartbeat, setLastHeartbeat] = useState<number>(Date.now())
   const [isProcessing, setIsProcessing] = useState(false)
   const [actionLog, setActionLog] = useState<ActionLogEntry[]>([])
   const [notification, setNotification] = useState<Notification>({
@@ -229,6 +236,7 @@ export const useSupabaseRealtime = () => {
   const activeTicketIdRef = useSyncRef(activeTicketId)
   const specialCardsRef = useSyncRef(specialCards)
   const quickDrawRef = useSyncRef(quickDraw)
+  const votingModeRef = useSyncRef(votingMode)
 
   const hasVotedRef = useRef(false)
   const currentVoteRef = useRef<string | null>(null)
@@ -345,6 +353,7 @@ export const useSupabaseRealtime = () => {
                   activeUsers: activeUsersRef.current,
                   tickets: ticketsRef.current,
                   activeTicketId: activeTicketIdRef.current,
+                  votingMode: votingModeRef.current,
                   userId,
                   userName: userNameRef.current,
                   timestamp: new Date().toISOString(),
@@ -387,13 +396,14 @@ export const useSupabaseRealtime = () => {
     // Listen for state sync (when we join and someone sends us the state)
     channel.on('broadcast', { event: 'state_sync' }, (payload) => {
       console.log('Received room state:', payload)
-      const { count: syncCount, roomCreator: creator, tickets: syncTickets, activeTicketId: syncActiveTicketId } = payload.payload
-      
+      const { count: syncCount, roomCreator: creator, tickets: syncTickets, activeTicketId: syncActiveTicketId, votingMode: syncVotingMode } = payload.payload
+
       setCount(syncCount)
       setRoomCreator(creator)
       if (roomId && creator) setRoomAdmin(roomId, creator)
       setTickets(syncTickets || [])
       setActiveTicketId(syncActiveTicketId || null)
+      if (syncVotingMode) setVotingMode(syncVotingMode)
       
       const senderName = payload.payload.userName || 'Another user'
       setNotification({
@@ -799,6 +809,21 @@ export const useSupabaseRealtime = () => {
       addLogEntry('info', `⚡ ${senderName} granted Double Power to ${targetUserName || 'someone'}`, senderName)
     })
 
+    // Listen for voting mode change events
+    channel.on('broadcast', { event: 'voting_mode_change' }, (payload) => {
+      console.log('Received voting mode change event:', payload)
+      const { mode } = payload.payload
+      const senderName = payload.payload.userName || 'Admin'
+
+      setVotingMode(mode)
+      addLogEntry('info', `${senderName} switched to ${mode === 'tshirt' ? 'T-Shirt sizing (S/M/L/XL)' : 'Fibonacci sizing'}`, senderName)
+      setNotification({
+        open: true,
+        message: `${senderName} switched to ${mode === 'tshirt' ? 'T-Shirt sizing (S/M/L/XL)' : 'Fibonacci sizing'}`,
+        severity: 'info',
+      })
+    })
+
     // Listen for grant half power events
     channel.on('broadcast', { event: 'grant_half_power' }, (payload) => {
       console.log('Received grant half power event:', payload)
@@ -897,6 +922,7 @@ export const useSupabaseRealtime = () => {
             : ALL_SPECIAL_CARD_TYPES,
           online_at: new Date().toISOString(),
         })
+        setLastHeartbeat(Date.now())
       } catch (err) {
         console.warn('Heartbeat track failed:', err)
       }
@@ -1214,22 +1240,37 @@ export const useSupabaseRealtime = () => {
 
   // Calculate average vote from non-blocked players
   const calculateAverageVote = (): string => {
+    if (votingMode === 'tshirt') {
+      const validVotes = players
+        .filter((p) => !blockedPlayers.has(p.userId) && p.vote !== null)
+        .map((p) => TSHIRT_NUMERIC_MAP[p.vote!])
+        .filter((v) => v !== undefined)
+
+      if (validVotes.length === 0) return 'M'
+
+      const avg = validVotes.reduce((acc, v) => acc + v, 0) / validVotes.length
+      const tshirtValues = [2, 5, 8, 13]
+      const closestNum = tshirtValues.reduce((prev, curr) =>
+        Math.abs(curr - avg) < Math.abs(prev - avg) ? curr : prev
+      )
+      return NUMERIC_TSHIRT_MAP[closestNum]
+    }
+
     const validVotes = players
       .filter((p) => !blockedPlayers.has(p.userId) && p.vote !== null)
       .map((p) => parseFloat(p.vote!))
       .filter((v) => !isNaN(v))
-    
+
     if (validVotes.length === 0) return '0'
-    
+
     const sum = validVotes.reduce((acc, v) => acc + v, 0)
     const avg = sum / validVotes.length
-    
-    // Round to nearest Fibonacci-ish number
+
     const fibNumbers = [0, 1, 2, 3, 5, 8, 13, 21]
-    const closest = fibNumbers.reduce((prev, curr) => 
+    const closest = fibNumbers.reduce((prev, curr) =>
       Math.abs(curr - avg) < Math.abs(prev - avg) ? curr : prev
     )
-    
+
     return closest.toString()
   }
 
@@ -1282,8 +1323,10 @@ export const useSupabaseRealtime = () => {
   const handleShufflePlayer = (targetUserId: string, targetUserName: string | null) => {
     if (!activeTargeting || activeTargeting.cardType !== 'SHUFFLE') return
     
-    // Generate random card order (shuffle the indices 0-7)
-    const cardOrder = [0, 1, 2, 3, 4, 5, 6, 7]
+    // Generate random card order
+    const cardOrder = votingMode === 'tshirt'
+      ? [0, 1, 2, 3, 4, 5, 6, 7, 8, 9] // 10 items: 0-3 = S,M,L,XL + 4-9 = decoys
+      : [0, 1, 2, 3, 4, 5, 6, 7]        // 8 items: Fibonacci indices
     for (let i = cardOrder.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       [cardOrder[i], cardOrder[j]] = [cardOrder[j], cardOrder[i]];
@@ -1567,6 +1610,13 @@ export const useSupabaseRealtime = () => {
     })
   }
 
+  // Switch voting mode (admin action)
+  const handleSetVotingMode = (mode: VotingMode) => {
+    setVotingMode(mode)
+    sendEvent('voting_mode_change', { mode })
+    addLogEntry('info', `Switched to ${mode === 'tshirt' ? 'T-Shirt sizing (S/M/L/XL)' : 'Fibonacci sizing'}`, userNameRef.current)
+  }
+
   // Grant half power to a player (admin action)
   const handleGrantHalfPower = (targetUserId: string, targetUserName: string | null) => {
     setHalfPowerPlayers((prev) => {
@@ -1592,6 +1642,8 @@ export const useSupabaseRealtime = () => {
     activeUsers,
     players,
     gameState,
+    votingMode,
+    lastHeartbeat,
     tickets,
     activeTicketId,
     pokeEvent,
@@ -1635,6 +1687,7 @@ export const useSupabaseRealtime = () => {
     handleCoffeeSelect,
     handleGrantDoublePower,
     handleGrantHalfPower,
+    handleSetVotingMode,
     clearActionLog,
     clearCopyRevealEffects,
     clearPokeEvent,

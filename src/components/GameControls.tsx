@@ -1,11 +1,12 @@
 import React from 'react';
-import { Box, Button, Paper, Typography, Divider, Tooltip, Chip } from '@mui/material';
+import { Box, Button, Paper, Typography, Divider, Tooltip, Chip, ToggleButtonGroup, ToggleButton } from '@mui/material';
 import {
   Visibility as VisibilityIcon,
   RestartAlt as RestartAltIcon,
   ArrowForward as ArrowForwardIcon,
   FlashOn as FlashOnIcon,
 } from '@mui/icons-material';
+import type { VotingMode } from '../hooks/useSupabaseRealtime';
 
 export type GameState = 'VOTING' | 'REVEALED' | 'QUICK_DRAW';
 
@@ -19,6 +20,8 @@ interface GameControlsProps {
   onTriggerQuickDraw?: () => void;
   onNextTicket?: () => void;
   doublePowerCount?: number;
+  votingMode?: VotingMode;
+  onSetVotingMode?: (mode: VotingMode) => void;
 }
 
 export const GameControls: React.FC<GameControlsProps> = ({
@@ -31,6 +34,8 @@ export const GameControls: React.FC<GameControlsProps> = ({
   onTriggerQuickDraw,
   onNextTicket,
   doublePowerCount = 0,
+  votingMode = 'fibonacci',
+  onSetVotingMode,
 }) => {
   if (!isAdmin) {
     return null;
@@ -85,6 +90,43 @@ export const GameControls: React.FC<GameControlsProps> = ({
         </Box>
 
         <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
+          {/* Voting Mode Toggle */}
+          {onSetVotingMode && (
+            <ToggleButtonGroup
+              value={votingMode}
+              exclusive
+              onChange={(_e, newMode) => {
+                if (newMode !== null) onSetVotingMode(newMode as VotingMode);
+              }}
+              size="small"
+              sx={{
+                '& .MuiToggleButton-root': {
+                  fontWeight: 600,
+                  fontSize: '0.75rem',
+                  px: 1.5,
+                  py: 0.5,
+                },
+              }}
+            >
+              <ToggleButton value="fibonacci">
+                <Tooltip title="Fibonacci sequence: 0, 1, 2, 3, 5, 8, 13, 21">
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                    🔢 Fibonacci
+                  </Box>
+                </Tooltip>
+              </ToggleButton>
+              <ToggleButton value="tshirt">
+                <Tooltip title="T-Shirt sizes: S, M, L, XL">
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                    👕 T-Shirt
+                  </Box>
+                </Tooltip>
+              </ToggleButton>
+            </ToggleButtonGroup>
+          )}
+
+          <Divider orientation="vertical" flexItem />
+
           {gameState === 'VOTING' && (
             <Button
               variant="contained"

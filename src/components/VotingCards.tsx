@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Grid, Button, Typography, Box, Tooltip, Divider, keyframes, Alert, Chip } from '@mui/material';
+import { Grid, Button, Typography, Box, Tooltip, Divider, keyframes, Alert, Chip, Slider } from '@mui/material';
 import { Block as BlockIcon, Close as CloseIcon, Shuffle as ShuffleIcon } from '@mui/icons-material';
-import { type SpecialCard, type ActiveTargeting, type SpecialCardType, type CopyVoteRelation, type ShuffleEffect, SPECIAL_CARD_INFO } from '../hooks/useSupabaseRealtime';
+import { type SpecialCard, type ActiveTargeting, type SpecialCardType, type CopyVoteRelation, type ShuffleEffect, type VotingMode, SPECIAL_CARD_INFO, TSHIRT_SIZES } from '../hooks/useSupabaseRealtime';
 
 // Standard Fibonacci scale for agile estimation
 const CARDS = ['0', '1', '2', '3', '5', '8', '13', '21'];
@@ -67,6 +67,21 @@ const wobble = keyframes`
   }
 `;
 
+const TSHIRT_COLORS: Record<string, string> = {
+  S: '#1976d2',
+  M: '#4caf50',
+  L: '#ff9800',
+  XL: '#f44336',
+};
+
+const TSHIRT_MARKS = TSHIRT_SIZES.map((size, index) => ({
+  value: index,
+  label: size,
+}));
+
+const DECOY_LETTERS = ['A', 'B', 'C', 'D', 'E', 'F'] as const;
+const SHUFFLED_TSHIRT_OPTIONS = [...TSHIRT_SIZES, ...DECOY_LETTERS]; // 10 items: 0-3 real, 4-9 decoy
+
 interface VotingCardsProps {
   selectedValue: string | null;
   onVote: (value: string) => void;
@@ -79,6 +94,7 @@ interface VotingCardsProps {
   currentUserCopyTarget?: CopyVoteRelation | undefined;
   shuffleEffect?: ShuffleEffect | null;
   onCoffeeSelect?: () => void;
+  votingMode?: VotingMode;
 }
 
 export const VotingCards: React.FC<VotingCardsProps> = ({ 
@@ -93,26 +109,51 @@ export const VotingCards: React.FC<VotingCardsProps> = ({
   currentUserCopyTarget,
   shuffleEffect = null,
   onCoffeeSelect,
+  votingMode = 'fibonacci',
 }) => {
   const [lastRandomValue, setLastRandomValue] = useState<string | null>(null);
   const [revealedCards, setRevealedCards] = useState<Set<number>>(new Set());
+  const [sliderIndex, setSliderIndex] = useState<number | null>(null);
+  const [shuffledSliderRevealed, setShuffledSliderRevealed] = useState<Set<number>>(new Set());
+  const [decoyMessage, setDecoyMessage] = useState<string | null>(null);
+  const [shuffledSliderPos, setShuffledSliderPos] = useState(0);
+
+  const currentSliderColor = sliderIndex !== null ? TSHIRT_COLORS[TSHIRT_SIZES[sliderIndex]] : TSHIRT_COLORS.S;
+
+  const isShuffledTshirt = shuffleEffect !== null && votingMode === 'tshirt';
+
+  // Reset slider when vote is cleared
+  useEffect(() => {
+    if (!selectedValue) {
+      setSliderIndex(null);
+    } else if (votingMode === 'tshirt') {
+      const idx = TSHIRT_SIZES.indexOf(selectedValue as typeof TSHIRT_SIZES[number]);
+      if (idx >= 0) setSliderIndex(idx);
+    }
+  }, [selectedValue, votingMode]);
 
   // Reset revealed cards when shuffle effect changes, and pre-reveal 0 and 21
   useEffect(() => {
     if (shuffleEffect?.cardOrder) {
-      // Find display indices for cards with values 0 (index 0) and 21 (index 7)
-      const preRevealedIndices = new Set<number>();
-      shuffleEffect.cardOrder.forEach((originalIndex, displayIndex) => {
-        // originalIndex 0 = '0', originalIndex 7 = '21'
-        if (originalIndex === 0 || originalIndex === 7) {
-          preRevealedIndices.add(displayIndex);
-        }
-      });
-      setRevealedCards(preRevealedIndices);
+      if (votingMode === 'tshirt') {
+        setShuffledSliderRevealed(new Set());
+        setShuffledSliderPos(0);
+        setDecoyMessage(null);
+      } else {
+        const preRevealedIndices = new Set<number>();
+        shuffleEffect.cardOrder.forEach((originalIndex, displayIndex) => {
+          if (originalIndex === 0 || originalIndex === 7) {
+            preRevealedIndices.add(displayIndex);
+          }
+        });
+        setRevealedCards(preRevealedIndices);
+      }
     } else {
       setRevealedCards(new Set());
+      setShuffledSliderRevealed(new Set());
+      setDecoyMessage(null);
     }
-  }, [shuffleEffect]);
+  }, [shuffleEffect, votingMode]);
 
   const handleSpecialCardClick = (card: SpecialCard) => {
     if (onUseSpecialCard && !disabled && !isBlocked) {
@@ -252,177 +293,570 @@ export const VotingCards: React.FC<VotingCardsProps> = ({
       <Typography variant="h6" gutterBottom color={isBlocked ? 'error' : isShuffled ? 'warning.main' : activeTargeting ? 'info.main' : 'text.secondary'}>
         {isShuffled ? '🔀 Your cards are shuffled! Pick one to reveal...' : getHeaderMessage()}
       </Typography>
-      
-      <Grid container spacing={2} justifyContent="center">
-        {/* Render Number Cards - shuffled or normal */}
-        {cardOrder.map((originalIndex, displayIndex) => {
-          const cardValue = CARDS[originalIndex];
-          const isRevealed = revealedCards.has(displayIndex);
-          const isSelected = selectedValue === cardValue;
-          const showValue = !isShuffled || isRevealed || disabled;
-          
-          return (
-            <Grid item key={displayIndex}>
-              <Box
-                sx={{
-                  perspective: '1000px',
-                  ...(shuffleEffect?.isAnimating && {
-                    animation: `${shuffleAnim} 0.5s ease-in-out`,
-                    animationDelay: `${displayIndex * 0.1}s`,
-                  }),
-                }}
-              >
-                <Button
-                  variant={isSelected ? "contained" : "outlined"}
-                  color={isShuffled && !showValue ? "warning" : "primary"}
-                  disabled={votingDisabled || (isShuffled && isRevealed && !isSelected && selectedValue !== null)}
-                  onClick={() => {
-                    if (isShuffled) {
-                      if (!showValue) {
-                        // Hidden card - reveal and vote
-                        handleShuffledCardClick(displayIndex, cardValue);
-                      } else if (!selectedValue) {
-                        // Pre-revealed card (0 or 21) - can vote directly
-                        onVote(cardValue);
-                      }
-                    } else {
-                      onVote(cardValue);
-                    }
-                  }}
+
+      {votingMode === 'tshirt' ? (
+        /* ── T-Shirt Slider Mode ── */
+        <Box sx={{ pb: 2 }}>
+          {isShuffledTshirt ? (
+            /* ── Shuffled T-Shirt Slider ── */
+            (() => {
+              const shuffleOrder = shuffleEffect!.cardOrder;
+              const currentOriginalIdx = shuffleOrder[shuffledSliderPos];
+              const currentLabel = SHUFFLED_TSHIRT_OPTIONS[currentOriginalIdx];
+              const isCurrentRevealed = shuffledSliderRevealed.has(shuffledSliderPos);
+              const isRealSize = currentOriginalIdx < 4;
+              const foundSize = isCurrentRevealed && isRealSize;
+              const revealedColor = foundSize ? TSHIRT_COLORS[currentLabel] : undefined;
+
+              return (
+                <Box
                   sx={{
-                    width: 60,
-                    height: 80,
-                    fontSize: '1.5rem',
-                    borderRadius: 2,
-                    boxShadow: isSelected ? 6 : 1,
-                    borderWidth: isSelected ? 0 : 2,
-                    transition: 'all 0.3s ease',
-                    transformStyle: 'preserve-3d',
-                    position: 'relative',
-                    '&:hover': {
-                      transform: isShuffled && !showValue ? 'translateY(-8px) rotateY(20deg)' : 'translateY(-4px)',
-                    },
-                    ...(isBlocked && {
-                      opacity: 0.4,
-                      filter: 'grayscale(1)',
-                    }),
-                    // Shuffled card styling
-                    ...(isShuffled && !showValue && {
-                      bgcolor: '#ff9800',
-                      borderColor: '#ff9800',
-                      color: '#fff',
-                      animation: `${wobble} 2s ease-in-out infinite`,
-                      animationDelay: `${displayIndex * 0.2}s`,
-                      '&:hover': {
-                        bgcolor: '#f57c00',
-                        transform: 'translateY(-8px) scale(1.1)',
-                        boxShadow: '0 8px 25px rgba(255, 152, 0, 0.5)',
+                    width: '100%',
+                    mt: 2,
+                    p: 3,
+                    borderRadius: 3,
+                    border: '2px solid',
+                    borderColor: foundSize ? revealedColor : '#ff9800',
+                    bgcolor: foundSize ? `${revealedColor}08` : 'rgba(255, 152, 0, 0.04)',
+                    transition: 'all 0.4s ease',
+                    boxShadow: foundSize ? `0 4px 20px ${revealedColor}30` : '0 4px 20px rgba(255, 152, 0, 0.15)',
+                  }}
+                >
+                  {/* Header display */}
+                  <Box sx={{ textAlign: 'center', mb: 3 }}>
+                    <Typography
+                      variant="h2"
+                      sx={{
+                        fontWeight: 800,
+                        transition: 'all 0.3s ease',
+                        letterSpacing: 2,
+                        ...(isCurrentRevealed ? (
+                          isRealSize ? {
+                            color: revealedColor,
+                            textShadow: `0 2px 10px ${revealedColor}40`,
+                          } : {
+                            color: 'text.disabled',
+                            textDecoration: 'line-through',
+                          }
+                        ) : {
+                          color: '#ff9800',
+                        }),
+                      }}
+                    >
+                      {isCurrentRevealed ? currentLabel : '❓'}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      {foundSize
+                        ? `👕 Voting ${currentLabel} — keep sliding to explore or stay here`
+                        : isCurrentRevealed && !isRealSize
+                          ? `❌ "${currentLabel}" is not a size! Keep sliding...`
+                          : `🔀 Shuffled by ${shuffleEffect?.shuffledByName || 'someone'} — slide to reveal!`
+                      }
+                    </Typography>
+                  </Box>
+
+                  {/* Labels row — 10 slots */}
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', px: 0.5, mb: -1 }}>
+                    {shuffleOrder.map((originalIdx, displayIdx) => {
+                      const label = SHUFFLED_TSHIRT_OPTIONS[originalIdx];
+                      const revealed = shuffledSliderRevealed.has(displayIdx);
+                      const real = originalIdx < 4;
+                      return (
+                        <Box key={displayIdx} sx={{ width: 30, textAlign: 'center' }}>
+                          <Typography
+                            variant="body2"
+                            sx={{
+                              fontWeight: revealed ? 700 : 400,
+                              fontSize: '0.75rem',
+                              transition: 'all 0.3s ease',
+                              ...(revealed ? (
+                                real ? {
+                                  color: TSHIRT_COLORS[label],
+                                } : {
+                                  color: 'text.disabled',
+                                  textDecoration: 'line-through',
+                                }
+                              ) : {
+                                color: 'text.disabled',
+                              }),
+                            }}
+                          >
+                            {revealed ? label : '❓'}
+                          </Typography>
+                        </Box>
+                      );
+                    })}
+                  </Box>
+
+                  {/* The 10-stop shuffled slider */}
+                  <Slider
+                    value={shuffledSliderPos}
+                    min={0}
+                    max={9}
+                    step={1}
+                    marks={Array.from({ length: 10 }, (_, i) => ({ value: i }))}
+                    disabled={votingDisabled}
+                    onChange={(_e, newValue) => {
+                      const pos = newValue as number;
+                      setShuffledSliderPos(pos);
+                      setShuffledSliderRevealed((prev) => new Set([...prev, pos]));
+
+                      const origIdx = shuffleOrder[pos];
+                      const label = SHUFFLED_TSHIRT_OPTIONS[origIdx];
+                      const isReal = origIdx < 4;
+
+                      if (isReal) {
+                        const sizeIdx = TSHIRT_SIZES.indexOf(label as typeof TSHIRT_SIZES[number]);
+                        setSliderIndex(sizeIdx);
+                        onVote(label);
+                        setDecoyMessage(null);
+                      } else {
+                        setDecoyMessage(`"${label}" is not a T-shirt size!`);
+                      }
+                    }}
+                    sx={{
+                      height: 12,
+                      '& .MuiSlider-track': {
+                        bgcolor: foundSize ? revealedColor : '#ff9800',
+                        border: 'none',
+                        transition: 'background-color 0.3s ease',
                       },
-                    }),
-                    // Revealed shuffled card
-                    ...(isShuffled && isRevealed && {
-                      animation: `${flipCard} 0.6s ease-out`,
+                      '& .MuiSlider-rail': {
+                        bgcolor: 'action.disabledBackground',
+                        opacity: 0.4,
+                      },
+                      '& .MuiSlider-thumb': {
+                        width: 28,
+                        height: 28,
+                        bgcolor: foundSize ? revealedColor : '#ff9800',
+                        border: '3px solid #fff',
+                        boxShadow: foundSize
+                          ? `0 2px 12px ${revealedColor}60`
+                          : '0 2px 12px rgba(255, 152, 0, 0.4)',
+                        transition: 'background-color 0.3s ease, box-shadow 0.3s ease',
+                        ...(!(isCurrentRevealed && isRealSize) && {
+                          animation: `${wobble} 1.5s ease-in-out infinite`,
+                        }),
+                        '&:hover, &.Mui-focusVisible': {
+                          boxShadow: foundSize
+                            ? `0 0 0 8px ${revealedColor}30`
+                            : '0 0 0 8px rgba(255, 152, 0, 0.2)',
+                        },
+                      },
+                      '& .MuiSlider-mark': {
+                        width: 8,
+                        height: 8,
+                        borderRadius: '50%',
+                        bgcolor: 'background.paper',
+                        border: '2px solid',
+                        borderColor: 'divider',
+                        transform: 'translate(-50%, -50%)',
+                        top: '50%',
+                      },
+                      '& .MuiSlider-markActive': {
+                        bgcolor: foundSize ? '#fff' : 'rgba(255, 152, 0, 0.3)',
+                        borderColor: foundSize ? revealedColor : '#ff9800',
+                      },
+                      '& .MuiSlider-markLabel': {
+                        display: 'none',
+                      },
+                      '&.Mui-disabled': {
+                        opacity: 0.5,
+                      },
+                    }}
+                  />
+
+                  {/* Status row */}
+                  <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 1.5, mt: 2.5, flexWrap: 'wrap' }}>
+                    <Chip
+                      label={`${shuffledSliderRevealed.size} / 10 revealed`}
+                      size="small"
+                      variant="outlined"
+                      sx={{ fontWeight: 600, fontSize: '0.75rem', borderColor: '#ff9800', color: '#ff9800' }}
+                    />
+                    {decoyMessage && !foundSize && (
+                      <Chip
+                        label={decoyMessage}
+                        size="small"
+                        sx={{ fontWeight: 600, fontSize: '0.75rem', bgcolor: 'error.light', color: '#fff' }}
+                      />
+                    )}
+                    {foundSize && (
+                      <Chip
+                        label={`Voted: ${currentLabel}`}
+                        sx={{
+                          bgcolor: revealedColor,
+                          color: '#fff',
+                          fontWeight: 700,
+                          fontSize: '0.9rem',
+                          px: 2,
+                        }}
+                      />
+                    )}
+                  </Box>
+                </Box>
+              );
+            })()
+          ) : (
+            /* ── Normal T-Shirt Slider ── */
+            <Box
+              sx={{
+                width: '100%',
+                mt: 2,
+                p: 3,
+                borderRadius: 3,
+                border: '2px solid',
+                borderColor: sliderIndex !== null ? currentSliderColor : 'divider',
+                bgcolor: sliderIndex !== null ? `${currentSliderColor}08` : 'background.paper',
+                transition: 'all 0.4s ease',
+                boxShadow: sliderIndex !== null ? `0 4px 20px ${currentSliderColor}30` : 1,
+              }}
+            >
+              {/* Selected size display */}
+              <Box sx={{ textAlign: 'center', mb: 3 }}>
+                <Typography
+                  variant="h2"
+                  sx={{
+                    fontWeight: 800,
+                    color: sliderIndex !== null ? currentSliderColor : 'text.disabled',
+                    transition: 'all 0.3s ease',
+                    letterSpacing: 2,
+                    textShadow: sliderIndex !== null ? `0 2px 10px ${currentSliderColor}40` : 'none',
+                  }}
+                >
+                  {sliderIndex !== null ? TSHIRT_SIZES[sliderIndex] : '—'}
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
+                  {sliderIndex !== null ? '👕 Slide to change your estimate' : '👕 Slide to pick a size'}
+                </Typography>
+              </Box>
+
+              {/* Size labels above slider */}
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', px: 0.5, mb: -1 }}>
+                {TSHIRT_SIZES.map((size) => (
+                  <Box key={size} sx={{ width: 40, textAlign: 'center' }}>
+                    <Typography
+                      variant="body2"
+                      sx={{
+                        fontWeight: selectedValue === size ? 800 : 600,
+                        color: selectedValue === size ? TSHIRT_COLORS[size] : 'text.secondary',
+                        transition: 'all 0.3s ease',
+                        fontSize: selectedValue === size ? '1.1rem' : '0.875rem',
+                      }}
+                    >
+                      {size}
+                    </Typography>
+                  </Box>
+                ))}
+              </Box>
+
+              {/* The slider */}
+              <Slider
+                value={sliderIndex ?? 0}
+                min={0}
+                max={3}
+                step={1}
+                marks={TSHIRT_MARKS}
+                disabled={votingDisabled}
+                onChange={(_e, newValue) => {
+                  const idx = newValue as number;
+                  setSliderIndex(idx);
+                  onVote(TSHIRT_SIZES[idx]);
+                }}
+                sx={{
+                  height: 12,
+                  '& .MuiSlider-track': {
+                    background: sliderIndex !== null
+                      ? `linear-gradient(90deg, ${TSHIRT_COLORS.S}, ${currentSliderColor})`
+                      : TSHIRT_COLORS.S,
+                    border: 'none',
+                    transition: 'background 0.4s ease',
+                  },
+                  '& .MuiSlider-rail': {
+                    background: 'linear-gradient(90deg, #1976d2, #4caf50, #ff9800, #f44336)',
+                    opacity: 0.25,
+                  },
+                  '& .MuiSlider-thumb': {
+                    width: 28,
+                    height: 28,
+                    bgcolor: currentSliderColor,
+                    border: '3px solid #fff',
+                    boxShadow: `0 2px 12px ${currentSliderColor}60`,
+                    transition: 'background-color 0.3s ease, box-shadow 0.3s ease',
+                    '&:hover, &.Mui-focusVisible': {
+                      boxShadow: `0 0 0 8px ${currentSliderColor}30`,
+                    },
+                    '&.Mui-active': {
+                      boxShadow: `0 0 0 12px ${currentSliderColor}30`,
+                    },
+                  },
+                  '& .MuiSlider-mark': {
+                    width: 8,
+                    height: 8,
+                    borderRadius: '50%',
+                    bgcolor: 'background.paper',
+                    border: '2px solid',
+                    borderColor: 'divider',
+                    transform: 'translate(-50%, -50%)',
+                    top: '50%',
+                  },
+                  '& .MuiSlider-markActive': {
+                    bgcolor: '#fff',
+                    borderColor: currentSliderColor,
+                  },
+                  '& .MuiSlider-markLabel': {
+                    display: 'none',
+                  },
+                  '&.Mui-disabled': {
+                    opacity: 0.5,
+                  },
+                }}
+              />
+
+              {/* Bottom row: voted chip + quick actions */}
+              <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 1.5, mt: 2.5, flexWrap: 'wrap' }}>
+                <Tooltip title="Pick a random T-shirt size" arrow>
+                  <Chip
+                    icon={<span>🎲</span>}
+                    label="Random"
+                    variant={lastRandomValue && TSHIRT_SIZES.includes(lastRandomValue as typeof TSHIRT_SIZES[number]) ? 'filled' : 'outlined'}
+                    disabled={votingDisabled}
+                    onClick={() => {
+                      if (!votingDisabled) {
+                        const randomIdx = Math.floor(Math.random() * TSHIRT_SIZES.length);
+                        const randomSize = TSHIRT_SIZES[randomIdx];
+                        setLastRandomValue(randomSize);
+                        setSliderIndex(randomIdx);
+                        onVote(randomSize);
+                      }
+                    }}
+                    sx={{
+                      fontWeight: 600,
+                      fontSize: '0.8rem',
+                      cursor: votingDisabled ? 'default' : 'pointer',
+                      px: 1,
+                      ...(lastRandomValue && TSHIRT_SIZES.includes(lastRandomValue as typeof TSHIRT_SIZES[number]) && {
+                        bgcolor: 'secondary.main',
+                        color: '#fff',
+                        '&:hover': { bgcolor: 'secondary.dark' },
+                      }),
+                    }}
+                  />
+                </Tooltip>
+
+                {sliderIndex !== null && selectedValue && TSHIRT_SIZES.includes(selectedValue as typeof TSHIRT_SIZES[number]) && (
+                  <Chip
+                    label={`Voted: ${selectedValue}`}
+                    sx={{
+                      bgcolor: currentSliderColor,
+                      color: '#fff',
+                      fontWeight: 700,
+                      fontSize: '0.9rem',
+                      px: 2,
+                      py: 0.5,
+                    }}
+                  />
+                )}
+
+                <Tooltip title="Pass — your next round vote counts as 0.5x" arrow>
+                  <Chip
+                    icon={<span>☕</span>}
+                    label="Pass"
+                    variant={selectedValue === '☕' ? 'filled' : 'outlined'}
+                    disabled={votingDisabled}
+                    onClick={() => {
+                      if (!votingDisabled) {
+                        setSliderIndex(null);
+                        onVote('☕');
+                        onCoffeeSelect?.();
+                      }
+                    }}
+                    sx={{
+                      fontWeight: 600,
+                      fontSize: '0.8rem',
+                      cursor: votingDisabled ? 'default' : 'pointer',
+                      px: 1,
+                      ...(selectedValue === '☕' && {
+                        bgcolor: '#795548',
+                        color: '#fff',
+                        '&:hover': { bgcolor: '#5d4037' },
+                      }),
+                    }}
+                  />
+                </Tooltip>
+              </Box>
+            </Box>
+          )}
+        </Box>
+      ) : (
+        /* ── Fibonacci Card Mode (original) ── */
+        <Grid container spacing={2} justifyContent="center">
+          {/* Render Number Cards - shuffled or normal */}
+          {cardOrder.map((originalIndex, displayIndex) => {
+            const cardValue = CARDS[originalIndex];
+            const isRevealed = revealedCards.has(displayIndex);
+            const isSelected = selectedValue === cardValue;
+            const showValue = !isShuffled || isRevealed || disabled;
+
+            return (
+              <Grid item key={displayIndex}>
+                <Box
+                  sx={{
+                    perspective: '1000px',
+                    ...(shuffleEffect?.isAnimating && {
+                      animation: `${shuffleAnim} 0.5s ease-in-out`,
+                      animationDelay: `${displayIndex * 0.1}s`,
                     }),
                   }}
                 >
-                  {showValue ? (
-                    cardValue
-                  ) : (
-                    <Box sx={{ 
-                      display: 'flex', 
-                      flexDirection: 'column', 
-                      alignItems: 'center',
-                      fontSize: '1.8rem',
-                    }}>
-                      <span>❓</span>
-                    </Box>
-                  )}
-                </Button>
-              </Box>
-            </Grid>
-          );
-        })}
-
-        {/* Divider between number cards and special vote cards */}
-        <Grid item>
-          <Divider orientation="vertical" flexItem sx={{ height: 80, mx: 1 }} />
-        </Grid>
-
-        {/* Random Card (?) */}
-        <Grid item>
-          <Tooltip title="Pick a random value from 0-21" arrow>
-            <Button
-              variant={selectedValue === '?' || lastRandomValue ? "contained" : "outlined"}
-              color="secondary"
-              disabled={votingDisabled}
-              onClick={() => {
-                if (!votingDisabled) {
-                  const randomValue = NUMERIC_CARDS[Math.floor(Math.random() * NUMERIC_CARDS.length)];
-                  setLastRandomValue(randomValue);
-                  onVote(randomValue);
-                }
-              }}
-              sx={{
-                width: 70,
-                height: 90,
-                fontSize: '2rem',
-                borderRadius: 2,
-                boxShadow: 2,
-                borderWidth: 2,
-                position: 'relative',
-                '&:hover': {
-                  transform: votingDisabled ? 'none' : 'translateY(-4px)',
-                  boxShadow: votingDisabled ? 2 : 4,
-                  borderWidth: 2,
-                },
-              }}
-            >
-              {lastRandomValue ? (
-                <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                  <Typography variant="caption" sx={{ fontSize: '0.6rem', opacity: 0.7 }}>🎲</Typography>
-                  <span>{lastRandomValue}</span>
+                  <Button
+                    variant={isSelected ? "contained" : "outlined"}
+                    color={isShuffled && !showValue ? "warning" : "primary"}
+                    disabled={votingDisabled || (isShuffled && isRevealed && !isSelected && selectedValue !== null)}
+                    onClick={() => {
+                      if (isShuffled) {
+                        if (!showValue) {
+                          handleShuffledCardClick(displayIndex, cardValue);
+                        } else if (!selectedValue) {
+                          onVote(cardValue);
+                        }
+                      } else {
+                        onVote(cardValue);
+                      }
+                    }}
+                    sx={{
+                      width: 60,
+                      height: 80,
+                      fontSize: '1.5rem',
+                      borderRadius: 2,
+                      boxShadow: isSelected ? 6 : 1,
+                      borderWidth: isSelected ? 0 : 2,
+                      transition: 'all 0.3s ease',
+                      transformStyle: 'preserve-3d',
+                      position: 'relative',
+                      '&:hover': {
+                        transform: isShuffled && !showValue ? 'translateY(-8px) rotateY(20deg)' : 'translateY(-4px)',
+                      },
+                      ...(isBlocked && {
+                        opacity: 0.4,
+                        filter: 'grayscale(1)',
+                      }),
+                      ...(isShuffled && !showValue && {
+                        bgcolor: '#ff9800',
+                        borderColor: '#ff9800',
+                        color: '#fff',
+                        animation: `${wobble} 2s ease-in-out infinite`,
+                        animationDelay: `${displayIndex * 0.2}s`,
+                        '&:hover': {
+                          bgcolor: '#f57c00',
+                          transform: 'translateY(-8px) scale(1.1)',
+                          boxShadow: '0 8px 25px rgba(255, 152, 0, 0.5)',
+                        },
+                      }),
+                      ...(isShuffled && isRevealed && {
+                        animation: `${flipCard} 0.6s ease-out`,
+                      }),
+                    }}
+                  >
+                    {showValue ? (
+                      cardValue
+                    ) : (
+                      <Box sx={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        fontSize: '1.8rem',
+                      }}>
+                        <span>❓</span>
+                      </Box>
+                    )}
+                  </Button>
                 </Box>
-              ) : '?'}
-            </Button>
-          </Tooltip>
-        </Grid>
+              </Grid>
+            );
+          })}
 
-        {/* Coffee Card (☕) */}
-        <Grid item>
-          <Tooltip title="Take a break - your next round vote counts as 0.5x" arrow>
-            <Button
-              variant={selectedValue === '☕' ? "contained" : "outlined"}
-              color="warning"
-              disabled={votingDisabled}
-              onClick={() => {
-                if (!votingDisabled) {
-                  onVote('☕');
-                  onCoffeeSelect?.();
-                }
-              }}
-              sx={{
-                width: 70,
-                height: 90,
-                fontSize: '2rem',
-                borderRadius: 2,
-                boxShadow: 2,
-                borderWidth: 2,
-                bgcolor: selectedValue === '☕' ? '#795548' : 'transparent',
-                borderColor: '#795548',
-                color: selectedValue === '☕' ? '#fff' : '#795548',
-                '&:hover': {
-                  transform: votingDisabled ? 'none' : 'translateY(-4px)',
-                  boxShadow: votingDisabled ? 2 : 4,
+          {/* Divider between number cards and special vote cards */}
+          <Grid item>
+            <Divider orientation="vertical" flexItem sx={{ height: 80, mx: 1 }} />
+          </Grid>
+
+          {/* Random Card (?) */}
+          <Grid item>
+            <Tooltip title="Pick a random value from 0-21" arrow>
+              <Button
+                variant={selectedValue === '?' || lastRandomValue ? "contained" : "outlined"}
+                color="secondary"
+                disabled={votingDisabled}
+                onClick={() => {
+                  if (!votingDisabled) {
+                    const randomValue = NUMERIC_CARDS[Math.floor(Math.random() * NUMERIC_CARDS.length)];
+                    setLastRandomValue(randomValue);
+                    onVote(randomValue);
+                  }
+                }}
+                sx={{
+                  width: 70,
+                  height: 90,
+                  fontSize: '2rem',
+                  borderRadius: 2,
+                  boxShadow: 2,
                   borderWidth: 2,
-                  bgcolor: selectedValue === '☕' ? '#5d4037' : 'rgba(121, 85, 72, 0.1)',
-                },
-              }}
-            >
-              ☕
-            </Button>
-          </Tooltip>
+                  position: 'relative',
+                  '&:hover': {
+                    transform: votingDisabled ? 'none' : 'translateY(-4px)',
+                    boxShadow: votingDisabled ? 2 : 4,
+                    borderWidth: 2,
+                  },
+                }}
+              >
+                {lastRandomValue ? (
+                  <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                    <Typography variant="caption" sx={{ fontSize: '0.6rem', opacity: 0.7 }}>🎲</Typography>
+                    <span>{lastRandomValue}</span>
+                  </Box>
+                ) : '?'}
+              </Button>
+            </Tooltip>
+          </Grid>
+
+          {/* Coffee Card (☕) */}
+          <Grid item>
+            <Tooltip title="Take a break - your next round vote counts as 0.5x" arrow>
+              <Button
+                variant={selectedValue === '☕' ? "contained" : "outlined"}
+                color="warning"
+                disabled={votingDisabled}
+                onClick={() => {
+                  if (!votingDisabled) {
+                    onVote('☕');
+                    onCoffeeSelect?.();
+                  }
+                }}
+                sx={{
+                  width: 70,
+                  height: 90,
+                  fontSize: '2rem',
+                  borderRadius: 2,
+                  boxShadow: 2,
+                  borderWidth: 2,
+                  bgcolor: selectedValue === '☕' ? '#795548' : 'transparent',
+                  borderColor: '#795548',
+                  color: selectedValue === '☕' ? '#fff' : '#795548',
+                  '&:hover': {
+                    transform: votingDisabled ? 'none' : 'translateY(-4px)',
+                    boxShadow: votingDisabled ? 2 : 4,
+                    borderWidth: 2,
+                    bgcolor: selectedValue === '☕' ? '#5d4037' : 'rgba(121, 85, 72, 0.1)',
+                  },
+                }}
+              >
+                ☕
+              </Button>
+            </Tooltip>
+          </Grid>
         </Grid>
-      </Grid>
+      )}
 
       {/* Special Cards Section */}
       {specialCards.length > 0 && (

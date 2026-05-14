@@ -6,6 +6,7 @@ import {
   Warning as WarningIcon,
   Error as ErrorIcon,
 } from '@mui/icons-material';
+import { type VotingMode, TSHIRT_NUMERIC_MAP, NUMERIC_TSHIRT_MAP } from '../hooks/useSupabaseRealtime';
 
 export interface Player {
   userId: string;
@@ -17,14 +18,21 @@ export interface Player {
 
 interface VotingStatsProps {
   players: Player[];
+  votingMode?: VotingMode;
 }
 
-export const VotingStats: React.FC<VotingStatsProps> = ({ players }) => {
-  // Extract numeric votes
+export const VotingStats: React.FC<VotingStatsProps> = ({ players, votingMode = 'fibonacci' }) => {
+  const isTshirt = votingMode === 'tshirt';
+
+  // Extract numeric votes — for t-shirt mode, map S/M/L/XL to numbers
   const numericVotes = players
     .map(p => p.vote)
-    .filter(vote => vote !== null && !isNaN(Number(vote)))
-    .map(vote => Number(vote));
+    .filter(vote => vote !== null)
+    .map(vote => isTshirt ? TSHIRT_NUMERIC_MAP[vote!] : Number(vote!))
+    .filter(v => v !== undefined && !isNaN(v));
+
+  // Keep original vote strings for t-shirt display
+  const rawVotes = players.map(p => p.vote).filter((v): v is string => v !== null);
 
   if (numericVotes.length === 0) {
     return (
@@ -37,6 +45,11 @@ export const VotingStats: React.FC<VotingStatsProps> = ({ players }) => {
       </Card>
     );
   }
+
+  const formatValue = (num: number): string => {
+    if (!isTshirt) return String(num);
+    return NUMERIC_TSHIRT_MAP[num] || String(num);
+  };
 
   // Calculate statistics
   const average = numericVotes.reduce((a, b) => a + b, 0) / numericVotes.length;
@@ -67,16 +80,20 @@ export const VotingStats: React.FC<VotingStatsProps> = ({ players }) => {
     consensusIcon = <ErrorIcon />;
   }
 
-  // Calculate mode (most common vote)
-  const voteCounts = numericVotes.reduce((acc, vote) => {
-    acc[vote] = (acc[vote] || 0) + 1;
-    return acc;
-  }, {} as Record<number, number>);
-  
+  // Calculate mode (most common vote) - use raw strings for t-shirt
+  const voteCounts = isTshirt
+    ? rawVotes.reduce((acc, vote) => {
+        acc[vote] = (acc[vote] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>)
+    : numericVotes.reduce((acc, vote) => {
+        acc[vote] = (acc[vote] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>);
+
   const maxCount = Math.max(...Object.values(voteCounts));
   const modes = Object.keys(voteCounts)
-    .filter(vote => voteCounts[Number(vote)] === maxCount)
-    .map(Number);
+    .filter(vote => voteCounts[vote] === maxCount);
 
   return (
     <Card
@@ -114,10 +131,10 @@ export const VotingStats: React.FC<VotingStatsProps> = ({ players }) => {
             <Box sx={{ textAlign: 'center' }}>
               <TrendingUpIcon sx={{ fontSize: 40, mb: 1, opacity: 0.9 }} />
               <Typography variant="h3" component="div" sx={{ fontWeight: 700, color: 'white' }}>
-                {average.toFixed(1)}
+                {isTshirt ? formatValue(Math.round(average)) : average.toFixed(1)}
               </Typography>
               <Typography variant="body2" sx={{ opacity: 0.9, mt: 0.5 }}>
-                Average Estimate
+                {isTshirt ? 'Most Common Size' : 'Average Estimate'}
               </Typography>
             </Box>
           </Grid>
@@ -131,10 +148,10 @@ export const VotingStats: React.FC<VotingStatsProps> = ({ players }) => {
                 Vote Range
               </Typography>
               <Typography variant="h4" component="div" sx={{ fontWeight: 600, color: 'white' }}>
-                {min} - {max}
+                {isTshirt ? `${formatValue(min)} - ${formatValue(max)}` : `${min} - ${max}`}
               </Typography>
               <Typography variant="caption" sx={{ opacity: 0.7, mt: 0.5, display: 'block' }}>
-                Spread: {range} points
+                {isTshirt ? (range === 0 ? 'Everyone agrees!' : 'Spread across sizes') : `Spread: ${range} points`}
               </Typography>
             </Box>
           </Grid>
@@ -148,7 +165,7 @@ export const VotingStats: React.FC<VotingStatsProps> = ({ players }) => {
                 Most Common
               </Typography>
               <Typography variant="h4" component="div" sx={{ fontWeight: 600, color: 'white' }}>
-                {modes.length === 1 ? modes[0] : modes.join(', ')}
+                {modes.length === 1 ? (isTshirt ? modes[0] : modes[0]) : modes.join(', ')}
               </Typography>
               <Typography variant="caption" sx={{ opacity: 0.7, mt: 0.5, display: 'block' }}>
                 {maxCount} {maxCount === 1 ? 'vote' : 'votes'}
@@ -164,8 +181,13 @@ export const VotingStats: React.FC<VotingStatsProps> = ({ players }) => {
           </Typography>
           <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
             {Object.keys(voteCounts)
-              .map(Number)
-              .sort((a, b) => a - b)
+              .sort((a, b) => {
+                if (isTshirt) {
+                  const order = ['S', 'M', 'L', 'XL'];
+                  return order.indexOf(a) - order.indexOf(b);
+                }
+                return Number(a) - Number(b);
+              })
               .map(vote => (
                 <Chip
                   key={vote}
