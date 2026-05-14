@@ -48,6 +48,7 @@ function App() {
     shuffleEffect,
     quickDraw,
     doublePowerPlayers,
+    isProcessing,
     actionLog,
     notification,
     handleResetVoting,
@@ -334,6 +335,7 @@ function App() {
                   <GameControls
                     isAdmin={isRoomCreator}
                     gameState={gameState}
+                    isProcessing={isProcessing}
                     onRevealCards={handleRevealCards}
                     onResetVoting={handleResetVoting}
                     voteSpread={calculateVoteSpread()}

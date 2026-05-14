@@ -3,6 +3,7 @@ import { supabase } from '../supabaseClient'
 import type { RealtimeChannel } from '@supabase/supabase-js'
 import { useUser } from '../contexts/UserContext'
 import { useRoom } from '../contexts/RoomContext'
+import { useSyncRef } from './useSyncRef'
 
 interface Notification {
   open: boolean
@@ -167,6 +168,7 @@ export const useSupabaseRealtime = () => {
   })
   const [doublePowerPlayers, setDoublePowerPlayers] = useState<Set<string>>(new Set())
   const [halfPowerPlayers, setHalfPowerPlayers] = useState<Set<string>>(new Set())
+  const [isProcessing, setIsProcessing] = useState(false)
   const [actionLog, setActionLog] = useState<ActionLogEntry[]>([])
   const [notification, setNotification] = useState<Notification>({
     open: false,
@@ -220,52 +222,21 @@ export const useSupabaseRealtime = () => {
   const isFirstUserRef = useRef(
     roomId ? getRoomAdmin(roomId) === userId : false
   )
-  const countRef = useRef(count)
-  const roomCreatorRef = useRef(roomCreator)
-  const activeUsersRef = useRef(activeUsers)
-  const ticketsRef = useRef(tickets)
-  const activeTicketIdRef = useRef(activeTicketId)
-  const specialCardsRef = useRef(specialCards)
-  const blockedPlayersRef = useRef(blockedPlayers)
-  const copyVoteRelationsRef = useRef(copyVoteRelations)
-  const quickDrawRef = useRef(quickDraw)
+  const countRef = useSyncRef(count)
+  const roomCreatorRef = useSyncRef(roomCreator)
+  const activeUsersRef = useSyncRef(activeUsers)
+  const ticketsRef = useSyncRef(tickets)
+  const activeTicketIdRef = useSyncRef(activeTicketId)
+  const specialCardsRef = useSyncRef(specialCards)
+  const quickDrawRef = useSyncRef(quickDraw)
 
-  // Keep refs in sync with state
+  const hasVotedRef = useRef(false)
+  const currentVoteRef = useRef<string | null>(null)
   useEffect(() => {
-    countRef.current = count
-  }, [count])
-
-  useEffect(() => {
-    roomCreatorRef.current = roomCreator
-  }, [roomCreator])
-
-  useEffect(() => {
-    activeUsersRef.current = activeUsers
-  }, [activeUsers])
-
-  useEffect(() => {
-    ticketsRef.current = tickets
-  }, [tickets])
-
-  useEffect(() => {
-    activeTicketIdRef.current = activeTicketId
-  }, [activeTicketId])
-
-  useEffect(() => {
-    specialCardsRef.current = specialCards
-  }, [specialCards])
-
-  useEffect(() => {
-    blockedPlayersRef.current = blockedPlayers
-  }, [blockedPlayers])
-
-  useEffect(() => {
-    quickDrawRef.current = quickDraw
-  }, [quickDraw])
-
-  useEffect(() => {
-    copyVoteRelationsRef.current = copyVoteRelations
-  }, [copyVoteRelations])
+    const myPlayer = players.find(p => p.userId === userId)
+    hasVotedRef.current = myPlayer?.hasVoted ?? false
+    currentVoteRef.current = myPlayer?.vote ?? null
+  }, [players, userId])
 
   useEffect(() => {
     // Only connect if in a room
@@ -385,13 +356,30 @@ export const useSupabaseRealtime = () => {
       })
       .on('presence', { event: 'leave' }, ({ leftPresences }) => {
         console.log('User left:', leftPresences)
-        // Log the leave event only for users actually leaving (check against current presence state)
         const currentState = channel.presenceState()
         leftPresences.forEach((presence: any) => {
-          // Only log if user is not in current state (truly left, not just a presence update)
           if (!currentState[presence.userId]) {
             knownUsersRef.current.delete(presence.userId)
             addLogEntry('leave', `${presence.userName || 'Someone'} left the room`, presence.userName)
+
+            if (presence.userId === roomCreatorRef.current) {
+              const remainingUsers = Object.keys(currentState).sort()
+              if (remainingUsers.length > 0) {
+                const newAdmin = remainingUsers[0]
+                setRoomCreator(newAdmin)
+                if (roomId) setRoomAdmin(roomId, newAdmin)
+                isFirstUserRef.current = newAdmin === userId
+
+                if (newAdmin === userId) {
+                  addLogEntry('info', 'You are now the room admin', userNameRef.current)
+                  setNotification({
+                    open: true,
+                    message: 'Previous admin left. You are now the room admin.',
+                    severity: 'info',
+                  })
+                }
+              }
+            }
           }
         })
       })
@@ -838,8 +826,8 @@ export const useSupabaseRealtime = () => {
       const presenceData = {
         userId,
         userName: userNameRef.current || null,
-        hasVoted: false,
-        vote: null,
+        hasVoted: hasVotedRef.current,
+        vote: currentVoteRef.current,
         availableCards: specialCardsRef.current.length > 0
           ? specialCardsRef.current.map(c => c.type)
           : ALL_SPECIAL_CARD_TYPES,
@@ -895,6 +883,25 @@ export const useSupabaseRealtime = () => {
 
     channelRef.current = channel
 
+    const HEARTBEAT_INTERVAL_MS = 20_000
+    const heartbeatInterval = setInterval(async () => {
+      if (!channelRef.current || document.visibilityState !== 'visible') return
+      try {
+        await channelRef.current.track({
+          userId,
+          userName: userNameRef.current || null,
+          hasVoted: hasVotedRef.current,
+          vote: currentVoteRef.current,
+          availableCards: specialCardsRef.current.length > 0
+            ? specialCardsRef.current.map(c => c.type)
+            : ALL_SPECIAL_CARD_TYPES,
+          online_at: new Date().toISOString(),
+        })
+      } catch (err) {
+        console.warn('Heartbeat track failed:', err)
+      }
+    }, HEARTBEAT_INTERVAL_MS)
+
     const handleVisibilityChange = async () => {
       if (document.visibilityState !== 'visible' || !channelRef.current) return
 
@@ -918,8 +925,8 @@ export const useSupabaseRealtime = () => {
         await channelRef.current.track({
           userId,
           userName: userNameRef.current || null,
-          hasVoted: false,
-          vote: null,
+          hasVoted: hasVotedRef.current,
+          vote: currentVoteRef.current,
           availableCards: specialCardsRef.current.length > 0
             ? specialCardsRef.current.map(c => c.type)
             : ALL_SPECIAL_CARD_TYPES,
@@ -938,6 +945,7 @@ export const useSupabaseRealtime = () => {
     document.addEventListener('visibilitychange', handleVisibilityChange)
 
     return () => {
+      clearInterval(heartbeatInterval)
       document.removeEventListener('visibilitychange', handleVisibilityChange)
       if (reconnectTimerRef.current) {
         clearTimeout(reconnectTimerRef.current)
@@ -947,36 +955,46 @@ export const useSupabaseRealtime = () => {
     }
   }, [roomId, userId])
 
-  const sendEvent = async (eventType: string, eventData: any) => {
-    try {
-      if (!channelRef.current) {
-        throw new Error('Realtime channel not initialized')
-      }
+  const sendEvent = async (eventType: string, eventData: any, maxRetries = 3): Promise<boolean> => {
+    const retryDelayMs = 500
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        if (!channelRef.current) {
+          throw new Error('Realtime channel not initialized')
+        }
 
-      const response = await channelRef.current.send({
-        type: 'broadcast',
-        event: eventType,
-        payload: {
-          ...eventData,
-          userId,
-          userName: userName || null,
-          timestamp: new Date().toISOString(),
-        },
-      })
+        const response = await channelRef.current.send({
+          type: 'broadcast',
+          event: eventType,
+          payload: {
+            ...eventData,
+            userId,
+            userName: userName || null,
+            timestamp: new Date().toISOString(),
+          },
+        })
 
-      if (response === 'ok') {
-        console.log('Event sent via WebSocket:', eventType, eventData)
-      } else {
-        throw new Error('Failed to send event')
+        if (response === 'ok') {
+          console.log(`Event sent (attempt ${attempt}):`, eventType, eventData)
+          return true
+        }
+        throw new Error(`Send returned: ${response}`)
+      } catch (err) {
+        console.warn(`Event ${eventType} attempt ${attempt}/${maxRetries} failed:`, err)
+        if (attempt < maxRetries) {
+          await new Promise(resolve => setTimeout(resolve, retryDelayMs * attempt))
+        } else {
+          console.error(`Event ${eventType} failed after ${maxRetries} attempts`)
+          setNotification({
+            open: true,
+            message: `Failed to send ${eventType}. Please try again.`,
+            severity: 'error',
+          })
+          return false
+        }
       }
-    } catch (err) {
-      console.error('Error sending event:', err)
-      setNotification({
-        open: true,
-        message: `Error: ${err instanceof Error ? err.message : 'Unknown error'}`,
-        severity: 'error',
-      })
     }
+    return false
   }
 
   const handleIncrement = () => {
@@ -990,22 +1008,19 @@ export const useSupabaseRealtime = () => {
     sendEvent('button_click_reset', { count: 0, action: 'reset' })
   }
 
-  const handleResetVoting = () => {
+  const handleResetVoting = async () => {
+    if (isProcessing) return
+    setIsProcessing(true)
+    const success = await sendEvent('reset_voting', { action: 'reset_voting' })
+    if (!success) { setIsProcessing(false); return }
+
     setGameState('VOTING')
     setBlockedPlayers(new Map())
     setActiveTargeting(null)
     setCopyVoteRelations([])
     setCopyRevealEffects([])
     setShuffleEffect(null)
-    // Note: Double power is NOT cleared here - it persists for the next round
-    // It will be cleared when the next round is revealed
-    
-    // Note: Special cards are NOT refreshed - they persist from game start
-    // Cards are only granted when joining the room
-    
-    sendEvent('reset_voting', { action: 'reset_voting' })
-    
-    // Reset our own voting status (keep current available cards)
+
     if (channelRef.current) {
       channelRef.current.track({
         userId,
@@ -1016,14 +1031,22 @@ export const useSupabaseRealtime = () => {
         online_at: new Date().toISOString(),
       })
     }
+    setIsProcessing(false)
   }
 
-  const handleRevealCards = () => {
-    setGameState('REVEALED')
-    // Clear double/half power after it's been used for this round
-    setDoublePowerPlayers(new Set())
-    setHalfPowerPlayers(new Set())
-    sendEvent('reveal_cards', { action: 'reveal' })
+  const handleRevealCards = async () => {
+    if (isProcessing) return
+    setIsProcessing(true)
+    try {
+      const success = await sendEvent('reveal_cards', { action: 'reveal' })
+      if (success) {
+        setGameState('REVEALED')
+        setDoublePowerPlayers(new Set())
+        setHalfPowerPlayers(new Set())
+      }
+    } finally {
+      setIsProcessing(false)
+    }
   }
 
   // Get available card types from current special cards
@@ -1584,6 +1607,7 @@ export const useSupabaseRealtime = () => {
     doublePowerPlayers,
     halfPowerPlayers,
     actionLog,
+    isProcessing,
     notification,
     handleIncrement,
     handleReset,

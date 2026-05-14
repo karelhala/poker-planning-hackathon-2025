@@ -12,6 +12,7 @@ export type GameState = 'VOTING' | 'REVEALED' | 'QUICK_DRAW';
 interface GameControlsProps {
   isAdmin: boolean;
   gameState: GameState;
+  isProcessing?: boolean;
   onRevealCards: () => void;
   onResetVoting: () => void;
   voteSpread?: { min: number; max: number; spread: number; average: number };
@@ -23,6 +24,7 @@ interface GameControlsProps {
 export const GameControls: React.FC<GameControlsProps> = ({
   isAdmin,
   gameState,
+  isProcessing = false,
   onRevealCards,
   onResetVoting,
   voteSpread,
@@ -88,6 +90,7 @@ export const GameControls: React.FC<GameControlsProps> = ({
               variant="contained"
               size="large"
               onClick={onRevealCards}
+              disabled={isProcessing}
               color="primary"
               startIcon={<VisibilityIcon />}
               sx={{
@@ -98,7 +101,7 @@ export const GameControls: React.FC<GameControlsProps> = ({
                 },
               }}
             >
-              Reveal Cards
+              {isProcessing ? 'Revealing...' : 'Reveal Cards'}
             </Button>
           )}
 
@@ -133,7 +136,7 @@ export const GameControls: React.FC<GameControlsProps> = ({
             size="large"
             onClick={onResetVoting}
             color="warning"
-            disabled={gameState === 'QUICK_DRAW'}
+            disabled={gameState === 'QUICK_DRAW' || isProcessing}
             startIcon={<RestartAltIcon />}
             sx={{
               fontWeight: 600,
