@@ -275,12 +275,12 @@ export const PlayersTable: React.FC<PlayersTableProps> = ({
     );
   };
 
-  const getUserAvatar = (userId: string, userName: string | null) => {
+  const getUserAvatar = (userId: string, userName: string | null, isOnline = true) => {
     const isCreator = userId === roomCreator;
     const isCurrentUser = userId === currentUserId;
-    
+
     // Get initials from name or first 2 chars of userId
-    const displayText = userName 
+    const displayText = userName
       ? userName
           .split(' ')
           .map((n) => n[0])
@@ -296,6 +296,9 @@ export const PlayersTable: React.FC<PlayersTableProps> = ({
           border: isCreator ? '2px solid gold' : 'none',
           width: 40,
           height: 40,
+          opacity: isOnline ? 1 : 0.45,
+          filter: isOnline ? 'none' : 'grayscale(70%)',
+          transition: 'opacity 0.3s, filter 0.3s',
         }}
       >
         {isCreator ? <StarIcon /> : displayText}
@@ -317,7 +320,12 @@ export const PlayersTable: React.FC<PlayersTableProps> = ({
             Players in Room
           </Typography>
           <Chip
-            label={`${players.length} ${players.length === 1 ? 'player' : 'players'}`}
+            label={(() => {
+              const onlineCount = players.filter(p => p.isOnline).length;
+              return onlineCount < players.length
+                ? `${onlineCount}/${players.length} online`
+                : `${players.length} ${players.length === 1 ? 'player' : 'players'}`;
+            })()}
             color="primary"
             size="small"
           />
@@ -381,11 +389,13 @@ export const PlayersTable: React.FC<PlayersTableProps> = ({
                               ? 'rgba(255, 107, 107, 0.1)' 
                               : 'action.hover',
                         },
-                        bgcolor: isCurrentUser 
-                          ? 'action.selected' 
-                          : isPlayerBlocked 
-                            ? 'rgba(244, 67, 54, 0.08)' 
-                            : 'inherit',
+                        bgcolor: !player.isOnline
+                          ? 'rgba(158, 158, 158, 0.08)'
+                          : isCurrentUser
+                            ? 'action.selected'
+                            : isPlayerBlocked
+                              ? 'rgba(244, 67, 54, 0.08)'
+                              : 'inherit',
                         cursor: canTarget || canPoke ? 'pointer' : 'default',
                         transition: 'all 0.2s ease',
                         ...(canTarget && {
@@ -400,7 +410,7 @@ export const PlayersTable: React.FC<PlayersTableProps> = ({
                     >
                       <TableCell>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                          {getUserAvatar(player.userId, player.userName)}
+                          {getUserAvatar(player.userId, player.userName, player.isOnline)}
                           {canTarget && (
                             <TargetIcon 
                               sx={{ 
@@ -418,9 +428,16 @@ export const PlayersTable: React.FC<PlayersTableProps> = ({
                       </TableCell>
                       <TableCell>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                          <Typography variant="body2" fontWeight="medium">
+                          <Typography variant="body2" fontWeight="medium" sx={{ opacity: player.isOnline ? 1 : 0.5 }}>
                             {getDisplayName(player.userId, player.userName)}
                           </Typography>
+                          {!player.isOnline && (
+                            <Chip
+                              label="Offline"
+                              size="small"
+                              sx={{ height: 18, fontSize: '0.65rem', bgcolor: 'grey.500', color: 'white' }}
+                            />
+                          )}
                           {hasDoublePower?.(player.userId) && (
                             <Tooltip title="Double Power! This player's vote counts for 2">
                               <Chip

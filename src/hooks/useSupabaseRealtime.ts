@@ -25,6 +25,21 @@ export interface Player {
   availableCards: SpecialCardType[]
 }
 
+interface MemberRecord {
+  userId: string
+  userName: string | null
+  hasVoted: boolean
+  vote: string | null
+  availableCards: SpecialCardType[]
+  isOnline: boolean
+  lastSeen: number
+  graceTimerId: ReturnType<typeof setTimeout> | null
+}
+
+const GRACE_PERIOD_MS = 900_000
+const BG_HEARTBEAT_INTERVAL_MS = 45_000
+const FG_HEARTBEAT_INTERVAL_MS = 20_000
+
 export type GameState = 'VOTING' | 'REVEALED' | 'QUICK_DRAW'
 export type VotingMode = 'fibonacci' | 'tshirt'
 
@@ -188,6 +203,8 @@ export const useSupabaseRealtime = () => {
   const knownUsersRef = useRef<Set<string>>(new Set())
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const isReconnectingRef = useRef(false)
+  const memberMapRef = useRef<Map<string, MemberRecord>>(new Map())
+  const heartbeatIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   // Keep userName ref in sync
   useEffect(() => {
@@ -246,6 +263,27 @@ export const useSupabaseRealtime = () => {
     currentVoteRef.current = myPlayer?.vote ?? null
   }, [players, userId])
 
+  const syncStateFromMemberMap = () => {
+    const map = memberMapRef.current
+    const newPlayers: Player[] = []
+    const newActiveUsers: RoomUser[] = []
+
+    map.forEach((record) => {
+      newActiveUsers.push({ userId: record.userId, userName: record.userName })
+      newPlayers.push({
+        userId: record.userId,
+        userName: record.userName,
+        hasVoted: record.hasVoted,
+        vote: record.vote,
+        isOnline: record.isOnline,
+        availableCards: record.availableCards,
+      })
+    })
+
+    setActiveUsers(newActiveUsers)
+    setPlayers(newPlayers)
+  }
+
   useEffect(() => {
     // Only connect if in a room
     if (!roomId) {
@@ -269,6 +307,10 @@ export const useSupabaseRealtime = () => {
       setShuffleEffect(null)
       isFirstUserRef.current = false
       knownUsersRef.current.clear()
+      memberMapRef.current.forEach((record) => {
+        if (record.graceTimerId) clearTimeout(record.graceTimerId)
+      })
+      memberMapRef.current.clear()
       return
     }
 
@@ -281,68 +323,114 @@ export const useSupabaseRealtime = () => {
       },
     })
 
-    // Track presence (who's in the room)
+    const startGraceTimer = (uid: string, record: MemberRecord) => {
+      if (record.graceTimerId) return
+      record.graceTimerId = setTimeout(() => {
+        memberMapRef.current.delete(uid)
+        knownUsersRef.current.delete(uid)
+        addLogEntry('leave', `${record.userName || 'Someone'} left the room`, record.userName)
+
+        if (uid === roomCreatorRef.current) {
+          const remaining = Array.from(memberMapRef.current.keys()).sort()
+          if (remaining.length > 0) {
+            const newAdmin = remaining[0]
+            setRoomCreator(newAdmin)
+            if (roomId) setRoomAdmin(roomId, newAdmin)
+            isFirstUserRef.current = newAdmin === userId
+            if (newAdmin === userId) {
+              addLogEntry('info', 'You are now the room admin', userNameRef.current)
+              setNotification({ open: true, message: 'Previous admin left. You are now the room admin.', severity: 'info' })
+            }
+          }
+        }
+
+        syncStateFromMemberMap()
+      }, GRACE_PERIOD_MS)
+    }
+
+    // Track presence (who's in the room) using a membership map
     channel
       .on('presence', { event: 'sync' }, () => {
         const state = channel.presenceState()
-        const users: RoomUser[] = []
-        const playersList: Player[] = []
-        
-        console.log('Presence sync - raw state:', state)
-        
+        const onlineUserIds = new Set<string>()
+
         Object.keys(state).forEach((key) => {
           const presences = state[key] as any[]
           presences.forEach((presence) => {
-            users.push({
-              userId: presence.userId,
-              userName: presence.userName || null,
-            })
-            playersList.push({
-              userId: presence.userId,
+            const uid = presence.userId as string
+            onlineUserIds.add(uid)
+
+            const existing = memberMapRef.current.get(uid)
+
+            if (existing?.graceTimerId) {
+              clearTimeout(existing.graceTimerId)
+              existing.graceTimerId = null
+            }
+
+            memberMapRef.current.set(uid, {
+              userId: uid,
               userName: presence.userName || null,
               hasVoted: presence.hasVoted || false,
               vote: presence.vote || null,
-              isOnline: true,
               availableCards: presence.availableCards || [],
+              isOnline: true,
+              lastSeen: Date.now(),
+              graceTimerId: null,
             })
           })
         })
-        
-        console.log('Presence sync - users:', users)
-        console.log('Presence sync - players:', playersList)
-        
-        setActiveUsers(users)
-        setPlayers(playersList)
 
+        memberMapRef.current.forEach((record, uid) => {
+          if (!onlineUserIds.has(uid) && record.isOnline) {
+            record.isOnline = false
+            startGraceTimer(uid, record)
+          }
+        })
+
+        syncStateFromMemberMap()
+
+        const allUsers = Array.from(memberMapRef.current.values())
         const persistedAdmin = roomId ? getRoomAdmin(roomId) : null
         if (persistedAdmin) {
           setRoomCreator(persistedAdmin)
           isFirstUserRef.current = persistedAdmin === userId
-        } else if (users.length === 1 && users[0].userId === userId) {
+        } else if (allUsers.length === 1 && allUsers[0].userId === userId) {
           isFirstUserRef.current = true
           setRoomCreator(userId)
           if (roomId) setRoomAdmin(roomId, userId)
-        } else if (users.length === 1) {
-          setRoomCreator(users[0].userId)
-          if (roomId) setRoomAdmin(roomId, users[0].userId)
+        } else if (allUsers.length === 1) {
+          setRoomCreator(allUsers[0].userId)
+          if (roomId) setRoomAdmin(roomId, allUsers[0].userId)
         }
       })
       .on('presence', { event: 'join' }, ({ newPresences }) => {
-        console.log('User joined:', newPresences)
-        
-        // Log the join event only for truly new users (not presence updates)
         newPresences.forEach((presence: any) => {
-          if (presence.userId !== userId && !knownUsersRef.current.has(presence.userId)) {
-            knownUsersRef.current.add(presence.userId)
+          const uid = presence.userId as string
+          const existing = memberMapRef.current.get(uid)
+
+          if (existing?.graceTimerId) {
+            clearTimeout(existing.graceTimerId)
+            existing.graceTimerId = null
+          }
+
+          if (existing) {
+            existing.isOnline = true
+            existing.lastSeen = Date.now()
+            existing.userName = presence.userName || existing.userName
+          }
+
+          if (uid !== userId && !knownUsersRef.current.has(uid)) {
+            knownUsersRef.current.add(uid)
             addLogEntry('join', `${presence.userName || 'Someone'} joined the room`, presence.userName)
           }
         })
-        
+
+        syncStateFromMemberMap()
+
         // If we ARE the creator (first user) and someone joins, send them current state
         if (isFirstUserRef.current && newPresences.length > 0) {
           const newUserId = newPresences[0].userId
           if (newUserId !== userId) {
-            // Send current state to new user
             setTimeout(() => {
               channel.send({
                 type: 'broadcast',
@@ -359,38 +447,22 @@ export const useSupabaseRealtime = () => {
                   timestamp: new Date().toISOString(),
                 },
               })
-            }, 500) // Small delay to ensure they're subscribed
+            }, 500)
           }
         }
       })
       .on('presence', { event: 'leave' }, ({ leftPresences }) => {
-        console.log('User left:', leftPresences)
-        const currentState = channel.presenceState()
         leftPresences.forEach((presence: any) => {
-          if (!currentState[presence.userId]) {
-            knownUsersRef.current.delete(presence.userId)
-            addLogEntry('leave', `${presence.userName || 'Someone'} left the room`, presence.userName)
-
-            if (presence.userId === roomCreatorRef.current) {
-              const remainingUsers = Object.keys(currentState).sort()
-              if (remainingUsers.length > 0) {
-                const newAdmin = remainingUsers[0]
-                setRoomCreator(newAdmin)
-                if (roomId) setRoomAdmin(roomId, newAdmin)
-                isFirstUserRef.current = newAdmin === userId
-
-                if (newAdmin === userId) {
-                  addLogEntry('info', 'You are now the room admin', userNameRef.current)
-                  setNotification({
-                    open: true,
-                    message: 'Previous admin left. You are now the room admin.',
-                    severity: 'info',
-                  })
-                }
-              }
-            }
+          const uid = presence.userId as string
+          const record = memberMapRef.current.get(uid)
+          if (record && record.isOnline) {
+            record.isOnline = false
+            record.lastSeen = Date.now()
+            startGraceTimer(uid, record)
           }
         })
+
+        syncStateFromMemberMap()
       })
 
     // Listen for state sync (when we join and someone sends us the state)
@@ -908,9 +980,8 @@ export const useSupabaseRealtime = () => {
 
     channelRef.current = channel
 
-    const HEARTBEAT_INTERVAL_MS = 20_000
-    const heartbeatInterval = setInterval(async () => {
-      if (!channelRef.current || document.visibilityState !== 'visible') return
+    const sendHeartbeat = async () => {
+      if (!channelRef.current) return
       try {
         await channelRef.current.track({
           userId,
@@ -926,52 +997,57 @@ export const useSupabaseRealtime = () => {
       } catch (err) {
         console.warn('Heartbeat track failed:', err)
       }
-    }, HEARTBEAT_INTERVAL_MS)
+    }
+
+    const startHeartbeat = (intervalMs: number) => {
+      if (heartbeatIntervalRef.current) {
+        clearInterval(heartbeatIntervalRef.current)
+      }
+      heartbeatIntervalRef.current = setInterval(sendHeartbeat, intervalMs)
+    }
+
+    startHeartbeat(FG_HEARTBEAT_INTERVAL_MS)
 
     const handleVisibilityChange = async () => {
-      if (document.visibilityState !== 'visible' || !channelRef.current) return
+      if (!channelRef.current) return
 
-      console.log('Tab became visible, checking connection...')
+      if (document.visibilityState === 'visible') {
+        startHeartbeat(FG_HEARTBEAT_INTERVAL_MS)
 
-      const socket = (supabase as any).realtime
-      const isConnected = socket?.isConnected?.() ?? socket?.conn?.readyState === 1
+        const socket = (supabase as any).realtime
+        const isConnected = socket?.isConnected?.() ?? socket?.conn?.readyState === 1
 
-      if (!isConnected) {
-        console.log('Socket disconnected, reconnecting...')
-        setNotification({
-          open: true,
-          message: 'Reconnecting after inactivity...',
-          severity: 'info',
-        })
-        socket?.connect?.()
-        return
-      }
+        if (!isConnected) {
+          setNotification({ open: true, message: 'Reconnecting after inactivity...', severity: 'info' })
+          socket?.connect?.()
+          return
+        }
 
-      try {
-        await channelRef.current.track({
-          userId,
-          userName: userNameRef.current || null,
-          hasVoted: hasVotedRef.current,
-          vote: currentVoteRef.current,
-          availableCards: specialCardsRef.current.length > 0
-            ? specialCardsRef.current.map(c => c.type)
-            : ALL_SPECIAL_CARD_TYPES,
-          online_at: new Date().toISOString(),
-        })
-        console.log('Presence re-tracked after visibility change')
-      } catch (err) {
-        console.error('Failed to re-track presence, forcing reconnect:', err)
-        channel.unsubscribe()
-        setTimeout(() => {
-          channel.subscribe(handleSubscriptionStatus)
-        }, 1000)
+        try {
+          await sendHeartbeat()
+        } catch (err) {
+          console.error('Failed to re-track presence, forcing reconnect:', err)
+          channel.unsubscribe()
+          setTimeout(() => {
+            channel.subscribe(handleSubscriptionStatus)
+          }, 1000)
+        }
+      } else {
+        startHeartbeat(BG_HEARTBEAT_INTERVAL_MS)
       }
     }
 
     document.addEventListener('visibilitychange', handleVisibilityChange)
 
     return () => {
-      clearInterval(heartbeatInterval)
+      if (heartbeatIntervalRef.current) {
+        clearInterval(heartbeatIntervalRef.current)
+        heartbeatIntervalRef.current = null
+      }
+      memberMapRef.current.forEach((record) => {
+        if (record.graceTimerId) clearTimeout(record.graceTimerId)
+      })
+      memberMapRef.current.clear()
       document.removeEventListener('visibilitychange', handleVisibilityChange)
       if (reconnectTimerRef.current) {
         clearTimeout(reconnectTimerRef.current)
