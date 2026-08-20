@@ -1,8 +1,6 @@
 import React from 'react';
-import { Box, Button, Paper, Typography, Divider, Tooltip, Chip, ToggleButtonGroup, ToggleButton } from '@mui/material';
+import { Box, Button, Paper, Typography, Tooltip, Chip, ToggleButtonGroup, ToggleButton } from '@mui/material';
 import {
-  Visibility as VisibilityIcon,
-  RestartAlt as RestartAltIcon,
   ArrowForward as ArrowForwardIcon,
   FlashOn as FlashOnIcon,
 } from '@mui/icons-material';
@@ -27,9 +25,6 @@ interface GameControlsProps {
 export const GameControls: React.FC<GameControlsProps> = ({
   isAdmin,
   gameState,
-  isProcessing = false,
-  onRevealCards,
-  onResetVoting,
   voteSpread,
   onTriggerQuickDraw,
   onNextTicket,
@@ -43,53 +38,25 @@ export const GameControls: React.FC<GameControlsProps> = ({
 
   const hasBigSpread = voteSpread && voteSpread.spread >= 5 && gameState === 'REVEALED';
 
-  const getStatusText = () => {
-    if (gameState === 'QUICK_DRAW') return 'Quick Draw in progress!';
-    if (gameState === 'VOTING') return 'Players are voting - reveal when ready';
-    return 'Cards revealed - reset to start new round';
-  };
-
   return (
     <Paper
-      elevation={3}
+      elevation={1}
       sx={{
-        p: 2,
-        mb: 2,
-        position: 'sticky',
-        top: 80,
-        zIndex: 10,
-        bgcolor: 'background.paper',
-        borderLeft: 4,
+        p: 1.5,
+        bgcolor: 'rgba(255,255,255,0.04)',
+        backdropFilter: 'blur(8px)',
+        borderLeft: 3,
         borderColor: gameState === 'QUICK_DRAW' ? 'warning.main' : 'primary.main',
       }}
     >
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 2 }}>
-        <Box>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <Typography variant="h6" component="h2" sx={{ fontWeight: 600 }}>
-              Game Controls
-            </Typography>
-            {doublePowerCount > 0 && (
-              <Chip
-                size="small"
-                label={`⚡ ${doublePowerCount} with Double Power`}
-                color="warning"
-                sx={{ fontWeight: 600 }}
-              />
-            )}
-          </Box>
-          <Typography variant="caption" color="text.secondary">
-            {getStatusText()}
-          </Typography>
-          {voteSpread && gameState === 'REVEALED' && (
-            <Typography variant="caption" display="block" color={hasBigSpread ? 'warning.main' : 'text.secondary'}>
-              Spread: {voteSpread.min} → {voteSpread.max} (diff: {voteSpread.spread})
-              {hasBigSpread && ' ⚠️ Big spread detected!'}
-            </Typography>
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 1.5 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          {doublePowerCount > 0 && (
+            <Chip size="small" label={`⚡ ${doublePowerCount} with 2x`} color="warning" sx={{ fontWeight: 600, fontSize: '0.7rem' }} />
           )}
         </Box>
 
-        <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
+        <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap', alignItems: 'center' }}>
           {/* Voting Mode Toggle */}
           {onSetVotingMode && (
             <ToggleButtonGroup
@@ -102,21 +69,21 @@ export const GameControls: React.FC<GameControlsProps> = ({
               sx={{
                 '& .MuiToggleButton-root': {
                   fontWeight: 600,
-                  fontSize: '0.75rem',
+                  fontSize: '0.7rem',
                   px: 1.5,
-                  py: 0.5,
+                  py: 0.25,
                 },
               }}
             >
               <ToggleButton value="fibonacci">
-                <Tooltip title="Fibonacci sequence: 0, 1, 2, 3, 5, 8, 13, 21">
+                <Tooltip title="Fibonacci: 0, 1, 2, 3, 5, 8, 13, 21">
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                     🔢 Fibonacci
                   </Box>
                 </Tooltip>
               </ToggleButton>
               <ToggleButton value="tshirt">
-                <Tooltip title="T-Shirt sizes: S, M, L, XL">
+                <Tooltip title="T-Shirt: S, M, L, XL">
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                     👕 T-Shirt
                   </Box>
@@ -125,89 +92,48 @@ export const GameControls: React.FC<GameControlsProps> = ({
             </ToggleButtonGroup>
           )}
 
-          <Divider orientation="vertical" flexItem />
-
-          {gameState === 'VOTING' && (
-            <Button
-              variant="contained"
-              size="large"
-              onClick={onRevealCards}
-              disabled={isProcessing}
-              color="primary"
-              startIcon={<VisibilityIcon />}
-              sx={{
-                fontWeight: 600,
-                boxShadow: 2,
-                '&:hover': {
-                  boxShadow: 4,
-                },
-              }}
-            >
-              {isProcessing ? 'Revealing...' : 'Reveal Cards'}
-            </Button>
-          )}
-
           {hasBigSpread && onTriggerQuickDraw && (
-            <Tooltip title="Trigger a quick vote with 3 options around the average. Participants earn double power!">
+            <Tooltip title="Quick vote with 3 options around the average. Participants earn double power!">
               <Button
                 variant="contained"
-                size="large"
+                size="small"
                 onClick={onTriggerQuickDraw}
                 color="warning"
                 startIcon={<FlashOnIcon />}
                 sx={{
                   fontWeight: 600,
-                  boxShadow: 2,
+                  fontSize: '0.75rem',
                   animation: 'pulse 1.5s infinite',
                   '@keyframes pulse': {
                     '0%, 100%': { boxShadow: '0 0 0 0 rgba(255, 193, 7, 0.4)' },
-                    '50%': { boxShadow: '0 0 0 10px rgba(255, 193, 7, 0)' },
-                  },
-                  '&:hover': {
-                    boxShadow: 4,
+                    '50%': { boxShadow: '0 0 0 8px rgba(255, 193, 7, 0)' },
                   },
                 }}
               >
-                ⚡ Quick Draw!
+                Quick Draw
               </Button>
             </Tooltip>
           )}
-          
+
+          {voteSpread && gameState === 'REVEALED' && (
+            <Typography variant="caption" color={hasBigSpread ? 'warning.main' : 'text.secondary'} sx={{ fontSize: '0.7rem' }}>
+              Spread: {voteSpread.spread}{hasBigSpread && ' ⚠️'}
+            </Typography>
+          )}
+
           <Button
             variant="outlined"
-            size="large"
-            onClick={onResetVoting}
-            color="warning"
-            disabled={gameState === 'QUICK_DRAW' || isProcessing}
-            startIcon={<RestartAltIcon />}
-            sx={{
-              fontWeight: 600,
-              borderWidth: 2,
-              '&:hover': {
-                borderWidth: 2,
-              },
-            }}
+            size="small"
+            color="secondary"
+            disabled={gameState === 'QUICK_DRAW'}
+            startIcon={<ArrowForwardIcon />}
+            onClick={onNextTicket}
+            sx={{ fontWeight: 600, fontSize: '0.75rem' }}
           >
-            Reset Round
+            Next Ticket
           </Button>
-
-          <Divider orientation="vertical" flexItem />
-              <Button
-                variant="outlined"
-                size="large"
-                color="secondary"
-                disabled={gameState === 'QUICK_DRAW'}
-                startIcon={<ArrowForwardIcon />}
-                onClick={onNextTicket}
-                sx={{
-                  fontWeight: 600,
-                }}
-              >
-                Next Ticket
-              </Button>
         </Box>
       </Box>
     </Paper>
   );
 };
-

@@ -4,8 +4,8 @@ import { Header } from './components/Header'
 import { UserModal } from './components/UserModal'
 import { RoomControls } from './components/RoomControls'
 import { JoinRoomModal } from './components/JoinRoomModal'
-import { GameControls } from './components/GameControls'
-import { VotingStats } from './components/VotingStats'
+
+
 import { NotificationSnackbar } from './components/NotificationSnackbar'
 import { VotingCards } from './components/VotingCards'
 import { PokerTable } from './components/PokerTable'
@@ -26,7 +26,7 @@ function App() {
   const [joinRoomModalOpen, setJoinRoomModalOpen] = useState(false)
   const [selectedVote, setSelectedVote] = useState<string | null>(null)
   const [activeTicket, setActiveTicket] = useState<Ticket | null>(null)
-  const [tickets, setTickets] = useState<Ticket[]>([])
+  const [, setTickets] = useState<Ticket[]>([])
   const [actionLogOpen, setActionLogOpen] = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(() => {
     const stored = localStorage.getItem('sidebarCollapsed')
@@ -51,7 +51,6 @@ function App() {
     currentUserCopyTarget,
     shuffleEffect,
     quickDraw,
-    doublePowerPlayers,
     isProcessing,
     actionLog,
     notification,
@@ -221,19 +220,6 @@ function App() {
     }
   }
 
-  const handleNextTicket = () => {
-    if (tickets.length === 0) return
-
-    const currentIndex = activeTicket
-      ? tickets.findIndex((t) => t.id === activeTicket.id)
-      : -1
-
-    const nextIndex = (currentIndex + 1) % tickets.length
-    const nextTicket = tickets[nextIndex]
-
-    handleSelectTicket(nextTicket)
-  }
-
   // Listen for active ticket selection from other players
   useEffect(() => {
     if (!roomId) return
@@ -365,23 +351,11 @@ function App() {
                 <RoomControls
                   onOpenJoinModal={handleOpenJoinRoomModal}
                   isConnected={!!roomId}
+                  isAdmin={isRoomCreator}
+                  votingMode={votingMode}
+                  onSetVotingMode={handleSetVotingMode}
                 />
               </Paper>
-
-              {/* Game Controls - Admin toolbar */}
-              <GameControls
-                isAdmin={isRoomCreator}
-                gameState={gameState}
-                isProcessing={isProcessing}
-                onRevealCards={handleRevealCards}
-                onResetVoting={handleResetVoting}
-                voteSpread={calculateVoteSpread()}
-                onTriggerQuickDraw={handleTriggerQuickDraw}
-                onNextTicket={handleNextTicket}
-                doublePowerCount={doublePowerPlayers.size}
-                votingMode={votingMode}
-                onSetVotingMode={handleSetVotingMode}
-              />
 
               {/* Poker Table */}
               <Box sx={{ flexGrow: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 400 }}>
@@ -406,13 +380,13 @@ function App() {
                   onGrantHalfPower={handleGrantHalfPower}
                   activeTicket={activeTicket}
                   votingMode={votingMode}
+                  onRevealCards={handleRevealCards}
+                  onResetVoting={handleResetVoting}
+                  isProcessing={isProcessing}
+                  voteSpread={calculateVoteSpread()}
+                  onTriggerQuickDraw={handleTriggerQuickDraw}
                 />
               </Box>
-
-              {/* Voting Stats - detailed view after reveal */}
-              {gameState === 'REVEALED' && (
-                <VotingStats players={players} votingMode={votingMode} />
-              )}
 
               {/* Voting Cards */}
               <Paper sx={{

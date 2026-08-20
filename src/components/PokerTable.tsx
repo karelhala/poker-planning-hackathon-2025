@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import {
   Box, Typography, Avatar, Tooltip, IconButton, Menu, MenuItem,
   ListItemIcon, ListItemText, Divider, Chip, keyframes, useTheme,
@@ -9,6 +9,7 @@ import {
   CardGiftcard as CardGiftcardIcon,
   Block as BlockIcon,
   HourglassEmpty as HourglassEmptyIcon,
+  FlashOn as FlashOnIcon,
 } from '@mui/icons-material';
 import { EditNameDialog } from './EditNameDialog';
 import {
@@ -46,6 +47,11 @@ interface PokerTableProps {
   onGrantHalfPower?: (userId: string, userName: string | null) => void;
   activeTicket?: Ticket | null;
   votingMode?: VotingMode;
+  onRevealCards?: () => void;
+  onResetVoting?: () => void;
+  isProcessing?: boolean;
+  voteSpread?: { min: number; max: number; spread: number; average: number };
+  onTriggerQuickDraw?: () => void;
 }
 
 const targetGlow = keyframes`
@@ -62,6 +68,28 @@ const cardAppear = keyframes`
 const votedGlow = keyframes`
   0%, 100% { box-shadow: 0 4px 14px rgba(21, 101, 192, 0.3); }
   50% { box-shadow: 0 4px 20px rgba(21, 101, 192, 0.6); }
+`;
+
+const revealPulse = keyframes`
+  0%, 100% { box-shadow: 0 0 20px rgba(211, 47, 47, 0.4), 0 0 40px rgba(211, 47, 47, 0.2); }
+  50% { box-shadow: 0 0 30px rgba(211, 47, 47, 0.6), 0 0 60px rgba(211, 47, 47, 0.3); }
+`;
+
+const flipTableShake = keyframes`
+  0%, 100% { transform: rotate(0deg); }
+  20% { transform: rotate(-2deg) translateY(-1px); }
+  40% { transform: rotate(2deg) translateY(1px); }
+  60% { transform: rotate(-1deg); }
+  80% { transform: rotate(1deg); }
+`;
+
+const tableFlip = keyframes`
+  0% { transform: perspective(1200px) rotateX(0deg) scale(1); }
+  20% { transform: perspective(1200px) rotateX(-8deg) scale(1.02) translateY(10px); }
+  50% { transform: perspective(1200px) rotateX(45deg) scale(0.9) translateY(-30px); }
+  65% { transform: perspective(1200px) rotateX(45deg) scale(0.9) translateY(-30px); }
+  80% { transform: perspective(1200px) rotateX(-5deg) scale(1.01) translateY(5px); }
+  100% { transform: perspective(1200px) rotateX(0deg) scale(1); }
 `;
 
 function getSeatPositions(count: number, currentIndex: number) {
@@ -99,14 +127,28 @@ export const PokerTable: React.FC<PokerTableProps> = ({
   onGrantHalfPower,
   activeTicket,
   votingMode = 'fibonacci',
+  onRevealCards,
+  onResetVoting,
+  isProcessing = false,
+  voteSpread,
+  onTriggerQuickDraw,
 }) => {
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
   const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [isFlipping, setIsFlipping] = useState(false);
   const [grantMenuAnchor, setGrantMenuAnchor] = useState<{
     element: HTMLElement;
     player: Player;
   } | null>(null);
+
+  const handleFlipTable = useCallback(() => {
+    setIsFlipping(true);
+    setTimeout(() => {
+      onResetVoting?.();
+      setTimeout(() => setIsFlipping(false), 200);
+    }, 700);
+  }, [onResetVoting]);
 
   const currentIndex = players.findIndex((p) => p.userId === currentUserId);
   const seats = useMemo(
@@ -533,125 +575,182 @@ export const PokerTable: React.FC<PokerTableProps> = ({
         .map((v) => (isTshirt ? TSHIRT_NUMERIC_MAP[v] : Number(v)))
         .filter((v) => v !== undefined && !isNaN(v));
 
-      if (numericVotes.length === 0) {
-        return (
-          <Typography
-            variant="body2"
-            sx={{ color: 'rgba(255,255,255,0.5)' }}
-          >
-            No votes
-          </Typography>
-        );
-      }
-
-      const avg =
-        numericVotes.reduce((a, b) => a + b, 0) / numericVotes.length;
-      const min = Math.min(...numericVotes);
-      const max = Math.max(...numericVotes);
+      const avg = numericVotes.length > 0
+        ? numericVotes.reduce((a, b) => a + b, 0) / numericVotes.length
+        : 0;
+      const min = numericVotes.length > 0 ? Math.min(...numericVotes) : 0;
+      const max = numericVotes.length > 0 ? Math.max(...numericVotes) : 0;
       const range = max - min;
 
       let consensus: { text: string; color: string };
       if (range === 0) consensus = { text: 'Consensus!', color: '#4CAF50' };
-      else if (range <= 2)
-        consensus = { text: 'Close', color: '#2196F3' };
-      else if (range <= 5)
-        consensus = { text: 'Mixed', color: '#FF9800' };
+      else if (range <= 2) consensus = { text: 'Close', color: '#2196F3' };
+      else if (range <= 5) consensus = { text: 'Mixed', color: '#FF9800' };
       else consensus = { text: 'High Variance', color: '#F44336' };
 
-      const displayAvg = isTshirt
-        ? NUMERIC_TSHIRT_MAP[Math.round(avg)] || avg.toFixed(1)
-        : avg.toFixed(1);
+      const displayAvg = numericVotes.length === 0
+        ? '—'
+        : isTshirt
+          ? NUMERIC_TSHIRT_MAP[Math.round(avg)] || avg.toFixed(1)
+          : avg.toFixed(1);
 
       return (
         <Box sx={{ textAlign: 'center' }}>
-          <Typography
-            variant="h3"
-            sx={{
-              color: 'white',
-              fontWeight: 800,
-              textShadow: '0 2px 12px rgba(0,0,0,0.5)',
-              lineHeight: 1,
-            }}
-          >
+          <Typography variant="h3" sx={{ color: 'white', fontWeight: 800, textShadow: '0 2px 12px rgba(0,0,0,0.5)', lineHeight: 1 }}>
             {displayAvg}
           </Typography>
-          <Typography
-            variant="caption"
-            sx={{ color: 'rgba(255,255,255,0.6)', display: 'block', mt: 0.5 }}
-          >
+          <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.6)', display: 'block', mt: 0.5 }}>
             Average
           </Typography>
-          <Chip
-            label={consensus.text}
-            size="small"
-            sx={{
-              mt: 1,
-              bgcolor: consensus.color,
-              color: 'white',
-              fontWeight: 600,
-              fontSize: '0.7rem',
-            }}
-          />
-          <Typography
-            variant="caption"
-            sx={{
-              color: 'rgba(255,255,255,0.5)',
-              display: 'block',
-              mt: 0.5,
-              fontSize: '0.65rem',
-            }}
-          >
-            {isTshirt
-              ? `${NUMERIC_TSHIRT_MAP[min] || min} — ${NUMERIC_TSHIRT_MAP[max] || max}`
-              : `${min} — ${max}`}
-          </Typography>
+          <Chip label={consensus.text} size="small" sx={{ mt: 0.5, bgcolor: consensus.color, color: 'white', fontWeight: 600, fontSize: '0.7rem' }} />
+          {isTshirt
+            ? <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.5)', display: 'block', mt: 0.5, fontSize: '0.6rem' }}>
+                {NUMERIC_TSHIRT_MAP[min] || min} — {NUMERIC_TSHIRT_MAP[max] || max}
+              </Typography>
+            : <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.5)', display: 'block', mt: 0.5, fontSize: '0.6rem' }}>
+                {min} — {max}
+              </Typography>
+          }
+
+          {/* Quick Draw (admin, big spread) */}
+          {isAdmin && voteSpread && voteSpread.spread >= 5 && onTriggerQuickDraw && (
+            <Tooltip title="Quick vote with 3 options around the average" arrow>
+              <Box
+                component="button"
+                onClick={onTriggerQuickDraw}
+                sx={{
+                  mt: 1,
+                  px: 1.5, py: 0.5,
+                  border: '2px solid rgba(255,193,7,0.5)',
+                  borderRadius: '16px',
+                  bgcolor: 'rgba(255,193,7,0.2)',
+                  color: '#FFC107',
+                  cursor: 'pointer',
+                  fontSize: '0.7rem',
+                  fontWeight: 700,
+                  fontFamily: 'inherit',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  transition: 'all 0.2s ease',
+                  animation: 'pulse 1.5s infinite',
+                  '@keyframes pulse': {
+                    '0%, 100%': { boxShadow: '0 0 0 0 rgba(255, 193, 7, 0.4)' },
+                    '50%': { boxShadow: '0 0 0 6px rgba(255, 193, 7, 0)' },
+                  },
+                  '&:hover': { bgcolor: 'rgba(255,193,7,0.35)', borderColor: '#FFC107' },
+                }}
+              >
+                <FlashOnIcon sx={{ fontSize: 14 }} /> Quick Draw
+              </Box>
+            </Tooltip>
+          )}
+
+          {/* Flip Table reset button (admin only) */}
+          {isAdmin && onResetVoting && (
+            <Box
+              component="button"
+              onClick={handleFlipTable}
+              disabled={isProcessing || isFlipping}
+              sx={{
+                mt: 1.5,
+                px: 2, py: 0.75,
+                border: '2px solid rgba(255,255,255,0.25)',
+                borderRadius: '20px',
+                bgcolor: 'rgba(0,0,0,0.3)',
+                color: 'rgba(255,255,255,0.8)',
+                cursor: isProcessing || isFlipping ? 'not-allowed' : 'pointer',
+                fontSize: '0.75rem',
+                fontWeight: 700,
+                fontFamily: 'inherit',
+                transition: 'all 0.2s ease',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                '&:hover': {
+                  bgcolor: 'rgba(244,67,54,0.3)',
+                  borderColor: '#F44336',
+                  color: '#fff',
+                  transform: 'scale(1.05)',
+                  animation: `${flipTableShake} 0.4s ease`,
+                },
+              }}
+            >
+              <span style={{ fontSize: '0.9rem' }}>(╯°□°)╯︵</span> ┻━┻ New Round
+            </Box>
+          )}
         </Box>
       );
     }
 
-    if (activeTicket) {
-      return (
-        <Box sx={{ textAlign: 'center', p: 1 }}>
-          <Chip
-            label={activeTicket.key}
-            size="small"
-            sx={{
-              bgcolor: 'rgba(255,255,255,0.2)',
-              color: 'white',
-              fontFamily: 'monospace',
-              fontWeight: 700,
-              mb: 0.5,
-            }}
-          />
-          <Typography
-            variant="body2"
-            sx={{
-              color: 'rgba(255,255,255,0.85)',
-              fontSize: '0.75rem',
-              lineHeight: 1.3,
-              display: '-webkit-box',
-              WebkitLineClamp: 3,
-              WebkitBoxOrient: 'vertical',
-              overflow: 'hidden',
-            }}
-          >
-            {activeTicket.summary}
-          </Typography>
-        </Box>
-      );
-    }
-
+    // Voting state
     return (
-      <Typography
-        variant="body2"
-        sx={{
-          color: 'rgba(255,255,255,0.3)',
-          fontStyle: 'italic',
-          fontSize: '0.75rem',
-        }}
-      >
-        Select a ticket to vote
-      </Typography>
+      <Box sx={{ textAlign: 'center' }}>
+        {/* Ticket info */}
+        {activeTicket && (
+          <Box sx={{ mb: isAdmin ? 1.5 : 0 }}>
+            <Chip label={activeTicket.key} size="small" sx={{ bgcolor: 'rgba(255,255,255,0.2)', color: 'white', fontFamily: 'monospace', fontWeight: 700, mb: 0.5 }} />
+            <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.85)', fontSize: '0.7rem', lineHeight: 1.3, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+              {activeTicket.summary}
+            </Typography>
+          </Box>
+        )}
+        {!activeTicket && !isAdmin && (
+          <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.3)', fontStyle: 'italic', fontSize: '0.7rem' }}>
+            Waiting for vote...
+          </Typography>
+        )}
+
+        {/* Big Reveal button (admin only) */}
+        {isAdmin && onRevealCards && gameState === 'VOTING' && (
+          <Box
+            component="button"
+            onClick={onRevealCards}
+            disabled={isProcessing}
+            sx={{
+              mt: activeTicket ? 0 : 1,
+              width: 90,
+              height: 90,
+              borderRadius: '50%',
+              border: '3px solid rgba(211, 47, 47, 0.6)',
+              bgcolor: '#D32F2F',
+              color: '#fff',
+              cursor: isProcessing ? 'not-allowed' : 'pointer',
+              fontSize: '0.7rem',
+              fontWeight: 800,
+              fontFamily: 'inherit',
+              textTransform: 'uppercase',
+              letterSpacing: '1px',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '2px',
+              mx: 'auto',
+              transition: 'all 0.2s ease',
+              animation: `${revealPulse} 2s ease-in-out infinite`,
+              boxShadow: '0 0 20px rgba(211, 47, 47, 0.4), 0 0 40px rgba(211, 47, 47, 0.2)',
+              '&:hover': {
+                transform: 'scale(1.1)',
+                bgcolor: '#C62828',
+                boxShadow: '0 0 30px rgba(211, 47, 47, 0.6), 0 0 60px rgba(211, 47, 47, 0.3)',
+              },
+              '&:active': {
+                transform: 'scale(0.95)',
+              },
+            }}
+          >
+            <span style={{ fontSize: '1.4rem', lineHeight: 1 }}>👁</span>
+            <span>{isProcessing ? '...' : 'Reveal'}</span>
+          </Box>
+        )}
+
+        {!activeTicket && isAdmin && gameState === 'VOTING' && (
+          <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.35)', display: 'block', mt: 1, fontSize: '0.6rem' }}>
+            Select a ticket from the sidebar
+          </Typography>
+        )}
+      </Box>
     );
   };
 
@@ -683,6 +782,10 @@ export const PokerTable: React.FC<PokerTableProps> = ({
             inset 0 2px 4px rgba(255,255,255,0.08)
           `,
           p: '10px',
+          transformOrigin: 'center 60%',
+          ...(isFlipping && {
+            animation: `${tableFlip} 0.9s cubic-bezier(0.4, 0, 0.2, 1)`,
+          }),
         }}
       >
         {/* Felt surface */}

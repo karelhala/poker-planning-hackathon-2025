@@ -8,6 +8,8 @@ import {
   Tooltip,
   Alert,
   Snackbar,
+  ToggleButtonGroup,
+  ToggleButton,
 } from '@mui/material'
 import {
   Add as AddIcon,
@@ -17,10 +19,14 @@ import {
   CheckCircle as CheckCircleIcon,
 } from '@mui/icons-material'
 import { useRoom } from '../contexts/RoomContext'
+import type { VotingMode } from '../hooks/useSupabaseRealtime'
 
 interface RoomControlsProps {
   onOpenJoinModal: () => void
   isConnected?: boolean
+  isAdmin?: boolean
+  votingMode?: VotingMode
+  onSetVotingMode?: (mode: VotingMode) => void
 }
 
 // Get base path from current URL (everything before /room)
@@ -38,9 +44,12 @@ const getBasePath = (): string => {
   return path.replace(/\/+$/, '')
 }
 
-export const RoomControls: React.FC<RoomControlsProps> = ({ 
-  onOpenJoinModal, 
+export const RoomControls: React.FC<RoomControlsProps> = ({
+  onOpenJoinModal,
   isConnected = false,
+  isAdmin = false,
+  votingMode = 'fibonacci',
+  onSetVotingMode,
 }) => {
   const { roomId, createRoom, leaveRoom } = useRoom()
   const [copyNotification, setCopyNotification] = useState(false)
@@ -121,6 +130,39 @@ export const RoomControls: React.FC<RoomControlsProps> = ({
             <ExitIcon fontSize="small" />
           </IconButton>
         </Tooltip>
+
+        {isAdmin && onSetVotingMode && (
+          <>
+            <Box sx={{ flexGrow: 1 }} />
+            <ToggleButtonGroup
+              value={votingMode}
+              exclusive
+              onChange={(_e, newMode) => {
+                if (newMode !== null) onSetVotingMode(newMode as VotingMode)
+              }}
+              size="small"
+              sx={{
+                '& .MuiToggleButton-root': {
+                  fontWeight: 600,
+                  fontSize: '0.7rem',
+                  px: 1.5,
+                  py: 0.25,
+                },
+              }}
+            >
+              <ToggleButton value="fibonacci">
+                <Tooltip title="Fibonacci: 0, 1, 2, 3, 5, 8, 13, 21">
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>🔢 Fibonacci</Box>
+                </Tooltip>
+              </ToggleButton>
+              <ToggleButton value="tshirt">
+                <Tooltip title="T-Shirt: S, M, L, XL">
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>👕 T-Shirt</Box>
+                </Tooltip>
+              </ToggleButton>
+            </ToggleButtonGroup>
+          </>
+        )}
       </Box>
 
       <Snackbar
