@@ -60,6 +60,33 @@ Admin can award bonus points to players directly. Click on a player's seat, choo
 
 **Session leaderboard:** At the end of a session (or viewable anytime), a summary shows total awards received per player. Encourages healthy competition and recognition.
 
+### Make It Rain 💰 (Admin Power)
+
+Admin can trigger "Make It Rain" — poker chips/coins rain down across the table for all players. Players click/tap the falling chips to catch them. Each caught chip = +1 point.
+
+**How it works:**
+1. Admin clicks "Make It Rain" button (in admin controls or table center)
+2. All players see chips raining down across the entire table surface for ~10 seconds
+3. Players frantically click falling chips to catch them
+4. Each caught chip: +1 point, with a satisfying "clink" and the chip flying to the catcher's stack
+5. Missed chips hit the table felt and fade out
+6. After the rain stops, brief scoreboard popup: "Karel caught 7! Radek caught 5! Bryan caught 12!"
+
+**Design:**
+- Chips fall at random positions, random speeds, slight wobble
+- Different chip colors (gold = +1, rare blue = +3 — appears ~2 times per rain)
+- Chips are clickable for ~1 second before they fade
+- ~30-50 chips per rain event
+- Admin can use this after a productive session, hard ticket, or just for fun
+- No cost to admin — it's a reward tool
+
+**Variants (admin picks):**
+| Type | Chips | Duration | Notes |
+|------|-------|----------|-------|
+| Light Drizzle | ~15 chips | 5 seconds | Quick reward |
+| Make It Rain | ~35 chips | 10 seconds | Standard |
+| Jackpot | ~60 chips + 5 blue chips | 15 seconds | After a great session |
+
 ### Estimated Total Per Session (7 tickets)
 
 | Source | Min | Max |
@@ -75,7 +102,14 @@ Admin can award bonus points to players directly. Click on a player's seat, choo
 | Completion bonus | 0 | 5 |
 | **Total** | **22** | **85** |
 
-Typical session: **30-45 pts.** Enough to buy 1-2 cheap items or save for 2-3 sessions for premium items.
+Typical session: **30-45 pts.** Enough to buy several items per session.
+
+### Persistence Rules
+
+- **Points reset when leaving a room.** Earn and spend within the same session. "Use it or lose it."
+- **Consumable items (gameplay, social) reset** when leaving. Unspent items are lost.
+- **Avatar customizations persist in localStorage.** Unlocked hair, eyes, hats, etc. carry across all rooms and sessions forever. Once bought, it's yours.
+- This means: spend points on avatar unlocks for permanent value, or spend on gameplay items for immediate fun. Player's choice each session.
 
 ---
 
@@ -195,6 +229,18 @@ Visible crown floating above your avatar. Only one player can wear the crown at 
 **Cost:** 3 points
 Change your display name color. Pick from a palette. Visible to everyone at your seat.
 
+### Ghost Stack 👻
+**Cost:** varies
+Fake poker chip stacks that sit at your seat. Make opponents think you're loaded with items when you're not. Pure bluff.
+
+| Size | Cost | Visual |
+|------|------|--------|
+| **Small** | 3 pts | 2-3 translucent ghost chips. Subtle flex. "Maybe they have something..." |
+| **Medium** | 6 pts | 5-6 ghost chips. Solid intimidation. Other players start sweating. |
+| **Comically Large** | 12 pts | Towering stack of 15+ chips. Just absurdly tall. Goes way past the avatar, off the table, into the void. No animations, no wobble — dead serious straight stack. That's what makes it funny. |
+
+Ghost chips have a faint shimmer/transparency to distinguish from real items at close inspection, but from other seats they look convincing. Stack with real items — ghost chips go on bottom, real ones on top.
+
 ---
 
 ## Avatar Customization (DiceBear Integration)
@@ -236,22 +282,22 @@ Most recognizable DiceBear style. 104+ variants across 7 categories. Hats are mi
 
 ### Hair 💇
 **Variants:** 45 in pixel-art (long01-long21, short01-short24)
-**Shop items (5+ ideas):**
 
 | Item | Style | Cost |
 |------|-------|------|
+| Buzz Cut | short01 | Free |
+| Short Classic | short03 | Free |
+| Long Flowing | long01 | Free |
 | Mohawk | short05 | 3 pts |
 | Afro | long08 | 3 pts |
-| Long Flowing | long01 | 3 pts |
 | Top Bun | long15 | 4 pts |
-| Buzz Cut | short01 | 2 pts |
 | Pigtails | long12 | 4 pts |
 | Mullet | long18 | 5 pts |
 | Braids | long20 | 5 pts |
 | Pompadour | short15 | 4 pts |
 
 **Hair Colors:** Fully customizable RGB. Sell color packs:
-- Natural pack (blonde, brunette, black, red, gray): 2 pts
+- Natural pack (blonde, brunette, black, red, gray): Free
 - Wild pack (blue, green, pink, purple, white): 5 pts
 - Rainbow gradient: 8 pts
 
@@ -259,13 +305,12 @@ Most recognizable DiceBear style. 104+ variants across 7 categories. Hats are mi
 
 ### Eyes 👀
 **Variants:** 12 in pixel-art (variant01-variant12)
-**Shop items (5+ ideas):**
 
 | Item | Style | Cost |
 |------|-------|------|
 | Normal | variant01 | Free |
+| Happy Squint | variant06 | Free |
 | Sleepy | variant04 | 2 pts |
-| Happy Squint | variant06 | 2 pts |
 | Wink | variant08 | 3 pts |
 | Hearts | variant10 | 5 pts |
 | Angry | variant03 | 3 pts |
@@ -276,11 +321,11 @@ Most recognizable DiceBear style. 104+ variants across 7 categories. Hats are mi
 
 ### Beard 🧔
 **Variants:** 8 in pixel-art (variant01-variant08)
-**Shop items (5+ ideas):**
 
 | Item | Style | Cost |
 |------|-------|------|
-| Stubble | variant01 | 2 pts |
+| None | (empty) | Free |
+| Stubble | variant01 | Free |
 | Full Beard | variant03 | 3 pts |
 | Goatee | variant05 | 3 pts |
 | Handlebar Mustache | variant06 | 4 pts |
@@ -289,17 +334,17 @@ Most recognizable DiceBear style. 104+ variants across 7 categories. Hats are mi
 | Walrus | variant07 | 4 pts |
 | Pencil Thin | variant04 | 3 pts |
 
-**Beard Colors:** Match hair color pack system.
+**Beard Colors:** Match hair color pack system (natural free, wild 5 pts).
 
 ---
 
 ### Mouth 👄
 **Variants:** 23 in pixel-art (happy01-happy13, sad01-sad10)
-**Shop items (5+ ideas):**
 
 | Item | Style | Cost |
 |------|-------|------|
 | Default Smile | happy01 | Free |
+| Neutral | happy03 | Free |
 | Big Grin | happy05 | 2 pts |
 | Smirk | happy09 | 2 pts |
 | Tongue Out | happy13 | 3 pts |
@@ -314,10 +359,10 @@ Most recognizable DiceBear style. 104+ variants across 7 categories. Hats are mi
 ### Hat 🎩
 **Variants:** 10 in pixel-art (variant01-variant10)
 **Only pixel-art has a dedicated hat component.** This is a key differentiator.
-**Shop items (5+ ideas):**
 
 | Item | Style | Cost |
 |------|-------|------|
+| None | (empty) | Free |
 | Baseball Cap | variant01 | 3 pts |
 | Cowboy Hat | variant02 | 5 pts |
 | Top Hat | variant03 | 6 pts |
@@ -329,25 +374,7 @@ Most recognizable DiceBear style. 104+ variants across 7 categories. Hats are mi
 | Santa Hat | variant09 | 5 pts (seasonal) |
 | Chef Hat | variant10 | 4 pts |
 
-**Hat Colors:** Customizable. Sell color packs like hair.
-
----
-
-### Tattoo 🐉
-**Not available in any DiceBear style.** Requires custom SVG overlay implementation.
-**Shop items (5+ ideas) — custom overlay system:**
-
-| Item | Design | Cost |
-|------|--------|------|
-| Flame Sleeve | Animated fire pattern on arm area | 8 pts |
-| Heart | Classic heart on cheek/arm | 3 pts |
-| Star | Small star near eye | 3 pts |
-| Tribal | Geometric tribal pattern | 6 pts |
-| Snake | Coiled snake wrap | 7 pts |
-| Anchor | Sailor anchor | 4 pts |
-| Lightning Bolt | Harry Potter-style forehead bolt | 5 pts |
-
-**Implementation:** Custom SVG elements positioned relative to the DiceBear avatar. Rendered as an overlay layer on top of the base avatar.
+**Hat Colors:** Customizable. Natural colors free, wild colors 5 pts.
 
 ---
 
@@ -358,9 +385,10 @@ Most recognizable DiceBear style. 104+ variants across 7 categories. Hats are mi
 
 | Item | Style | Cost |
 |------|-------|------|
+| None | (empty) | Free |
+| Round Glasses | light01 | Free |
 | Sunglasses | dark01 | 3 pts |
 | Aviators | dark03 | 4 pts |
-| Round Glasses | light01 | 2 pts |
 | Nerd Glasses | light04 | 3 pts |
 | Monocle | light07 | 5 pts |
 | 3D Glasses | dark06 | 4 pts |
@@ -371,26 +399,30 @@ Most recognizable DiceBear style. 104+ variants across 7 categories. Hats are mi
 
 | Item | Style | Cost |
 |------|-------|------|
+| None | (empty) | Free |
 | Earring | variant01 | 2 pts |
 | Nose Ring | variant02 | 3 pts |
 | Headphones | variant03 | 4 pts |
 | Scarf | variant04 | 3 pts |
 
-#### Clothing 👔
-**Variants:** 23 (variant01-variant23)
+### Free Starter Kit Summary
 
-| Item | Style | Cost |
-|------|-------|------|
-| T-Shirt | variant01 | Free |
-| Suit & Tie | variant05 | 5 pts |
-| Hoodie | variant08 | 3 pts |
-| Hawaiian Shirt | variant12 | 4 pts |
-| Tuxedo | variant15 | 6 pts |
-| Jersey | variant18 | 3 pts |
-| Lab Coat | variant20 | 5 pts |
-| Tank Top | variant03 | 2 pts |
+Every new player starts with these unlocked (no purchase needed):
 
-**Clothing Colors:** Customizable RGB.
+| Category | Free options |
+|----------|-------------|
+| Hair | Buzz Cut, Short Classic, Long Flowing + natural colors |
+| Eyes | Normal, Happy Squint |
+| Beard | None, Stubble |
+| Mouth | Default Smile, Neutral |
+| Hat | None |
+| Glasses | None, Round Glasses |
+| Accessories | None |
+| Clothing | T-Shirt, Tank Top |
+| Tattoo | None |
+| Colors | Natural hair/beard pack (blonde, brunette, black, red, gray) |
+
+Enough to make a unique-looking avatar out of the box. Shop purchases unlock premium styles.
 
 ---
 
@@ -478,5 +510,50 @@ The entire table cycles through rainbow colors for the rest of the session. Ever
 ### Special Powers Integration
 - Existing powers (Copy, Shuffle, Block, Double/Half Power) remain admin-granted
 - New shop items are player-purchased with points
-- Both types appear in the unified card hand arc
+- Admin-granted powers (Copy, Shuffle, Block) appear in the card hand arc as before
+- Shop-purchased items live in the **poker chip stack** at your seat (see below)
 - Shop items that target other players use the same targeting mode as existing special cards
+
+### Poker Chip Stack (Item Inventory UI)
+
+Shop-purchased items are NOT mixed into the card hand. Two views of the chip stack:
+
+#### Your Stack (Fixed, Right Side of Screen)
+
+Your own items as a fixed chip stack on the right edge of the viewport. Always accessible, never buried.
+
+**Visual design:**
+- Vertical stack of colored poker chips, fixed position on right side of screen
+- Each chip has an embossed icon matching the item type
+- Stack grows upward as you buy more items
+- Always visible while in a room — your personal inventory
+
+**Interaction:**
+1. Hover over stack — chips spread apart vertically to preview contents
+2. Click a chip — activates the item
+3. Items that target others: enters targeting mode (same as special cards) — click a player seat to apply
+4. Items that target self/table: activate immediately with animation
+5. Stack compresses back when mouse leaves
+6. Used item: chip flies off toward the table with a poof/spark effect
+
+**States:**
+- Empty: faint ghost chip outline with "Shop" tooltip (click to open shop)
+- 1-3 items: small neat stack
+- 4-6 items: taller stack
+- Ghost stack items (if purchased): appear at the bottom, translucent
+- Shimmer on stack when new item is purchased
+
+#### Other Players' Stacks (At Their Table Seat)
+
+Other players see a miniature chip stack next to each player's avatar on the table.
+
+**Visual design:**
+- Small chip stack icon at each seat (right side of avatar)
+- Stack height reflects item count (including ghost stack bluffs)
+- No item details visible — just the stack size
+
+**Visibility:**
+- All players see each other's stack heights
+- When someone activates an item, all players see the chip fly from their seat and the effect trigger
+- Creates "oh no, they have items" social tension
+- Ghost stack purchases inflate the visible height — pure bluff
