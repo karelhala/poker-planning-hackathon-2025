@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import {
   Box, Typography, Avatar, Tooltip, IconButton, Menu, MenuItem,
   ListItemIcon, ListItemText, Divider, Chip, keyframes, useTheme,
@@ -137,18 +137,20 @@ export const PokerTable: React.FC<PokerTableProps> = ({
   const isDark = theme.palette.mode === 'dark';
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [isFlipping, setIsFlipping] = useState(false);
+  const prevGameState = useRef(gameState);
   const [grantMenuAnchor, setGrantMenuAnchor] = useState<{
     element: HTMLElement;
     player: Player;
   } | null>(null);
 
-  const handleFlipTable = useCallback(() => {
-    setIsFlipping(true);
-    setTimeout(() => {
-      onResetVoting?.();
-      setTimeout(() => setIsFlipping(false), 200);
-    }, 700);
-  }, [onResetVoting]);
+  useEffect(() => {
+    if (prevGameState.current === 'REVEALED' && gameState === 'VOTING') {
+      setIsFlipping(true);
+      const timer = setTimeout(() => setIsFlipping(false), 900);
+      return () => clearTimeout(timer);
+    }
+    prevGameState.current = gameState;
+  }, [gameState]);
 
   const currentIndex = players.findIndex((p) => p.userId === currentUserId);
   const seats = useMemo(
@@ -414,23 +416,23 @@ export const PokerTable: React.FC<PokerTableProps> = ({
         >
           <Avatar
             sx={{
-              width: isCurrentUser ? 44 : 38,
-              height: isCurrentUser ? 44 : 38,
+              width: isCurrentUser ? 64 : 56,
+              height: isCurrentUser ? 64 : 56,
               bgcolor: isCurrentUser ? 'primary.main' : 'grey.600',
               border: isCreator
-                ? '2px solid gold'
+                ? '3px solid gold'
                 : isCurrentUser
-                  ? '2px solid #42A5F5'
+                  ? '3px solid #42A5F5'
                   : '2px solid rgba(255,255,255,0.15)',
-              fontSize: '0.8rem',
+              fontSize: isCurrentUser ? '1.1rem' : '1rem',
               fontWeight: 600,
               opacity: player.isOnline ? 1 : 0.35,
               filter: player.isOnline ? 'none' : 'grayscale(80%)',
-              boxShadow: '0 2px 8px rgba(0,0,0,0.35)',
+              boxShadow: '0 3px 12px rgba(0,0,0,0.4)',
               transition: 'all 0.3s ease',
             }}
           >
-            {isCreator ? <StarIcon sx={{ fontSize: 18 }} /> : initials}
+            {isCreator ? <StarIcon sx={{ fontSize: 24 }} /> : initials}
           </Avatar>
         </Tooltip>
 
@@ -444,7 +446,7 @@ export const PokerTable: React.FC<PokerTableProps> = ({
             flexDirection: 'column',
             alignItems: 'center',
             gap: 0.25,
-            maxWidth: 100,
+            maxWidth: 110,
           }}
         >
           <Typography
@@ -452,12 +454,12 @@ export const PokerTable: React.FC<PokerTableProps> = ({
             sx={{
               color: 'white',
               fontWeight: isCurrentUser ? 700 : 500,
-              fontSize: '0.68rem',
+              fontSize: '0.72rem',
               textShadow: '0 1px 4px rgba(0,0,0,0.9)',
               whiteSpace: 'nowrap',
               overflow: 'hidden',
               textOverflow: 'ellipsis',
-              maxWidth: 90,
+              maxWidth: 100,
             }}
           >
             {isCurrentUser ? `${displayName} (You)` : displayName}
@@ -650,7 +652,7 @@ export const PokerTable: React.FC<PokerTableProps> = ({
           {isAdmin && onResetVoting && (
             <Box
               component="button"
-              onClick={handleFlipTable}
+              onClick={onResetVoting}
               disabled={isProcessing || isFlipping}
               sx={{
                 mt: 1.5,
