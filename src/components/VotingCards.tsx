@@ -725,18 +725,30 @@ export const VotingCards: React.FC<VotingCardsProps> = ({
                       }
                     }}
                     sx={{
-                      width: 60,
-                      height: 80,
-                      fontSize: '1.5rem',
-                      borderRadius: 2,
-                      boxShadow: isSelected ? 6 : 1,
-                      borderWidth: isSelected ? 0 : 2,
-                      transition: 'all 0.3s ease',
+                      width: 66,
+                      height: 92,
+                      fontSize: '1.4rem',
+                      borderRadius: '8px',
+                      transition: 'all 0.25s ease',
                       transformStyle: 'preserve-3d',
                       position: 'relative',
-                      '&:hover': {
-                        transform: isShuffled && !showValue ? 'translateY(-8px) rotateY(20deg)' : 'translateY(-4px)',
-                      },
+                      overflow: 'hidden',
+                      ...(!isShuffled || showValue ? {
+                        bgcolor: isSelected ? '#1565C0' : '#FFFDE7',
+                        color: isSelected ? '#fff' : '#37474F',
+                        border: isSelected ? '2px solid #0D47A1' : '2px solid #D7CCC8',
+                        boxShadow: isSelected
+                          ? '0 8px 24px rgba(21, 101, 192, 0.45), 0 0 0 2px #1976d2'
+                          : '0 2px 8px rgba(0,0,0,0.12)',
+                        '&:hover': {
+                          bgcolor: isSelected ? '#1565C0' : '#FFF8E1',
+                          transform: 'translateY(-8px)',
+                          boxShadow: isSelected
+                            ? '0 12px 28px rgba(21, 101, 192, 0.5)'
+                            : '0 8px 20px rgba(0,0,0,0.18)',
+                          border: isSelected ? '2px solid #0D47A1' : '2px solid #BCAAA4',
+                        },
+                      } : {}),
                       ...(isBlocked && {
                         opacity: 0.4,
                         filter: 'grayscale(1)',
@@ -745,6 +757,7 @@ export const VotingCards: React.FC<VotingCardsProps> = ({
                         bgcolor: '#ff9800',
                         borderColor: '#ff9800',
                         color: '#fff',
+                        border: '2px solid #e65100',
                         animation: `${wobble} 2s ease-in-out infinite`,
                         animationDelay: `${displayIndex * 0.2}s`,
                         '&:hover': {
@@ -759,7 +772,38 @@ export const VotingCards: React.FC<VotingCardsProps> = ({
                     }}
                   >
                     {showValue ? (
-                      cardValue
+                      <Box sx={{
+                        position: 'relative',
+                        width: '100%',
+                        height: '100%',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}>
+                        <Typography sx={{
+                          position: 'absolute', top: 2, left: 4,
+                          fontSize: '0.5rem', fontWeight: 700, lineHeight: 1, opacity: 0.6,
+                        }}>
+                          {cardValue}
+                        </Typography>
+                        <Typography sx={{ fontSize: '1.4rem', fontWeight: 700, lineHeight: 1 }}>
+                          {cardValue}
+                        </Typography>
+                        <Typography sx={{
+                          position: 'absolute', bottom: 2, right: 4,
+                          fontSize: '0.5rem', fontWeight: 700, lineHeight: 1, opacity: 0.6,
+                          transform: 'rotate(180deg)',
+                        }}>
+                          {cardValue}
+                        </Typography>
+                        <Typography sx={{
+                          position: 'absolute',
+                          fontSize: '2.5rem', opacity: 0.04, lineHeight: 1, pointerEvents: 'none',
+                          color: isSelected ? '#fff' : '#37474F',
+                        }}>
+                          ♠
+                        </Typography>
+                      </Box>
                     ) : (
                       <Box sx={{
                         display: 'flex',
@@ -796,23 +840,28 @@ export const VotingCards: React.FC<VotingCardsProps> = ({
                   }
                 }}
                 sx={{
-                  width: 70,
-                  height: 90,
-                  fontSize: '2rem',
-                  borderRadius: 2,
-                  boxShadow: 2,
-                  borderWidth: 2,
+                  width: 66,
+                  height: 92,
+                  fontSize: '1.8rem',
+                  borderRadius: '8px',
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.12)',
                   position: 'relative',
+                  overflow: 'hidden',
+                  bgcolor: lastRandomValue ? '#dc004e' : '#FFF3E0',
+                  color: lastRandomValue ? '#fff' : '#dc004e',
+                  border: lastRandomValue ? '2px solid #c51162' : '2px solid #FFCCBC',
+                  transition: 'all 0.25s ease',
                   '&:hover': {
-                    transform: votingDisabled ? 'none' : 'translateY(-4px)',
-                    boxShadow: votingDisabled ? 2 : 4,
-                    borderWidth: 2,
+                    transform: votingDisabled ? 'none' : 'translateY(-8px)',
+                    boxShadow: '0 8px 20px rgba(220, 0, 78, 0.25)',
+                    bgcolor: lastRandomValue ? '#c51162' : '#FFE0B2',
+                    border: lastRandomValue ? '2px solid #c51162' : '2px solid #FFAB91',
                   },
                 }}
               >
                 {lastRandomValue ? (
                   <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                    <Typography variant="caption" sx={{ fontSize: '0.6rem', opacity: 0.7 }}>🎲</Typography>
+                    <Typography variant="caption" sx={{ fontSize: '0.55rem', opacity: 0.7 }}>🎲</Typography>
                     <span>{lastRandomValue}</span>
                   </Box>
                 ) : '?'}
@@ -820,7 +869,7 @@ export const VotingCards: React.FC<VotingCardsProps> = ({
             </Tooltip>
           </Grid>
 
-          {/* Coffee Card (☕) */}
+          {/* Coffee Card */}
           <Grid item>
             <Tooltip title="Take a break - your next round vote counts as 0.5x" arrow>
               <Button
@@ -834,20 +883,22 @@ export const VotingCards: React.FC<VotingCardsProps> = ({
                   }
                 }}
                 sx={{
-                  width: 70,
-                  height: 90,
-                  fontSize: '2rem',
-                  borderRadius: 2,
-                  boxShadow: 2,
-                  borderWidth: 2,
-                  bgcolor: selectedValue === '☕' ? '#795548' : 'transparent',
-                  borderColor: '#795548',
+                  width: 66,
+                  height: 92,
+                  fontSize: '1.8rem',
+                  borderRadius: '8px',
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.12)',
+                  position: 'relative',
+                  overflow: 'hidden',
+                  bgcolor: selectedValue === '☕' ? '#795548' : '#EFEBE9',
                   color: selectedValue === '☕' ? '#fff' : '#795548',
+                  border: selectedValue === '☕' ? '2px solid #4E342E' : '2px solid #D7CCC8',
+                  transition: 'all 0.25s ease',
                   '&:hover': {
-                    transform: votingDisabled ? 'none' : 'translateY(-4px)',
-                    boxShadow: votingDisabled ? 2 : 4,
-                    borderWidth: 2,
-                    bgcolor: selectedValue === '☕' ? '#5d4037' : 'rgba(121, 85, 72, 0.1)',
+                    transform: votingDisabled ? 'none' : 'translateY(-8px)',
+                    boxShadow: '0 8px 20px rgba(121, 85, 72, 0.25)',
+                    bgcolor: selectedValue === '☕' ? '#5d4037' : '#D7CCC8',
+                    border: selectedValue === '☕' ? '2px solid #4E342E' : '2px solid #BCAAA4',
                   },
                 }}
               >

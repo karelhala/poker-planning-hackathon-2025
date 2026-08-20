@@ -53,6 +53,17 @@ const targetGlow = keyframes`
   50% { box-shadow: 0 0 14px 6px rgba(244, 67, 54, 0); }
 `;
 
+const cardAppear = keyframes`
+  0% { transform: scale(0) rotate(-8deg); opacity: 0; }
+  60% { transform: scale(1.08) rotate(1deg); opacity: 1; }
+  100% { transform: scale(1) rotate(0deg); opacity: 1; }
+`;
+
+const votedGlow = keyframes`
+  0%, 100% { box-shadow: 0 4px 14px rgba(21, 101, 192, 0.3); }
+  50% { box-shadow: 0 4px 20px rgba(21, 101, 192, 0.6); }
+`;
+
 function getSeatPositions(count: number, currentIndex: number) {
   if (count === 0) return [];
   const radiusX = 46;
@@ -141,116 +152,162 @@ export const PokerTable: React.FC<PokerTableProps> = ({
     setGrantMenuAnchor(null);
   };
 
-  const renderCard = (player: Player) => {
+  const renderCard = (player: Player, seatIndex: number) => {
     const isRevealed = gameState === 'REVEALED';
     const vote = effVote(player.userId);
     const isBlocked = blockedPlayers.has(player.userId);
     const copyInfo = getCopyInfo(player.userId);
 
-    let backColor = '#1565C0';
-    let backBorder = '#0D47A1';
+    let backColor = '#1a237e';
+    let backBorder = '#0d1642';
+    let frontBorder = '#BDBDBD';
+    let textColor = '#37474F';
     if (isBlocked) {
-      backColor = '#C62828';
-      backBorder = '#B71C1C';
+      backColor = '#b71c1c';
+      backBorder = '#7f0000';
+      frontBorder = '#C62828';
+      textColor = '#C62828';
     } else if (copyInfo) {
-      backColor = '#7B1FA2';
-      backBorder = '#6A1B9A';
+      backColor = '#4a148c';
+      backBorder = '#311b6e';
+      frontBorder = '#7B1FA2';
+      textColor = '#7B1FA2';
     }
 
+    const flipDelay = seatIndex * 0.08;
+
     return (
-      <Box sx={{ width: 44, height: 62, perspective: '600px', flexShrink: 0 }}>
+      <Box sx={{ width: 56, height: 78, perspective: '800px', flexShrink: 0 }}>
         <Box
           sx={{
             width: '100%',
             height: '100%',
             position: 'relative',
             transformStyle: 'preserve-3d',
-            transition: 'transform 0.6s ease',
-            transform:
-              isRevealed && player.hasVoted ? 'rotateY(180deg)' : 'none',
+            transition: `transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) ${isRevealed ? flipDelay : 0}s`,
+            transform: isRevealed && player.hasVoted ? 'rotateY(180deg)' : 'none',
           }}
         >
-          {/* Back */}
+          {/* Card back */}
           <Box
             sx={{
               position: 'absolute',
               inset: 0,
               backfaceVisibility: 'hidden',
-              borderRadius: 1,
+              borderRadius: '6px',
               bgcolor: player.hasVoted ? backColor : 'transparent',
               border: player.hasVoted
                 ? `2px solid ${backBorder}`
-                : '2px dashed rgba(255,255,255,0.2)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
+                : '2px dashed rgba(255,255,255,0.15)',
+              overflow: 'hidden',
               boxShadow: player.hasVoted
-                ? '0 2px 8px rgba(0,0,0,0.4)'
+                ? `0 4px 14px rgba(0,0,0,0.45)`
                 : 'none',
-              backgroundImage: player.hasVoted
-                ? 'repeating-linear-gradient(45deg, transparent, transparent 4px, rgba(255,255,255,0.06) 4px, rgba(255,255,255,0.06) 8px)'
-                : 'none',
+              transition: 'all 0.4s ease',
+              ...(player.hasVoted && !isRevealed && {
+                animation: `${cardAppear} 0.4s cubic-bezier(0.34, 1.56, 0.64, 1), ${votedGlow} 2s ease-in-out 0.4s infinite`,
+              }),
             }}
           >
+            {player.hasVoted && (
+              <>
+                <Box sx={{
+                  position: 'absolute',
+                  inset: 4,
+                  border: '1px solid rgba(255,255,255,0.1)',
+                  borderRadius: '3px',
+                }} />
+                <Box sx={{
+                  position: 'absolute',
+                  inset: 0,
+                  backgroundImage: `
+                    linear-gradient(45deg, rgba(255,255,255,0.03) 25%, transparent 25%),
+                    linear-gradient(-45deg, rgba(255,255,255,0.03) 25%, transparent 25%),
+                    linear-gradient(45deg, transparent 75%, rgba(255,255,255,0.03) 75%),
+                    linear-gradient(-45deg, transparent 75%, rgba(255,255,255,0.03) 75%)
+                  `,
+                  backgroundSize: '10px 10px',
+                  backgroundPosition: '0 0, 0 5px, 5px -5px, -5px 0px',
+                }} />
+                <Box sx={{
+                  position: 'absolute',
+                  top: '50%',
+                  left: '50%',
+                  transform: 'translate(-50%, -50%)',
+                  fontSize: '1.2rem',
+                  color: 'rgba(255,255,255,0.1)',
+                  lineHeight: 1,
+                }}>
+                  ♠
+                </Box>
+              </>
+            )}
             {!player.hasVoted && !isBlocked && (
-              <HourglassEmptyIcon
-                sx={{ fontSize: 16, color: 'rgba(255,255,255,0.25)' }}
-              />
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
+                <HourglassEmptyIcon sx={{ fontSize: 16, color: 'rgba(255,255,255,0.2)' }} />
+              </Box>
             )}
             {isBlocked && !player.hasVoted && (
-              <BlockIcon
-                sx={{ fontSize: 16, color: 'rgba(255,255,255,0.5)' }}
-              />
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
+                <BlockIcon sx={{ fontSize: 16, color: 'rgba(255,255,255,0.4)' }} />
+              </Box>
             )}
           </Box>
 
-          {/* Front */}
+          {/* Card front */}
           <Box
             sx={{
               position: 'absolute',
               inset: 0,
               backfaceVisibility: 'hidden',
               transform: 'rotateY(180deg)',
-              borderRadius: 1,
+              borderRadius: '6px',
               bgcolor: '#FFFDE7',
-              border: copyInfo
-                ? '2px solid #7B1FA2'
-                : isBlocked
-                  ? '2px solid #C62828'
-                  : '2px solid #BDBDBD',
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              boxShadow: '0 2px 8px rgba(0,0,0,0.25)',
-              gap: 0,
+              border: `2px solid ${frontBorder}`,
+              boxShadow: '0 4px 14px rgba(0,0,0,0.3)',
+              overflow: 'hidden',
             }}
           >
-            {copyInfo && (
-              <Typography sx={{ fontSize: '0.5rem', lineHeight: 1 }}>
-                📋
-              </Typography>
-            )}
-            {isBlocked && (
-              <Typography sx={{ fontSize: '0.5rem', lineHeight: 1 }}>
-                🚫
-              </Typography>
-            )}
-            <Typography
-              sx={{
-                fontWeight: 700,
-                fontSize:
-                  vote && vote.length > 2 ? '0.85rem' : '1.1rem',
-                color: isBlocked
-                  ? '#C62828'
-                  : copyInfo
-                    ? '#7B1FA2'
-                    : '#333',
-                lineHeight: 1.1,
-              }}
-            >
+            <Typography sx={{
+              position: 'absolute', top: 3, left: 5,
+              fontSize: '0.5rem', fontWeight: 700, color: textColor, lineHeight: 1,
+            }}>
               {vote || '—'}
             </Typography>
+            <Typography sx={{
+              position: 'absolute', bottom: 3, right: 5,
+              fontSize: '0.5rem', fontWeight: 700, color: textColor, lineHeight: 1,
+              transform: 'rotate(180deg)',
+            }}>
+              {vote || '—'}
+            </Typography>
+            <Typography sx={{
+              position: 'absolute', top: '50%', left: '50%',
+              transform: 'translate(-50%, -50%)',
+              fontSize: '2.2rem', color: textColor, opacity: 0.05,
+              lineHeight: 1, pointerEvents: 'none',
+            }}>
+              ♠
+            </Typography>
+            <Box sx={{
+              position: 'absolute', top: '50%', left: '50%',
+              transform: 'translate(-50%, -50%)',
+              display: 'flex', flexDirection: 'column', alignItems: 'center',
+            }}>
+              {copyInfo && (
+                <Typography sx={{ fontSize: '0.5rem', lineHeight: 1, mb: 0.25 }}>📋</Typography>
+              )}
+              {isBlocked && (
+                <Typography sx={{ fontSize: '0.5rem', lineHeight: 1, mb: 0.25 }}>🚫</Typography>
+              )}
+              <Typography sx={{
+                fontWeight: 800,
+                fontSize: vote && vote.length > 2 ? '0.9rem' : '1.2rem',
+                color: textColor, lineHeight: 1,
+              }}>
+                {vote || '—'}
+              </Typography>
+            </Box>
           </Box>
         </Box>
       </Box>
@@ -336,7 +393,7 @@ export const PokerTable: React.FC<PokerTableProps> = ({
         </Tooltip>
 
         {/* Card */}
-        {renderCard(player)}
+        {renderCard(player, index)}
 
         {/* Name + indicators */}
         <Box
