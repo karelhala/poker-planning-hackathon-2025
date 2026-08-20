@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useEffect, useCallback } from 'react'
 import { ThemeProvider, createTheme, CssBaseline, Box, Toolbar, Container, Grid, Paper } from '@mui/material'
 import { Header } from './components/Header'
 import { UserModal } from './components/UserModal'
@@ -8,9 +8,9 @@ import { GameControls } from './components/GameControls'
 import { VotingStats } from './components/VotingStats'
 import { NotificationSnackbar } from './components/NotificationSnackbar'
 import { VotingCards } from './components/VotingCards'
-import { PlayersTable } from './components/PlayersTable'
-import { IssuesSidebar, type Ticket } from './components/IssuesSidebar'
-import { ActiveTicketDisplay } from './components/ActiveTicketDisplay'
+import { PokerTable } from './components/PokerTable'
+import { IssuesSidebar, SIDEBAR_WIDTH, SIDEBAR_COLLAPSED_WIDTH, type Ticket } from './components/IssuesSidebar'
+
 import { PokeEffect } from './components/PokeEffect'
 import { CopycatRevealEffect } from './components/CopycatRevealEffect'
 import { ActionLogDrawer } from './components/ActionLogDrawer'
@@ -28,7 +28,11 @@ function App() {
   const [activeTicket, setActiveTicket] = useState<Ticket | null>(null)
   const [tickets, setTickets] = useState<Ticket[]>([])
   const [actionLogOpen, setActionLogOpen] = useState(false)
-  
+  const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(() => {
+    const stored = localStorage.getItem('sidebarCollapsed')
+    return stored === null ? true : stored === 'true'
+  })
+
   // Custom hooks
   const { mode, toggleColorMode } = useThemeMode()
   const { hasJiraToken, userId, userName, setUserName } = useUser()
@@ -83,20 +87,20 @@ function App() {
   // User is admin if they're the room creator OR if they're the only user in the room
   const isRoomCreator = useMemo(() => {
     if (!roomId) return false
-    
+
     // Check localStorage first - most reliable for the creator
     if (isCreator(roomId)) return true
-    
+
     // If roomCreator is set and matches userId
     if (roomCreator && userId === roomCreator) return true
-    
+
     // If we're the only player in the room
     if (players.length === 1 && players[0]?.userId === userId) return true
-    
+
     // If roomCreator hasn't been set yet but we're in a room with players
     // and we're the first in the list, assume we're the creator
     if (!roomCreator && players.length > 0 && players[0]?.userId === userId) return true
-    
+
     return false
   }, [roomId, userId, roomCreator, players, isCreator])
 
@@ -199,7 +203,7 @@ function App() {
   const handleSelectTicket = (ticket: Ticket) => {
     setActiveTicket(ticket)
     showNotification(`Selected: ${ticket.key}`, 'info')
-    
+
     // Broadcast ticket selection to all players
     if (roomId) {
       const channelName = `poker-planning-room-${roomId}:active-ticket`
@@ -219,14 +223,14 @@ function App() {
 
   const handleNextTicket = () => {
     if (tickets.length === 0) return
-    
-    const currentIndex = activeTicket 
+
+    const currentIndex = activeTicket
       ? tickets.findIndex((t) => t.id === activeTicket.id)
       : -1
-    
+
     const nextIndex = (currentIndex + 1) % tickets.length
     const nextTicket = tickets[nextIndex]
-    
+
     handleSelectTicket(nextTicket)
   }
 
@@ -291,6 +295,16 @@ function App() {
     }
   }, [pokeEvent.id])
 
+  const handleToggleSidebar = useCallback(() => {
+    setSidebarCollapsed(prev => {
+      const next = !prev
+      localStorage.setItem('sidebarCollapsed', String(next))
+      return next
+    })
+  }, [])
+
+  const currentSidebarWidth = sidebarCollapsed ? SIDEBAR_COLLAPSED_WIDTH : SIDEBAR_WIDTH
+
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
@@ -309,112 +323,125 @@ function App() {
         <Box
           component="main"
           sx={{
-            backgroundColor: (theme) =>
-              theme.palette.mode === 'light'
-                ? theme.palette.grey[100]
-                : theme.palette.grey[900],
             flexGrow: 1,
             height: '100vh',
             overflow: 'auto',
-            marginLeft: roomId ? '400px' : 0,
-            transition: 'margin 225ms cubic-bezier(0, 0, 0.2, 1) 0ms',
+            marginLeft: roomId ? `${currentSidebarWidth}px` : 0,
+            transition: 'margin 225ms cubic-bezier(0.4, 0, 0.2, 1)',
+            backgroundColor: roomId
+              ? (theme) =>
+                  theme.palette.mode === 'dark'
+                    ? '#1a1a2e'
+                    : '#2c3e50'
+              : (theme) =>
+                  theme.palette.mode === 'light'
+                    ? theme.palette.grey[100]
+                    : theme.palette.grey[900],
           }}
         >
           <Toolbar />
-          <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
-            <Grid container spacing={3}>
-              {/* Room Controls */}
-              <Grid item xs={12}>
-                <Paper sx={{ p: 2 }}>
-                  <RoomControls 
-                    onOpenJoinModal={handleOpenJoinRoomModal}
-                    isConnected={!!roomId}
-                  />
-                </Paper>
-              </Grid>
 
-              {/* Game Controls - Admin toolbar */}
-              {roomId && (
+          {/* Not in room — show room controls */}
+          {!roomId && (
+            <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
+              <Grid container spacing={3}>
                 <Grid item xs={12}>
-                  <GameControls
-                    isAdmin={isRoomCreator}
-                    gameState={gameState}
-                    isProcessing={isProcessing}
-                    onRevealCards={handleRevealCards}
-                    onResetVoting={handleResetVoting}
-                    voteSpread={calculateVoteSpread()}
-                    onTriggerQuickDraw={handleTriggerQuickDraw}
-                    onNextTicket={handleNextTicket}
-                    doublePowerCount={doublePowerPlayers.size}
-                    votingMode={votingMode}
-                    onSetVotingMode={handleSetVotingMode}
-                  />
-                </Grid>
-              )}
-
-              {/* Players Table - only show when in a room */}
-              {roomId && (
-                <Grid item xs={12}>
-                  <PlayersTable
-                    players={players}
-                    currentUserId={userId}
-                    roomCreator={roomCreator}
-                    gameState={gameState}
-                    onNameChange={handleNameChange}
-                    currentUserName={userName}
-                    onPokeUser={handlePokeUser}
-                    onGrantSpecialCard={handleGrantSpecialCard}
-                    isAdmin={isRoomCreator}
-                    blockedPlayers={blockedPlayers}
-                    activeTargeting={activeTargeting}
-                    onTargetSelect={handleTargetSelect}
-                    copyVoteRelations={copyVoteRelations}
-                    getEffectiveVote={getEffectiveVote}
-                    hasDoublePower={hasDoublePower}
-                    hasHalfPower={hasHalfPower}
-                    onGrantDoublePower={handleGrantDoublePower}
-                    onGrantHalfPower={handleGrantHalfPower}
-                  />
-                </Grid>
-              )}
-
-              {/* Active Ticket Display - only show when a ticket is selected */}
-              {roomId && activeTicket && (
-                <Grid item xs={12}>
-                  <ActiveTicketDisplay ticket={activeTicket} />
-                </Grid>
-              )}
-
-              {/* Voting Statistics - only show when cards are revealed */}
-              {roomId && gameState === 'REVEALED' && (
-                <Grid item xs={12}>
-                  <VotingStats players={players} votingMode={votingMode} />
-                </Grid>
-              )}
-
-              {/* Voting Cards - only show when in a room */}
-              {roomId && (
-                <Grid item xs={12}>
-                  <Paper sx={{ p: 2, display: 'flex', justifyContent: 'center' }}>
-                    <VotingCards
-                      selectedValue={selectedVote}
-                      onVote={handleVote}
-                      disabled={gameState === 'REVEALED' || gameState === 'QUICK_DRAW'}
-                      specialCards={specialCards}
-                      onUseSpecialCard={handleUseSpecialCard}
-                      isBlocked={isCurrentUserBlocked}
-                      activeTargeting={activeTargeting}
-                      onCancelTargeting={cancelTargeting}
-                      currentUserCopyTarget={currentUserCopyTarget}
-                      shuffleEffect={shuffleEffect}
-                      onCoffeeSelect={handleCoffeeSelect}
-                      votingMode={votingMode}
+                  <Paper sx={{ p: 2 }}>
+                    <RoomControls
+                      onOpenJoinModal={handleOpenJoinRoomModal}
+                      isConnected={!!roomId}
                     />
                   </Paper>
                 </Grid>
+              </Grid>
+            </Container>
+          )}
+
+          {/* In room — poker table layout */}
+          {roomId && (
+            <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: 'calc(100vh - 64px)', p: 2, gap: 2 }}>
+              {/* Room controls bar */}
+              <Paper sx={{ p: 1.5, bgcolor: 'rgba(255,255,255,0.06)', backdropFilter: 'blur(8px)' }}>
+                <RoomControls
+                  onOpenJoinModal={handleOpenJoinRoomModal}
+                  isConnected={!!roomId}
+                />
+              </Paper>
+
+              {/* Game Controls - Admin toolbar */}
+              <GameControls
+                isAdmin={isRoomCreator}
+                gameState={gameState}
+                isProcessing={isProcessing}
+                onRevealCards={handleRevealCards}
+                onResetVoting={handleResetVoting}
+                voteSpread={calculateVoteSpread()}
+                onTriggerQuickDraw={handleTriggerQuickDraw}
+                onNextTicket={handleNextTicket}
+                doublePowerCount={doublePowerPlayers.size}
+                votingMode={votingMode}
+                onSetVotingMode={handleSetVotingMode}
+              />
+
+              {/* Poker Table */}
+              <Box sx={{ flexGrow: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 400 }}>
+                <PokerTable
+                  players={players}
+                  currentUserId={userId}
+                  roomCreator={roomCreator}
+                  gameState={gameState}
+                  onNameChange={handleNameChange}
+                  currentUserName={userName}
+                  onPokeUser={handlePokeUser}
+                  onGrantSpecialCard={handleGrantSpecialCard}
+                  isAdmin={isRoomCreator}
+                  blockedPlayers={blockedPlayers}
+                  activeTargeting={activeTargeting}
+                  onTargetSelect={handleTargetSelect}
+                  copyVoteRelations={copyVoteRelations}
+                  getEffectiveVote={getEffectiveVote}
+                  hasDoublePower={hasDoublePower}
+                  hasHalfPower={hasHalfPower}
+                  onGrantDoublePower={handleGrantDoublePower}
+                  onGrantHalfPower={handleGrantHalfPower}
+                  activeTicket={activeTicket}
+                  votingMode={votingMode}
+                />
+              </Box>
+
+              {/* Voting Stats - detailed view after reveal */}
+              {gameState === 'REVEALED' && (
+                <VotingStats players={players} votingMode={votingMode} />
               )}
-            </Grid>
-          </Container>
+
+              {/* Voting Cards */}
+              <Paper sx={{
+                p: 2,
+                display: 'flex',
+                justifyContent: 'center',
+                bgcolor: (theme) =>
+                  theme.palette.mode === 'dark'
+                    ? 'rgba(255,255,255,0.04)'
+                    : 'rgba(255,255,255,0.85)',
+                backdropFilter: 'blur(8px)',
+              }}>
+                <VotingCards
+                  selectedValue={selectedVote}
+                  onVote={handleVote}
+                  disabled={gameState === 'REVEALED' || gameState === 'QUICK_DRAW'}
+                  specialCards={specialCards}
+                  onUseSpecialCard={handleUseSpecialCard}
+                  isBlocked={isCurrentUserBlocked}
+                  activeTargeting={activeTargeting}
+                  onCancelTargeting={cancelTargeting}
+                  currentUserCopyTarget={currentUserCopyTarget}
+                  shuffleEffect={shuffleEffect}
+                  onCoffeeSelect={handleCoffeeSelect}
+                  votingMode={votingMode}
+                />
+              </Paper>
+            </Box>
+          )}
         </Box>
       </Box>
 
@@ -442,6 +469,8 @@ function App() {
           onSelectTicket={handleSelectTicket}
           onTicketsChange={setTickets}
           isAdmin={isRoomCreator}
+          collapsed={sidebarCollapsed}
+          onToggleCollapse={handleToggleSidebar}
         />
       )}
 

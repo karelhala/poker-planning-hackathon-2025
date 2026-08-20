@@ -25,6 +25,8 @@ import {
   Assignment as AssignmentIcon,
   Refresh as RefreshIcon,
   MoreVert as MoreVertIcon,
+  ChevronLeft as ChevronLeftIcon,
+  ChevronRight as ChevronRightIcon,
 } from '@mui/icons-material';
 import { useUser } from '../contexts/UserContext';
 import { useRoom } from '../contexts/RoomContext';
@@ -43,6 +45,8 @@ interface IssuesSidebarProps {
   onSelectTicket: (ticket: Ticket) => void;
   isAdmin?: boolean;
   onTicketsChange?: (tickets: Ticket[]) => void;
+  collapsed?: boolean;
+  onToggleCollapse?: () => void;
 }
 
 const JQL_PRESETS = [
@@ -54,11 +58,16 @@ const JQL_PRESETS = [
   { label: 'High Priority', jql: 'priority in (Highest, High) AND status != Done order by priority DESC' },
 ]
 
+export const SIDEBAR_WIDTH = 400;
+export const SIDEBAR_COLLAPSED_WIDTH = 56;
+
 export const IssuesSidebar: React.FC<IssuesSidebarProps> = ({
   activeTicketId,
   onSelectTicket,
   isAdmin = false,
   onTicketsChange,
+  collapsed = false,
+  onToggleCollapse,
 }) => {
   const { userId, userName, jiraToken, jiraDomain, jiraEmail, hasJiraToken } = useUser()
   const { roomId } = useRoom()
@@ -166,33 +175,62 @@ export const IssuesSidebar: React.FC<IssuesSidebarProps> = ({
     onSelectTicket(ticket);
   };
 
+  const drawerWidth = collapsed ? SIDEBAR_COLLAPSED_WIDTH : SIDEBAR_WIDTH;
+
   return (
     <Drawer
       anchor="left"
       variant="permanent"
       sx={{
-        width: 400,
+        width: drawerWidth,
         flexShrink: 0,
+        transition: 'width 225ms cubic-bezier(0.4, 0, 0.2, 1)',
         '& .MuiDrawer-paper': {
-          width: 400,
+          width: drawerWidth,
           boxSizing: 'border-box',
           display: 'flex',
           flexDirection: 'column',
+          overflowX: 'hidden',
+          transition: 'width 225ms cubic-bezier(0.4, 0, 0.2, 1)',
         },
       }}
     >
       <Toolbar />
-      <Box sx={{ px: 2, pt: 2, pb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
-        <AssignmentIcon color="primary" />
-        <Typography variant="h6" component="h2">
-          Backlog
-        </Typography>
+
+      {/* Collapse toggle + header */}
+      <Box sx={{ px: collapsed ? 0.5 : 2, pt: 2, pb: 1, display: 'flex', alignItems: 'center', gap: 1, justifyContent: collapsed ? 'center' : 'flex-start' }}>
+        {!collapsed && <AssignmentIcon color="primary" />}
+        {!collapsed && (
+          <Typography variant="h6" component="h2" sx={{ flexGrow: 1 }}>
+            Backlog
+          </Typography>
+        )}
+        <Tooltip title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'} placement="right">
+          <IconButton size="small" onClick={onToggleCollapse} sx={{ color: 'text.secondary' }}>
+            {collapsed ? <ChevronRightIcon /> : <ChevronLeftIcon />}
+          </IconButton>
+        </Tooltip>
       </Box>
 
-      <Divider />
+      {/* Collapsed: show icon rail */}
+      {collapsed && (
+        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1, mt: 2 }}>
+          <Tooltip title="Backlog" placement="right">
+            <AssignmentIcon color="primary" sx={{ fontSize: 28 }} />
+          </Tooltip>
+          <Chip
+            label={tickets.length}
+            size="small"
+            color="primary"
+            sx={{ height: 20, fontSize: '0.7rem', minWidth: 28 }}
+          />
+        </Box>
+      )}
 
-      {/* Scrollable content area */}
-      <Box sx={{ flexGrow: 1, overflow: 'auto', display: 'flex', flexDirection: 'column' }}>
+      {collapsed ? null : <Divider />}
+
+      {/* Scrollable content area — hidden when collapsed */}
+      <Box sx={{ flexGrow: 1, overflow: 'auto', display: collapsed ? 'none' : 'flex', flexDirection: 'column' }}>
         <Box sx={{ 
           px: 2, 
           my: 2, 
@@ -385,9 +423,9 @@ export const IssuesSidebar: React.FC<IssuesSidebarProps> = ({
       </Box>
 
       {/* Sticky bottom panel */}
-      <Divider />
+      {!collapsed && <Divider />}
 
-      <Box sx={{ p: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <Box sx={{ p: collapsed ? 0 : 2, display: collapsed ? 'none' : 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <Typography variant="caption" color="text.secondary">
           {tickets.length} ticket{tickets.length !== 1 ? 's' : ''} in backlog
         </Typography>
