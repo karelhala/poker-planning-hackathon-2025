@@ -96,6 +96,7 @@ function App() {
     onSessionJoin,
     onVoteCast,
     onReveal,
+    awardCustomPoints,
     resetSession: resetPoints,
   } = usePoints()
 
@@ -536,6 +537,8 @@ function App() {
         open={avatarEditorOpen}
         onClose={() => setAvatarEditorOpen(false)}
         userId={userId}
+        points={points}
+        onSpendPoints={(amount) => awardCustomPoints(-amount, 'Purchase', '🛒')}
         onSave={() => setAvatarVersion(v => v + 1)}
       />
 

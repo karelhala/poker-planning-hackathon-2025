@@ -5,6 +5,7 @@ import {
 } from '@mui/material';
 import {
   generateAvatarDataUri, loadAvatarConfig, saveAvatarConfig,
+  loadUnlockedItems, saveUnlockedItems, isItemFree,
   type AvatarConfig,
 } from '../services/avatarService';
 
@@ -12,6 +13,8 @@ interface AvatarEditorProps {
   open: boolean;
   onClose: () => void;
   userId: string;
+  points: number;
+  onSpendPoints: (amount: number) => void;
   onSave?: () => void;
 }
 
@@ -19,50 +22,51 @@ interface OptionItem {
   value: string;
   label: string;
   free: boolean;
+  cost?: number;
 }
 
 const HAIR_OPTIONS: OptionItem[] = [
   { value: 'short01', label: 'Buzz', free: true },
   { value: 'short03', label: 'Short', free: true },
   { value: 'long01', label: 'Long', free: true },
-  { value: 'short05', label: 'Mohawk', free: false },
-  { value: 'long08', label: 'Afro', free: false },
-  { value: 'long15', label: 'Bun', free: false },
-  { value: 'long12', label: 'Pigtails', free: false },
-  { value: 'short15', label: 'Pomp', free: false },
-  { value: 'long18', label: 'Mullet', free: false },
-  { value: 'long20', label: 'Braids', free: false },
-  { value: 'short10', label: 'Spiky', free: false },
+  { value: 'short05', label: 'Mohawk', free: false, cost: 3 },
+  { value: 'long08', label: 'Afro', free: false, cost: 3 },
+  { value: 'long15', label: 'Bun', free: false, cost: 4 },
+  { value: 'long12', label: 'Pigtails', free: false, cost: 4 },
+  { value: 'short15', label: 'Pomp', free: false, cost: 4 },
+  { value: 'long18', label: 'Mullet', free: false, cost: 5 },
+  { value: 'long20', label: 'Braids', free: false, cost: 5 },
+  { value: 'short10', label: 'Spiky', free: false, cost: 3 },
 ];
 
 const EYES_OPTIONS: OptionItem[] = [
   { value: 'variant01', label: 'Normal', free: true },
   { value: 'variant06', label: 'Happy', free: true },
-  { value: 'variant04', label: 'Sleepy', free: false },
-  { value: 'variant08', label: 'Wink', free: false },
-  { value: 'variant10', label: 'Hearts', free: false },
-  { value: 'variant03', label: 'Angry', free: false },
-  { value: 'variant12', label: 'Surprise', free: false },
+  { value: 'variant04', label: 'Sleepy', free: false, cost: 2 },
+  { value: 'variant08', label: 'Wink', free: false, cost: 3 },
+  { value: 'variant10', label: 'Hearts', free: false, cost: 5 },
+  { value: 'variant03', label: 'Angry', free: false, cost: 3 },
+  { value: 'variant12', label: 'Surprise', free: false, cost: 2 },
 ];
 
 const MOUTH_OPTIONS: OptionItem[] = [
   { value: 'happy01', label: 'Smile', free: true },
   { value: 'happy03', label: 'Neutral', free: true },
-  { value: 'happy05', label: 'Grin', free: false },
-  { value: 'happy09', label: 'Smirk', free: false },
-  { value: 'happy13', label: 'Tongue', free: false },
-  { value: 'sad01', label: 'Frown', free: false },
-  { value: 'sad05', label: 'Gasp', free: false },
+  { value: 'happy05', label: 'Grin', free: false, cost: 2 },
+  { value: 'happy09', label: 'Smirk', free: false, cost: 2 },
+  { value: 'happy13', label: 'Tongue', free: false, cost: 3 },
+  { value: 'sad01', label: 'Frown', free: false, cost: 2 },
+  { value: 'sad05', label: 'Gasp', free: false, cost: 3 },
 ];
 
 const CLOTHING_OPTIONS: OptionItem[] = [
   { value: 'variant01', label: 'T-Shirt', free: true },
   { value: 'variant03', label: 'Tank', free: true },
-  { value: 'variant08', label: 'Hoodie', free: false },
-  { value: 'variant05', label: 'Suit', free: false },
-  { value: 'variant12', label: 'Hawaii', free: false },
-  { value: 'variant15', label: 'Tuxedo', free: false },
-  { value: 'variant18', label: 'Jersey', free: false },
+  { value: 'variant08', label: 'Hoodie', free: false, cost: 3 },
+  { value: 'variant05', label: 'Suit', free: false, cost: 5 },
+  { value: 'variant12', label: 'Hawaii', free: false, cost: 4 },
+  { value: 'variant15', label: 'Tuxedo', free: false, cost: 6 },
+  { value: 'variant18', label: 'Jersey', free: false, cost: 3 },
 ];
 
 const SKIN_COLORS = [
@@ -96,13 +100,30 @@ const CLOTHING_COLORS = [
   { value: 'ff6f00', label: 'Orange' },
 ];
 
-export const AvatarEditor: React.FC<AvatarEditorProps> = ({ open, onClose, userId, onSave }) => {
+export const AvatarEditor: React.FC<AvatarEditorProps> = ({ open, onClose, userId, points, onSpendPoints, onSave }) => {
   const [config, setConfig] = useState<AvatarConfig>(() => loadAvatarConfig());
+  const [unlocked, setUnlocked] = useState<Set<string>>(() => loadUnlockedItems());
 
   const previewUri = useMemo(
     () => generateAvatarDataUri(userId, config),
     [userId, config]
   );
+
+  const isUnlocked = (category: string, value: string) => {
+    if (!value) return true;
+    const key = `${category}:${value}`;
+    return isItemFree(key) || unlocked.has(key);
+  };
+
+  const buyItem = (category: string, value: string, cost: number) => {
+    if (points < cost) return;
+    const key = `${category}:${value}`;
+    const next = new Set(unlocked);
+    next.add(key);
+    setUnlocked(next);
+    saveUnlockedItems(next);
+    onSpendPoints(cost);
+  };
 
   const update = (key: keyof AvatarConfig, value: string) => {
     setConfig(prev => ({
@@ -128,7 +149,12 @@ export const AvatarEditor: React.FC<AvatarEditorProps> = ({ open, onClose, userI
           src={previewUri}
           sx={{ width: 48, height: 48, border: '2px solid', borderColor: 'primary.main', '& img': { imageRendering: 'pixelated' } }}
         />
-        Customize Avatar
+        <Box sx={{ flexGrow: 1 }}>Customize Avatar</Box>
+        <Chip
+          label={`🪙 ${points}`}
+          size="small"
+          sx={{ fontWeight: 700, bgcolor: 'rgba(255,193,7,0.15)', color: '#F9A825', border: '1px solid rgba(255,193,7,0.3)' }}
+        />
       </DialogTitle>
       <DialogContent sx={{ pb: 1 }}>
         {/* Live preview */}
@@ -165,6 +191,10 @@ export const AvatarEditor: React.FC<AvatarEditorProps> = ({ open, onClose, userI
           previewKey="hair"
           userId={userId}
           baseConfig={config}
+          category="hair"
+          isUnlocked={isUnlocked}
+          onBuy={buyItem}
+          currentPoints={points}
         />
         <Box sx={{ mt: 1 }}>
           <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5, display: 'block' }}>Hair Color</Typography>
@@ -186,6 +216,10 @@ export const AvatarEditor: React.FC<AvatarEditorProps> = ({ open, onClose, userI
           previewKey="eyes"
           userId={userId}
           baseConfig={config}
+          category="eyes"
+          isUnlocked={isUnlocked}
+          onBuy={buyItem}
+          currentPoints={points}
         />
 
         <Divider sx={{ my: 1.5 }} />
@@ -199,6 +233,10 @@ export const AvatarEditor: React.FC<AvatarEditorProps> = ({ open, onClose, userI
           previewKey="mouth"
           userId={userId}
           baseConfig={config}
+          category="mouth"
+          isUnlocked={isUnlocked}
+          onBuy={buyItem}
+          currentPoints={points}
         />
 
         <Divider sx={{ my: 1.5 }} />
@@ -212,6 +250,10 @@ export const AvatarEditor: React.FC<AvatarEditorProps> = ({ open, onClose, userI
           previewKey="clothing"
           userId={userId}
           baseConfig={config}
+          category="clothing"
+          isUnlocked={isUnlocked}
+          onBuy={buyItem}
+          currentPoints={points}
         />
         <Box sx={{ mt: 1 }}>
           <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5, display: 'block' }}>Shirt Color</Typography>
@@ -274,25 +316,40 @@ function ColorRow({ colors, selected, onSelect }: {
   );
 }
 
-function OptionGrid({ options, selected, onSelect, previewKey, userId, baseConfig }: {
+function OptionGrid({ options, selected, onSelect, previewKey, userId, baseConfig, category, isUnlocked, onBuy, currentPoints }: {
   options: OptionItem[];
   selected?: string;
   onSelect: (value: string) => void;
   previewKey: string;
   userId: string;
   baseConfig: AvatarConfig;
+  category: string;
+  isUnlocked: (category: string, value: string) => boolean;
+  onBuy: (category: string, value: string, cost: number) => void;
+  currentPoints: number;
 }) {
   return (
     <Grid container spacing={1}>
       {options.map(opt => {
+        const owned = isUnlocked(category, opt.value);
         const isSelected = selected === opt.value || (!selected && opt.value === '');
+        const canAfford = opt.cost ? currentPoints >= opt.cost : true;
         const previewConfig = { ...baseConfig, [previewKey]: opt.value ? [opt.value] : undefined };
         const previewUri = generateAvatarDataUri(userId, previewConfig);
+
+        const handleClick = () => {
+          if (owned) {
+            onSelect(opt.value);
+          } else if (opt.cost && canAfford) {
+            onBuy(category, opt.value, opt.cost);
+            onSelect(opt.value);
+          }
+        };
 
         return (
           <Grid item key={opt.value || 'none'}>
             <Box
-              onClick={() => opt.free ? onSelect(opt.value) : undefined}
+              onClick={handleClick}
               sx={{
                 display: 'flex',
                 flexDirection: 'column',
@@ -303,10 +360,10 @@ function OptionGrid({ options, selected, onSelect, previewKey, userId, baseConfi
                 border: '2px solid',
                 borderColor: isSelected ? 'primary.main' : 'transparent',
                 bgcolor: isSelected ? 'action.selected' : 'transparent',
-                cursor: opt.free ? 'pointer' : 'not-allowed',
-                opacity: opt.free ? 1 : 0.45,
+                cursor: owned || canAfford ? 'pointer' : 'not-allowed',
+                opacity: owned ? 1 : canAfford ? 0.75 : 0.35,
                 transition: 'all 0.15s ease',
-                '&:hover': opt.free ? { bgcolor: 'action.hover', borderColor: 'primary.light' } : {},
+                '&:hover': owned || canAfford ? { bgcolor: 'action.hover', borderColor: owned ? 'primary.light' : '#FFC107' } : {},
               }}
             >
               <Avatar
@@ -316,8 +373,19 @@ function OptionGrid({ options, selected, onSelect, previewKey, userId, baseConfi
               <Typography variant="caption" sx={{ fontSize: '0.55rem', lineHeight: 1.2 }}>
                 {opt.label}
               </Typography>
-              {!opt.free && (
-                <Chip label="🔒" size="small" sx={{ height: 14, fontSize: '0.5rem', bgcolor: 'rgba(0,0,0,0.1)' }} />
+              {!owned && opt.cost && (
+                <Chip
+                  label={`🪙 ${opt.cost}`}
+                  size="small"
+                  sx={{
+                    height: 16,
+                    fontSize: '0.5rem',
+                    fontWeight: 700,
+                    bgcolor: canAfford ? 'rgba(255,193,7,0.2)' : 'rgba(0,0,0,0.1)',
+                    color: canAfford ? '#F9A825' : 'text.disabled',
+                    border: canAfford ? '1px solid rgba(255,193,7,0.4)' : 'none',
+                  }}
+                />
               )}
             </Box>
           </Grid>

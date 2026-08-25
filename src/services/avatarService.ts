@@ -23,8 +23,39 @@ export interface AvatarConfig {
 }
 
 const STORAGE_KEY = 'avatarConfig';
+const UNLOCKS_KEY = 'avatarUnlocks';
 
 const DEFAULT_CONFIG: AvatarConfig = {};
+
+const FREE_ITEMS = new Set([
+  'hair:short01', 'hair:short03', 'hair:long01',
+  'eyes:variant01', 'eyes:variant06',
+  'mouth:happy01', 'mouth:happy03',
+  'clothing:variant01', 'clothing:variant03',
+]);
+
+export function loadUnlockedItems(): Set<string> {
+  try {
+    const stored = localStorage.getItem(UNLOCKS_KEY);
+    if (stored) return new Set([...FREE_ITEMS, ...JSON.parse(stored)]);
+  } catch {
+    // ignore
+  }
+  return new Set(FREE_ITEMS);
+}
+
+export function saveUnlockedItems(items: Set<string>): void {
+  const paid = [...items].filter(i => !FREE_ITEMS.has(i));
+  localStorage.setItem(UNLOCKS_KEY, JSON.stringify(paid));
+}
+
+export function isItemFree(itemKey: string): boolean {
+  return FREE_ITEMS.has(itemKey);
+}
+
+export function isItemUnlocked(itemKey: string, unlocked: Set<string>): boolean {
+  return FREE_ITEMS.has(itemKey) || unlocked.has(itemKey);
+}
 
 export function loadAvatarConfig(): AvatarConfig {
   try {
