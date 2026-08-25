@@ -19,6 +19,9 @@ import { useUser } from './contexts/UserContext'
 import { useRoom } from './contexts/RoomContext'
 import { useThemeMode } from './hooks/useThemeMode'
 import { useSupabaseRealtime } from './hooks/useSupabaseRealtime'
+import { usePoints } from './hooks/usePoints'
+import { PointsFloater } from './components/PointsFloater'
+import { PointsEconomyModal } from './components/PointsEconomyModal'
 import { supabase } from './supabaseClient'
 
 function App() {
@@ -32,6 +35,7 @@ function App() {
     const stored = localStorage.getItem('sidebarCollapsed')
     return stored === null ? true : stored === 'true'
   })
+  const [economyModalOpen, setEconomyModalOpen] = useState(false)
 
   // Custom hooks
   const { mode, toggleColorMode } = useThemeMode()
@@ -82,6 +86,15 @@ function App() {
     closeNotification,
     showNotification,
   } = useSupabaseRealtime()
+
+  const {
+    points,
+    recentEvents: pointEvents,
+    onSessionJoin,
+    onVoteCast,
+    onReveal,
+    resetSession: resetPoints,
+  } = usePoints()
 
   // User is admin if they're the room creator OR if they're the only user in the room
   const isRoomCreator = useMemo(() => {
@@ -150,9 +163,12 @@ function App() {
 
   const handleVote = (value: string) => {
     console.log('Vote cast:', value)
+    const wasAlreadyVoted = selectedVote !== null
     setSelectedVote(value)
-    // Update presence to show user has voted, including the vote value
     updateVotingStatus(true, value)
+    if (!wasAlreadyVoted) {
+      onVoteCast()
+    }
   }
 
   // Reset selected vote when voting is reset
@@ -259,6 +275,35 @@ function App() {
     return () => {
       document.removeEventListener('visibilitychange', handleVisibility)
       channel.unsubscribe()
+    }
+  }, [roomId])
+
+  // Award points on session join
+  useEffect(() => {
+    if (roomId && userName) {
+      onSessionJoin()
+    }
+  }, [roomId, userName])
+
+  // Award points on reveal
+  useEffect(() => {
+    if (gameState === 'REVEALED') {
+      const spread = calculateVoteSpread()
+      if (spread) {
+        onReveal(
+          spread.spread,
+          userId,
+          players.map(p => ({ userId: p.userId, vote: p.vote })),
+          spread.average
+        )
+      }
+    }
+  }, [gameState])
+
+  // Reset points when leaving room
+  useEffect(() => {
+    if (!roomId) {
+      resetPoints()
     }
   }, [roomId])
 
@@ -385,6 +430,8 @@ function App() {
                   isProcessing={isProcessing}
                   voteSpread={calculateVoteSpread()}
                   onTriggerQuickDraw={handleTriggerQuickDraw}
+                  points={points}
+                  onOpenEconomyModal={() => setEconomyModalOpen(true)}
                 />
               </Box>
 
@@ -473,6 +520,15 @@ function App() {
         quickDraw={quickDraw}
         onVote={handleQuickDrawVote}
         currentUserId={userId}
+      />
+
+      {/* Points floating notifications */}
+      <PointsFloater events={pointEvents} />
+
+      {/* Points economy info modal */}
+      <PointsEconomyModal
+        open={economyModalOpen}
+        onClose={() => setEconomyModalOpen(false)}
       />
     </ThemeProvider>
   )

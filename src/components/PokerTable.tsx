@@ -52,6 +52,8 @@ interface PokerTableProps {
   isProcessing?: boolean;
   voteSpread?: { min: number; max: number; spread: number; average: number };
   onTriggerQuickDraw?: () => void;
+  points?: number;
+  onOpenEconomyModal?: () => void;
 }
 
 const targetGlow = keyframes`
@@ -132,6 +134,8 @@ export const PokerTable: React.FC<PokerTableProps> = ({
   isProcessing = false,
   voteSpread,
   onTriggerQuickDraw,
+  points = 0,
+  onOpenEconomyModal,
 }) => {
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
@@ -543,25 +547,47 @@ export const PokerTable: React.FC<PokerTableProps> = ({
             </IconButton>
           )}
 
-          {/* Edit name for self */}
+          {/* Points + edit for self */}
           {isCurrentUser && (
-            <IconButton
-              size="small"
-              onClick={(e) => {
-                e.stopPropagation();
-                setEditDialogOpen(true);
-              }}
-              sx={{
-                color: 'rgba(255,255,255,0.5)',
-                p: '2px',
-                '&:hover': {
-                  color: '#90CAF9',
-                  bgcolor: 'rgba(255,255,255,0.08)',
-                },
-              }}
-            >
-              <EditIcon sx={{ fontSize: 13 }} />
-            </IconButton>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+              <Tooltip title="Click to see how to earn points" arrow>
+                <Chip
+                  label={`🪙 ${points}`}
+                  size="small"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onOpenEconomyModal?.();
+                  }}
+                  sx={{
+                    height: 18,
+                    fontSize: '0.6rem',
+                    fontWeight: 700,
+                    bgcolor: 'rgba(255,193,7,0.2)',
+                    color: '#FFC107',
+                    border: '1px solid rgba(255,193,7,0.3)',
+                    cursor: 'pointer',
+                    '&:hover': { bgcolor: 'rgba(255,193,7,0.35)' },
+                  }}
+                />
+              </Tooltip>
+              <IconButton
+                size="small"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setEditDialogOpen(true);
+                }}
+                sx={{
+                  color: 'rgba(255,255,255,0.5)',
+                  p: '2px',
+                  '&:hover': {
+                    color: '#90CAF9',
+                    bgcolor: 'rgba(255,255,255,0.08)',
+                  },
+                }}
+              >
+                <EditIcon sx={{ fontSize: 13 }} />
+              </IconButton>
+            </Box>
           )}
         </Box>
       </Box>
