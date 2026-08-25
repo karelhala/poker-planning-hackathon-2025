@@ -54,6 +54,7 @@ interface PokerTableProps {
   onTriggerQuickDraw?: () => void;
   points?: number;
   onOpenEconomyModal?: () => void;
+  avatarVersion?: number;
 }
 
 const targetGlow = keyframes`
@@ -136,6 +137,7 @@ export const PokerTable: React.FC<PokerTableProps> = ({
   onTriggerQuickDraw,
   points = 0,
   onOpenEconomyModal,
+  avatarVersion = 0,
 }) => {
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
@@ -156,7 +158,7 @@ export const PokerTable: React.FC<PokerTableProps> = ({
     prevGameState.current = gameState;
   }, [gameState]);
 
-  const myAvatarConfig = useMemo(() => loadAvatarConfig(), []);
+  const myAvatarConfig = useMemo(() => loadAvatarConfig(), [avatarVersion]);
 
   const avatarCache = useMemo(() => {
     const cache: Record<string, string> = {};

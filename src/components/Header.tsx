@@ -30,6 +30,7 @@ interface HeaderProps {
   actionLogCount: number
   lastHeartbeat?: number
   userId?: string
+  onOpenAvatarEditor?: () => void
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -41,6 +42,7 @@ export const Header: React.FC<HeaderProps> = ({
   actionLogCount,
   lastHeartbeat,
   userId,
+  onOpenAvatarEditor,
 }) => {
   const [elapsed, setElapsed] = useState(0);
   const avatarDataUri = userId ? generateAvatarDataUri(userId, loadAvatarConfig()) : undefined;
@@ -100,29 +102,38 @@ export const Header: React.FC<HeaderProps> = ({
         <IconButton onClick={onToggleTheme} color="inherit">
           {mode === 'dark' ? <Brightness7Icon /> : <Brightness4Icon />}
         </IconButton>
-        <IconButton onClick={onOpenJiraModal} color="inherit">
-          <Badge
-            overlap="circular"
-            anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-            badgeContent={
-              hasJiraToken ? (
-                <CheckCircleIcon
-                  sx={{
-                    fontSize: 16,
-                    color: 'success.main',
-                    bgcolor: 'background.paper',
-                    borderRadius: '50%',
-                  }}
-                />
-              ) : null
-            }
-          >
+        <Tooltip title="Settings & JIRA">
+          <IconButton onClick={onOpenJiraModal} color="inherit" sx={{ mr: 0.5 }}>
+            <Badge
+              overlap="circular"
+              anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+              badgeContent={
+                hasJiraToken ? (
+                  <CheckCircleIcon
+                    sx={{
+                      fontSize: 14,
+                      color: 'success.main',
+                      bgcolor: 'background.paper',
+                      borderRadius: '50%',
+                    }}
+                  />
+                ) : null
+              }
+            >
+              <Avatar sx={{ width: 28, height: 28, bgcolor: 'rgba(255,255,255,0.15)', fontSize: '0.8rem' }}>
+                ⚙
+              </Avatar>
+            </Badge>
+          </IconButton>
+        </Tooltip>
+        <Tooltip title="Edit Avatar">
+          <IconButton onClick={onOpenAvatarEditor} color="inherit" sx={{ p: 0.5 }}>
             <Avatar
               src={avatarDataUri}
-              sx={{ width: 32, height: 32, bgcolor: '#546E7A', '& img': { imageRendering: 'pixelated' } }}
+              sx={{ width: 36, height: 36, bgcolor: '#546E7A', border: '2px solid rgba(255,255,255,0.3)', '& img': { imageRendering: 'pixelated' } }}
             />
-          </Badge>
-        </IconButton>
+          </IconButton>
+        </Tooltip>
       </Toolbar>
     </AppBar>
   )

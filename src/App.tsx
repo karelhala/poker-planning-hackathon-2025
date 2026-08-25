@@ -22,6 +22,7 @@ import { useSupabaseRealtime } from './hooks/useSupabaseRealtime'
 import { usePoints } from './hooks/usePoints'
 import { PointsFloater } from './components/PointsFloater'
 import { PointsEconomyModal } from './components/PointsEconomyModal'
+import { AvatarEditor } from './components/AvatarEditor'
 import { supabase } from './supabaseClient'
 
 function App() {
@@ -36,6 +37,8 @@ function App() {
     return stored === null ? true : stored === 'true'
   })
   const [economyModalOpen, setEconomyModalOpen] = useState(false)
+  const [avatarEditorOpen, setAvatarEditorOpen] = useState(false)
+  const [avatarVersion, setAvatarVersion] = useState(0)
 
   // Custom hooks
   const { mode, toggleColorMode } = useThemeMode()
@@ -349,6 +352,7 @@ function App() {
           actionLogCount={actionLog.length}
           lastHeartbeat={lastHeartbeat}
           userId={userId}
+          onOpenAvatarEditor={() => setAvatarEditorOpen(true)}
         />
 
         {/* Main Content */}
@@ -433,6 +437,7 @@ function App() {
                   onTriggerQuickDraw={handleTriggerQuickDraw}
                   points={points}
                   onOpenEconomyModal={() => setEconomyModalOpen(true)}
+                  avatarVersion={avatarVersion}
                 />
               </Box>
 
@@ -525,6 +530,14 @@ function App() {
 
       {/* Points floating notifications */}
       <PointsFloater events={pointEvents} />
+
+      {/* Avatar Editor */}
+      <AvatarEditor
+        open={avatarEditorOpen}
+        onClose={() => setAvatarEditorOpen(false)}
+        userId={userId}
+        onSave={() => setAvatarVersion(v => v + 1)}
+      />
 
       {/* Points economy info modal */}
       <PointsEconomyModal

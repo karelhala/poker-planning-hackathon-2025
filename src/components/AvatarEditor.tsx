@@ -1,0 +1,328 @@
+import React, { useState, useMemo } from 'react';
+import {
+  Dialog, DialogTitle, DialogContent, DialogActions, Button,
+  Box, Typography, Avatar, Grid, Chip, Divider,
+} from '@mui/material';
+import {
+  generateAvatarDataUri, loadAvatarConfig, saveAvatarConfig,
+  type AvatarConfig,
+} from '../services/avatarService';
+
+interface AvatarEditorProps {
+  open: boolean;
+  onClose: () => void;
+  userId: string;
+  onSave?: () => void;
+}
+
+interface OptionItem {
+  value: string;
+  label: string;
+  free: boolean;
+}
+
+const HAIR_OPTIONS: OptionItem[] = [
+  { value: 'short01', label: 'Buzz', free: true },
+  { value: 'short03', label: 'Short', free: true },
+  { value: 'long01', label: 'Long', free: true },
+  { value: 'short05', label: 'Mohawk', free: false },
+  { value: 'long08', label: 'Afro', free: false },
+  { value: 'long15', label: 'Bun', free: false },
+  { value: 'long12', label: 'Pigtails', free: false },
+  { value: 'short15', label: 'Pomp', free: false },
+  { value: 'long18', label: 'Mullet', free: false },
+  { value: 'long20', label: 'Braids', free: false },
+  { value: 'short10', label: 'Spiky', free: false },
+];
+
+const EYES_OPTIONS: OptionItem[] = [
+  { value: 'variant01', label: 'Normal', free: true },
+  { value: 'variant06', label: 'Happy', free: true },
+  { value: 'variant04', label: 'Sleepy', free: false },
+  { value: 'variant08', label: 'Wink', free: false },
+  { value: 'variant10', label: 'Hearts', free: false },
+  { value: 'variant03', label: 'Angry', free: false },
+  { value: 'variant12', label: 'Surprise', free: false },
+];
+
+const MOUTH_OPTIONS: OptionItem[] = [
+  { value: 'happy01', label: 'Smile', free: true },
+  { value: 'happy03', label: 'Neutral', free: true },
+  { value: 'happy05', label: 'Grin', free: false },
+  { value: 'happy09', label: 'Smirk', free: false },
+  { value: 'happy13', label: 'Tongue', free: false },
+  { value: 'sad01', label: 'Frown', free: false },
+  { value: 'sad05', label: 'Gasp', free: false },
+];
+
+const CLOTHING_OPTIONS: OptionItem[] = [
+  { value: 'variant01', label: 'T-Shirt', free: true },
+  { value: 'variant03', label: 'Tank', free: true },
+  { value: 'variant08', label: 'Hoodie', free: false },
+  { value: 'variant05', label: 'Suit', free: false },
+  { value: 'variant12', label: 'Hawaii', free: false },
+  { value: 'variant15', label: 'Tuxedo', free: false },
+  { value: 'variant18', label: 'Jersey', free: false },
+];
+
+const SKIN_COLORS = [
+  { value: 'f5d0a9', label: 'Light' },
+  { value: 'e8b98a', label: 'Peach' },
+  { value: 'c68642', label: 'Tan' },
+  { value: '8d5524', label: 'Brown' },
+  { value: '614335', label: 'Dark' },
+  { value: 'ffdbac', label: 'Fair' },
+];
+
+const HAIR_COLORS = [
+  { value: '2c1b18', label: 'Black' },
+  { value: '724133', label: 'Brown' },
+  { value: 'a55728', label: 'Auburn' },
+  { value: 'e8e1e1', label: 'Gray' },
+  { value: 'f59797', label: 'Pink' },
+  { value: '4a90d9', label: 'Blue' },
+  { value: '77311d', label: 'Red' },
+  { value: 'ecdcbf', label: 'Blonde' },
+];
+
+const CLOTHING_COLORS = [
+  { value: '1565c0', label: 'Blue' },
+  { value: 'c62828', label: 'Red' },
+  { value: '2e7d32', label: 'Green' },
+  { value: 'f57f17', label: 'Yellow' },
+  { value: '4a148c', label: 'Purple' },
+  { value: '212121', label: 'Black' },
+  { value: 'e0e0e0', label: 'White' },
+  { value: 'ff6f00', label: 'Orange' },
+];
+
+export const AvatarEditor: React.FC<AvatarEditorProps> = ({ open, onClose, userId, onSave }) => {
+  const [config, setConfig] = useState<AvatarConfig>(() => loadAvatarConfig());
+
+  const previewUri = useMemo(
+    () => generateAvatarDataUri(userId, config),
+    [userId, config]
+  );
+
+  const update = (key: keyof AvatarConfig, value: string) => {
+    setConfig(prev => ({
+      ...prev,
+      [key]: value ? [value] : undefined,
+    }));
+  };
+
+  const handleSave = () => {
+    saveAvatarConfig(config);
+    onSave?.();
+    onClose();
+  };
+
+  const handleReset = () => {
+    setConfig({});
+  };
+
+  return (
+    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
+      <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+        <Avatar
+          src={previewUri}
+          sx={{ width: 48, height: 48, border: '2px solid', borderColor: 'primary.main', '& img': { imageRendering: 'pixelated' } }}
+        />
+        Customize Avatar
+      </DialogTitle>
+      <DialogContent sx={{ pb: 1 }}>
+        {/* Live preview */}
+        <Box sx={{ display: 'flex', justifyContent: 'center', mb: 2, mt: 1 }}>
+          <Avatar
+            src={previewUri}
+            sx={{
+              width: 120,
+              height: 120,
+              border: '3px solid',
+              borderColor: 'primary.main',
+              boxShadow: '0 4px 20px rgba(0,0,0,0.3)',
+              '& img': { imageRendering: 'pixelated' },
+            }}
+          />
+        </Box>
+
+        {/* Skin Color */}
+        <SectionHeader title="Skin Color" />
+        <ColorRow
+          colors={SKIN_COLORS}
+          selected={config.skinColor?.[0]}
+          onSelect={(v) => update('skinColor', v)}
+        />
+
+        <Divider sx={{ my: 1.5 }} />
+
+        {/* Hair */}
+        <SectionHeader title="Hair" />
+        <OptionGrid
+          options={HAIR_OPTIONS}
+          selected={config.hair?.[0]}
+          onSelect={(v) => update('hair', v)}
+          previewKey="hair"
+          userId={userId}
+          baseConfig={config}
+        />
+        <Box sx={{ mt: 1 }}>
+          <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5, display: 'block' }}>Hair Color</Typography>
+          <ColorRow
+            colors={HAIR_COLORS}
+            selected={config.hairColor?.[0]}
+            onSelect={(v) => update('hairColor', v)}
+          />
+        </Box>
+
+        <Divider sx={{ my: 1.5 }} />
+
+        {/* Eyes */}
+        <SectionHeader title="Eyes" />
+        <OptionGrid
+          options={EYES_OPTIONS}
+          selected={config.eyes?.[0]}
+          onSelect={(v) => update('eyes', v)}
+          previewKey="eyes"
+          userId={userId}
+          baseConfig={config}
+        />
+
+        <Divider sx={{ my: 1.5 }} />
+
+        {/* Mouth */}
+        <SectionHeader title="Mouth" />
+        <OptionGrid
+          options={MOUTH_OPTIONS}
+          selected={config.mouth?.[0]}
+          onSelect={(v) => update('mouth', v)}
+          previewKey="mouth"
+          userId={userId}
+          baseConfig={config}
+        />
+
+        <Divider sx={{ my: 1.5 }} />
+
+        {/* Clothing */}
+        <SectionHeader title="Clothing" />
+        <OptionGrid
+          options={CLOTHING_OPTIONS}
+          selected={config.clothing?.[0]}
+          onSelect={(v) => update('clothing', v)}
+          previewKey="clothing"
+          userId={userId}
+          baseConfig={config}
+        />
+        <Box sx={{ mt: 1 }}>
+          <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5, display: 'block' }}>Shirt Color</Typography>
+          <ColorRow
+            colors={CLOTHING_COLORS}
+            selected={config.clothingColor?.[0]}
+            onSelect={(v) => update('clothingColor', v)}
+          />
+        </Box>
+      </DialogContent>
+      <DialogActions sx={{ px: 3, pb: 2 }}>
+        <Button onClick={handleReset} color="warning" size="small">
+          Reset
+        </Button>
+        <Box sx={{ flexGrow: 1 }} />
+        <Button onClick={onClose} size="small">Cancel</Button>
+        <Button onClick={handleSave} variant="contained" size="small">
+          Save Avatar
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
+};
+
+function SectionHeader({ title }: { title: string }) {
+  return (
+    <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 0.75, fontSize: '0.8rem' }}>
+      {title}
+    </Typography>
+  );
+}
+
+function ColorRow({ colors, selected, onSelect }: {
+  colors: { value: string; label: string }[];
+  selected?: string;
+  onSelect: (value: string) => void;
+}) {
+  return (
+    <Box sx={{ display: 'flex', gap: 0.75, flexWrap: 'wrap' }}>
+      {colors.map(c => (
+        <Box
+          key={c.value}
+          onClick={() => onSelect(c.value)}
+          sx={{
+            width: 28,
+            height: 28,
+            borderRadius: '50%',
+            bgcolor: `#${c.value}`,
+            cursor: 'pointer',
+            border: selected === c.value ? '3px solid' : '2px solid',
+            borderColor: selected === c.value ? 'primary.main' : 'rgba(0,0,0,0.15)',
+            transition: 'all 0.15s ease',
+            boxShadow: selected === c.value ? '0 0 0 2px rgba(25,118,210,0.3)' : 'none',
+            '&:hover': { transform: 'scale(1.15)', boxShadow: '0 2px 8px rgba(0,0,0,0.2)' },
+          }}
+          title={c.label}
+        />
+      ))}
+    </Box>
+  );
+}
+
+function OptionGrid({ options, selected, onSelect, previewKey, userId, baseConfig }: {
+  options: OptionItem[];
+  selected?: string;
+  onSelect: (value: string) => void;
+  previewKey: string;
+  userId: string;
+  baseConfig: AvatarConfig;
+}) {
+  return (
+    <Grid container spacing={1}>
+      {options.map(opt => {
+        const isSelected = selected === opt.value || (!selected && opt.value === '');
+        const previewConfig = { ...baseConfig, [previewKey]: opt.value ? [opt.value] : undefined };
+        const previewUri = generateAvatarDataUri(userId, previewConfig);
+
+        return (
+          <Grid item key={opt.value || 'none'}>
+            <Box
+              onClick={() => opt.free ? onSelect(opt.value) : undefined}
+              sx={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: 0.25,
+                p: 0.5,
+                borderRadius: 1,
+                border: '2px solid',
+                borderColor: isSelected ? 'primary.main' : 'transparent',
+                bgcolor: isSelected ? 'action.selected' : 'transparent',
+                cursor: opt.free ? 'pointer' : 'not-allowed',
+                opacity: opt.free ? 1 : 0.45,
+                transition: 'all 0.15s ease',
+                '&:hover': opt.free ? { bgcolor: 'action.hover', borderColor: 'primary.light' } : {},
+              }}
+            >
+              <Avatar
+                src={previewUri}
+                sx={{ width: 40, height: 40, '& img': { imageRendering: 'pixelated' } }}
+              />
+              <Typography variant="caption" sx={{ fontSize: '0.55rem', lineHeight: 1.2 }}>
+                {opt.label}
+              </Typography>
+              {!opt.free && (
+                <Chip label="🔒" size="small" sx={{ height: 14, fontSize: '0.5rem', bgcolor: 'rgba(0,0,0,0.1)' }} />
+              )}
+            </Box>
+          </Grid>
+        );
+      })}
+    </Grid>
+  );
+}
