@@ -4,7 +4,6 @@ import {
   ListItemIcon, ListItemText, Divider, Chip, keyframes, useTheme,
 } from '@mui/material';
 import {
-  Star as StarIcon,
   Edit as EditIcon,
   CardGiftcard as CardGiftcardIcon,
   Block as BlockIcon,
@@ -12,6 +11,7 @@ import {
   FlashOn as FlashOnIcon,
 } from '@mui/icons-material';
 import { EditNameDialog } from './EditNameDialog';
+import { generateAvatarDataUri, loadAvatarConfig } from '../services/avatarService';
 import {
   SPECIAL_CARD_INFO,
   type SpecialCardType,
@@ -155,6 +155,17 @@ export const PokerTable: React.FC<PokerTableProps> = ({
     }
     prevGameState.current = gameState;
   }, [gameState]);
+
+  const myAvatarConfig = useMemo(() => loadAvatarConfig(), []);
+
+  const avatarCache = useMemo(() => {
+    const cache: Record<string, string> = {};
+    for (const player of players) {
+      const config = player.userId === currentUserId ? myAvatarConfig : undefined;
+      cache[player.userId] = generateAvatarDataUri(player.userId, config);
+    }
+    return cache;
+  }, [players.map(p => p.userId).join(','), currentUserId, myAvatarConfig]);
 
   const currentIndex = players.findIndex((p) => p.userId === currentUserId);
   const seats = useMemo(
@@ -371,14 +382,6 @@ export const PokerTable: React.FC<PokerTableProps> = ({
     const isBlocked = blockedPlayers.has(player.userId);
     const canInteract = !isCurrentUser;
     const displayName = player.userName || 'Anon';
-    const initials = player.userName
-      ? player.userName
-          .split(' ')
-          .map((n) => n[0])
-          .join('')
-          .toUpperCase()
-          .slice(0, 2)
-      : player.userId.slice(0, 2).toUpperCase();
 
     return (
       <Box
@@ -419,25 +422,23 @@ export const PokerTable: React.FC<PokerTableProps> = ({
           placement="top"
         >
           <Avatar
+            src={avatarCache[player.userId]}
             sx={{
               width: isCurrentUser ? 64 : 56,
               height: isCurrentUser ? 64 : 56,
-              bgcolor: isCurrentUser ? 'primary.main' : 'grey.600',
+              bgcolor: '#546E7A',
               border: isCreator
                 ? '3px solid gold'
                 : isCurrentUser
                   ? '3px solid #42A5F5'
                   : '2px solid rgba(255,255,255,0.15)',
-              fontSize: isCurrentUser ? '1.1rem' : '1rem',
-              fontWeight: 600,
               opacity: player.isOnline ? 1 : 0.35,
               filter: player.isOnline ? 'none' : 'grayscale(80%)',
               boxShadow: '0 3px 12px rgba(0,0,0,0.4)',
               transition: 'all 0.3s ease',
+              '& img': { imageRendering: 'pixelated' },
             }}
-          >
-            {isCreator ? <StarIcon sx={{ fontSize: 24 }} /> : initials}
-          </Avatar>
+          />
         </Tooltip>
 
         {/* Card */}

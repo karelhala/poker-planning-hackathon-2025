@@ -348,6 +348,7 @@ function App() {
           onOpenActionLog={() => setActionLogOpen(true)}
           actionLogCount={actionLog.length}
           lastHeartbeat={lastHeartbeat}
+          userId={userId}
         />
 
         {/* Main Content */}

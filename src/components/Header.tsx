@@ -4,11 +4,11 @@ import {
   Brightness4 as Brightness4Icon,
   Brightness7 as Brightness7Icon,
   CheckCircle as CheckCircleIcon,
-  Person as PersonIcon,
   Casino as CasinoIcon,
   HistoryToggleOff as LogIcon,
   Timer as TimerIcon,
 } from '@mui/icons-material'
+import { generateAvatarDataUri, loadAvatarConfig } from '../services/avatarService'
 
 const formatElapsed = (ms: number): string => {
   const seconds = Math.floor(ms / 1000);
@@ -29,6 +29,7 @@ interface HeaderProps {
   onOpenActionLog: () => void
   actionLogCount: number
   lastHeartbeat?: number
+  userId?: string
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -39,8 +40,10 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenActionLog,
   actionLogCount,
   lastHeartbeat,
+  userId,
 }) => {
   const [elapsed, setElapsed] = useState(0);
+  const avatarDataUri = userId ? generateAvatarDataUri(userId, loadAvatarConfig()) : undefined;
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -114,9 +117,10 @@ export const Header: React.FC<HeaderProps> = ({
               ) : null
             }
           >
-            <Avatar sx={{ width: 32, height: 32, bgcolor: 'primary.main' }}>
-              <PersonIcon fontSize="small" />
-            </Avatar>
+            <Avatar
+              src={avatarDataUri}
+              sx={{ width: 32, height: 32, bgcolor: '#546E7A', '& img': { imageRendering: 'pixelated' } }}
+            />
           </Badge>
         </IconButton>
       </Toolbar>
