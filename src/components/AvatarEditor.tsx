@@ -41,33 +41,33 @@ const HAIR_OPTIONS: OptionItem[] = [
 ];
 
 const EYES_OPTIONS: OptionItem[] = [
-  { value: 'variant01', label: 'Normal', free: true },
-  { value: 'variant06', label: 'Happy', free: true },
-  { value: 'variant04', label: 'Sleepy', free: false, cost: 2 },
-  { value: 'variant08', label: 'Wink', free: false, cost: 3 },
-  { value: 'variant10', label: 'Hearts', free: false, cost: 5 },
-  { value: 'variant03', label: 'Angry', free: false, cost: 3 },
-  { value: 'variant12', label: 'Surprise', free: false, cost: 2 },
+  { value: 'variant01', label: 'Square', free: true },
+  { value: 'variant06', label: 'Down', free: true },
+  { value: 'variant04', label: 'Low', free: false, cost: 2 },
+  { value: 'variant08', label: 'Left', free: false, cost: 3 },
+  { value: 'variant10', label: 'Shaded', free: false, cost: 5 },
+  { value: 'variant03', label: 'High', free: false, cost: 3 },
+  { value: 'variant12', label: 'Sleepy', free: false, cost: 2 },
 ];
 
 const MOUTH_OPTIONS: OptionItem[] = [
-  { value: 'happy01', label: 'Smile', free: true },
-  { value: 'happy03', label: 'Neutral', free: true },
-  { value: 'happy05', label: 'Grin', free: false, cost: 2 },
-  { value: 'happy09', label: 'Smirk', free: false, cost: 2 },
-  { value: 'happy13', label: 'Tongue', free: false, cost: 3 },
+  { value: 'happy09', label: 'Smile', free: true },
+  { value: 'happy03', label: 'Dot', free: true },
+  { value: 'happy05', label: 'Shaded', free: false, cost: 2 },
+  { value: 'happy01', label: 'Square', free: false, cost: 2 },
+  { value: 'happy13', label: 'Cross', free: false, cost: 3 },
   { value: 'sad01', label: 'Frown', free: false, cost: 2 },
-  { value: 'sad05', label: 'Gasp', free: false, cost: 3 },
+  { value: 'sad06', label: 'Line', free: false, cost: 3 },
 ];
 
 const CLOTHING_OPTIONS: OptionItem[] = [
   { value: 'variant01', label: 'T-Shirt', free: true },
-  { value: 'variant03', label: 'Tank', free: true },
-  { value: 'variant08', label: 'Hoodie', free: false, cost: 3 },
-  { value: 'variant05', label: 'Suit', free: false, cost: 5 },
-  { value: 'variant12', label: 'Hawaii', free: false, cost: 4 },
-  { value: 'variant15', label: 'Tuxedo', free: false, cost: 6 },
-  { value: 'variant18', label: 'Jersey', free: false, cost: 3 },
+  { value: 'variant03', label: 'Knit', free: true },
+  { value: 'variant08', label: 'Crewneck', free: false, cost: 3 },
+  { value: 'variant05', label: 'V-Neck', free: false, cost: 5 },
+  { value: 'variant12', label: 'Highneck', free: false, cost: 4 },
+  { value: 'variant15', label: 'Pads', free: false, cost: 6 },
+  { value: 'variant18', label: 'Low-V', free: false, cost: 3 },
 ];
 
 const SKIN_COLORS = [

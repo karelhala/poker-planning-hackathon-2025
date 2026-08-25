@@ -30,7 +30,7 @@ const DEFAULT_CONFIG: AvatarConfig = {};
 const FREE_ITEMS = new Set([
   'hair:none', 'hair:short01', 'hair:short03', 'hair:long01',
   'eyes:variant01', 'eyes:variant06',
-  'mouth:happy01', 'mouth:happy03',
+  'mouth:happy09', 'mouth:happy03',
   'clothing:variant01', 'clothing:variant03',
 ]);
 
