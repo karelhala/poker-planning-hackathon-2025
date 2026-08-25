@@ -28,7 +28,7 @@ const UNLOCKS_KEY = 'avatarUnlocks';
 const DEFAULT_CONFIG: AvatarConfig = {};
 
 const FREE_ITEMS = new Set([
-  'hair:short01', 'hair:short03', 'hair:long01',
+  'hair:none', 'hair:short01', 'hair:short03', 'hair:long01',
   'eyes:variant01', 'eyes:variant06',
   'mouth:happy01', 'mouth:happy03',
   'clothing:variant01', 'clothing:variant03',
@@ -75,7 +75,9 @@ export function generateAvatarDataUri(seed: string, config?: AvatarConfig): stri
   const opts: Record<string, unknown> = { seed };
 
   if (config) {
-    if (config.hair?.length) opts.hair = config.hair;
+    if (config.hair?.length) {
+      opts.hair = config.hair[0] === 'none' ? [] : config.hair;
+    }
     if (config.hairColor?.length) opts.hairColor = config.hairColor;
     if (config.hairProbability !== undefined) opts.hairProbability = config.hairProbability;
     if (config.eyes?.length) opts.eyes = config.eyes;

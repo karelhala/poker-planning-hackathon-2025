@@ -26,6 +26,7 @@ interface OptionItem {
 }
 
 const HAIR_OPTIONS: OptionItem[] = [
+  { value: 'none', label: 'Bald', free: true },
   { value: 'short01', label: 'Buzz', free: true },
   { value: 'short03', label: 'Short', free: true },
   { value: 'long01', label: 'Long', free: true },
@@ -87,6 +88,15 @@ const HAIR_COLORS = [
   { value: '4a90d9', label: 'Blue' },
   { value: '77311d', label: 'Red' },
   { value: 'ecdcbf', label: 'Blonde' },
+];
+
+const BEARD_OPTIONS: OptionItem[] = [
+  { value: '', label: 'None', free: true },
+  { value: 'variant01', label: 'Full', free: false, cost: 2 },
+  { value: 'variant02', label: 'Chin', free: false, cost: 2 },
+  { value: 'variant04', label: 'Goatee', free: false, cost: 3 },
+  { value: 'variant08', label: 'Lumberjack', free: false, cost: 4 },
+  { value: 'variant03', label: 'Viking', free: false, cost: 6 },
 ];
 
 const CLOTHING_COLORS = [
@@ -224,6 +234,29 @@ export const AvatarEditor: React.FC<AvatarEditorProps> = ({ open, onClose, userI
 
         <Divider sx={{ my: 1.5 }} />
 
+        {/* Beard */}
+        <SectionHeader title="Beard" />
+        <OptionGrid
+          options={BEARD_OPTIONS}
+          selected={config.beard?.[0] || ''}
+          onSelect={(v) => {
+            setConfig(prev => ({
+              ...prev,
+              beard: v ? [v] : undefined,
+              beardProbability: v ? 100 : 0,
+            }));
+          }}
+          previewKey="beard"
+          userId={userId}
+          baseConfig={config}
+          category="beard"
+          isUnlocked={isUnlocked}
+          onBuy={buyItem}
+          currentPoints={points}
+        />
+
+        <Divider sx={{ my: 1.5 }} />
+
         {/* Mouth */}
         <SectionHeader title="Mouth" />
         <OptionGrid
@@ -334,7 +367,11 @@ function OptionGrid({ options, selected, onSelect, previewKey, userId, baseConfi
         const owned = isUnlocked(category, opt.value);
         const isSelected = selected === opt.value || (!selected && opt.value === '');
         const canAfford = opt.cost ? currentPoints >= opt.cost : true;
-        const previewConfig = { ...baseConfig, [previewKey]: opt.value ? [opt.value] : undefined };
+        const previewConfig = {
+          ...baseConfig,
+          [previewKey]: opt.value === 'none' ? ['none'] : opt.value ? [opt.value] : undefined,
+          ...(previewKey === 'beard' && { beardProbability: opt.value ? 100 : 0 }),
+        };
         const previewUri = generateAvatarDataUri(userId, previewConfig);
 
         const handleClick = () => {
