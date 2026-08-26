@@ -4,6 +4,7 @@ import type { RealtimeChannel } from '@supabase/supabase-js'
 import { useUser } from '../contexts/UserContext'
 import { useRoom } from '../contexts/RoomContext'
 import { useSyncRef } from './useSyncRef'
+import { loadAvatarConfig } from '../services/avatarService'
 
 interface Notification {
   open: boolean
@@ -23,6 +24,7 @@ export interface Player {
   vote: string | null
   isOnline: boolean
   availableCards: SpecialCardType[]
+  avatarConfig?: Record<string, unknown>
 }
 
 interface MemberRecord {
@@ -34,6 +36,7 @@ interface MemberRecord {
   isOnline: boolean
   lastSeen: number
   graceTimerId: ReturnType<typeof setTimeout> | null
+  avatarConfig?: Record<string, unknown>
 }
 
 const GRACE_PERIOD_MS = 900_000
@@ -188,6 +191,7 @@ export const useSupabaseRealtime = () => {
   })
   const [doublePowerPlayers, setDoublePowerPlayers] = useState<Set<string>>(new Set())
   const [halfPowerPlayers, setHalfPowerPlayers] = useState<Set<string>>(new Set())
+  const [rainEvent, setRainEvent] = useState<{ size: 'small' | 'medium' | 'large'; id: string } | null>(null)
   const [votingMode, setVotingMode] = useState<VotingMode>('fibonacci')
   const [lastHeartbeat, setLastHeartbeat] = useState<number>(Date.now())
   const [isProcessing, setIsProcessing] = useState(false)
@@ -277,6 +281,7 @@ export const useSupabaseRealtime = () => {
         vote: record.vote,
         isOnline: record.isOnline,
         availableCards: record.availableCards,
+        avatarConfig: record.avatarConfig,
       })
     })
 
@@ -373,6 +378,7 @@ export const useSupabaseRealtime = () => {
               hasVoted: presence.hasVoted || false,
               vote: presence.vote || null,
               availableCards: presence.availableCards || [],
+              avatarConfig: presence.avatarConfig || undefined,
               isOnline: true,
               lastSeen: Date.now(),
               graceTimerId: null,
@@ -919,6 +925,17 @@ export const useSupabaseRealtime = () => {
       addLogEntry('info', `☕ ${senderName} gave Half Power to ${targetUserName || 'someone'}`, senderName)
     })
 
+    channel.on('broadcast', { event: 'make_it_rain' }, (payload) => {
+      const { size, userName: senderName } = payload.payload
+      setRainEvent({ size, id: `${Date.now()}` })
+      addLogEntry('info', `💰 ${senderName || 'Admin'} made it rain! (${size})`, senderName)
+      setNotification({
+        open: true,
+        message: `💰 ${senderName || 'Admin'} made it rain! Catch the chips!`,
+        severity: 'info',
+      })
+    })
+
     const trackPresence = async () => {
       const presenceData = {
         userId,
@@ -928,6 +945,7 @@ export const useSupabaseRealtime = () => {
         availableCards: specialCardsRef.current.length > 0
           ? specialCardsRef.current.map(c => c.type)
           : ALL_SPECIAL_CARD_TYPES,
+        avatarConfig: loadAvatarConfig(),
         online_at: new Date().toISOString(),
       }
       console.log('Tracking presence:', presenceData)
@@ -1164,6 +1182,7 @@ export const useSupabaseRealtime = () => {
         hasVoted,
         vote,
         availableCards: getAvailableCardTypes(),
+        avatarConfig: loadAvatarConfig(),
         online_at: new Date().toISOString(),
       })
       console.log(`Updated voting status: ${hasVoted ? 'Voted' : 'Thinking'}`, vote ? `Vote: ${vote}` : '')
@@ -1712,6 +1731,25 @@ export const useSupabaseRealtime = () => {
     })
   }
 
+  const refreshPresence = () => {
+    if (channelRef.current) {
+      channelRef.current.track({
+        userId,
+        userName: userNameRef.current || null,
+        hasVoted: hasVotedRef.current,
+        vote: currentVoteRef.current,
+        availableCards: specialCardsRef.current.map(c => c.type),
+        avatarConfig: loadAvatarConfig(),
+        online_at: new Date().toISOString(),
+      })
+    }
+  }
+
+  const handleMakeItRain = (size: 'small' | 'medium' | 'large') => {
+    sendEvent('make_it_rain', { size, userName: userNameRef.current })
+    addLogEntry('info', `💰 ${userNameRef.current || 'Admin'} made it rain! (${size})`, userNameRef.current)
+  }
+
   return {
     count,
     roomCreator,
@@ -1764,6 +1802,10 @@ export const useSupabaseRealtime = () => {
     handleGrantDoublePower,
     handleGrantHalfPower,
     handleSetVotingMode,
+    handleMakeItRain,
+    refreshPresence,
+    rainEvent,
+    clearRainEvent: () => setRainEvent(null),
     clearActionLog,
     clearCopyRevealEffects,
     clearPokeEvent,

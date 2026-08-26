@@ -55,6 +55,7 @@ interface PokerTableProps {
   points?: number;
   onOpenEconomyModal?: () => void;
   avatarVersion?: number;
+  onMakeItRain?: (size: 'small' | 'medium' | 'large') => void;
 }
 
 const targetGlow = keyframes`
@@ -138,6 +139,7 @@ export const PokerTable: React.FC<PokerTableProps> = ({
   points = 0,
   onOpenEconomyModal,
   avatarVersion = 0,
+  onMakeItRain,
 }) => {
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
@@ -163,11 +165,13 @@ export const PokerTable: React.FC<PokerTableProps> = ({
   const avatarCache = useMemo(() => {
     const cache: Record<string, string> = {};
     for (const player of players) {
-      const config = player.userId === currentUserId ? myAvatarConfig : undefined;
+      const config = player.userId === currentUserId
+        ? myAvatarConfig
+        : player.avatarConfig as import('../services/avatarService').AvatarConfig | undefined;
       cache[player.userId] = generateAvatarDataUri(player.userId, config);
     }
     return cache;
-  }, [players.map(p => p.userId).join(','), currentUserId, myAvatarConfig]);
+  }, [players.map(p => p.userId + JSON.stringify(p.avatarConfig || '')).join(','), currentUserId, myAvatarConfig]);
 
   const currentIndex = players.findIndex((p) => p.userId === currentUserId);
   const seats = useMemo(
@@ -780,6 +784,45 @@ export const PokerTable: React.FC<PokerTableProps> = ({
           <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.35)', display: 'block', mt: 1, fontSize: '0.6rem' }}>
             Select a ticket from the sidebar
           </Typography>
+        )}
+
+        {/* Make It Rain buttons (admin only) */}
+        {isAdmin && onMakeItRain && (
+          <Box sx={{ mt: 1.5, display: 'flex', gap: 0.75, justifyContent: 'center' }}>
+            {([
+              { size: 'small' as const, label: '💧', tip: 'Drizzle (15 chips)' },
+              { size: 'medium' as const, label: '💰', tip: 'Rain (35 chips)' },
+              { size: 'large' as const, label: '🤑', tip: 'Jackpot (60 chips)' },
+            ]).map(({ size, label, tip }) => (
+              <Tooltip key={size} title={tip} arrow>
+                <Box
+                  component="button"
+                  onClick={() => onMakeItRain(size)}
+                  sx={{
+                    width: 32,
+                    height: 32,
+                    borderRadius: '50%',
+                    border: '1px solid rgba(255,193,7,0.3)',
+                    bgcolor: 'rgba(255,193,7,0.1)',
+                    cursor: 'pointer',
+                    fontSize: '0.9rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    transition: 'all 0.2s ease',
+                    fontFamily: 'inherit',
+                    '&:hover': {
+                      bgcolor: 'rgba(255,193,7,0.25)',
+                      borderColor: '#FFC107',
+                      transform: 'scale(1.15)',
+                    },
+                  }}
+                >
+                  {label}
+                </Box>
+              </Tooltip>
+            ))}
+          </Box>
         )}
       </Box>
     );

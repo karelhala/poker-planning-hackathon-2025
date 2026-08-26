@@ -23,6 +23,7 @@ import { usePoints } from './hooks/usePoints'
 import { PointsFloater } from './components/PointsFloater'
 import { PointsEconomyModal } from './components/PointsEconomyModal'
 import { AvatarEditor } from './components/AvatarEditor'
+import { MakeItRain } from './components/MakeItRain'
 import { supabase } from './supabaseClient'
 
 function App() {
@@ -81,6 +82,10 @@ function App() {
     handleGrantDoublePower,
     handleGrantHalfPower,
     handleSetVotingMode,
+    handleMakeItRain,
+    refreshPresence,
+    rainEvent,
+    clearRainEvent,
     votingMode,
     lastHeartbeat,
     clearCopyRevealEffects,
@@ -439,6 +444,7 @@ function App() {
                   points={points}
                   onOpenEconomyModal={() => setEconomyModalOpen(true)}
                   avatarVersion={avatarVersion}
+                  onMakeItRain={handleMakeItRain}
                 />
               </Box>
 
@@ -529,6 +535,14 @@ function App() {
         currentUserId={userId}
       />
 
+      {/* Make It Rain overlay */}
+      <MakeItRain
+        active={!!rainEvent}
+        size={rainEvent?.size || 'medium'}
+        onCatch={() => awardCustomPoints(1, 'Chip caught!', '🪙')}
+        onEnd={clearRainEvent}
+      />
+
       {/* Points floating notifications */}
       <PointsFloater events={pointEvents} />
 
@@ -539,7 +553,7 @@ function App() {
         userId={userId}
         points={points}
         onSpendPoints={(amount) => awardCustomPoints(-amount, 'Purchase', '🛒')}
-        onSave={() => setAvatarVersion(v => v + 1)}
+        onSave={() => { setAvatarVersion(v => v + 1); refreshPresence(); }}
       />
 
       {/* Points economy info modal */}
