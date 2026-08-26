@@ -24,6 +24,8 @@ import { PointsFloater } from './components/PointsFloater'
 import { PointsEconomyModal } from './components/PointsEconomyModal'
 import { AvatarEditor } from './components/AvatarEditor'
 import { MakeItRain } from './components/MakeItRain'
+import { ShopModal } from './components/ShopModal'
+import type { ShopItem } from './data/shopItems'
 import { supabase } from './supabaseClient'
 
 function App() {
@@ -40,6 +42,8 @@ function App() {
   const [economyModalOpen, setEconomyModalOpen] = useState(false)
   const [avatarEditorOpen, setAvatarEditorOpen] = useState(false)
   const [avatarVersion, setAvatarVersion] = useState(0)
+  const [shopOpen, setShopOpen] = useState(false)
+  const [ownedItems, setOwnedItems] = useState<string[]>([])
 
   // Custom hooks
   const { mode, toggleColorMode } = useThemeMode()
@@ -335,6 +339,15 @@ function App() {
     }
   }, [pokeEvent.id])
 
+  const handleBuyItem = useCallback((item: ShopItem) => {
+    if (points >= item.cost) {
+      awardCustomPoints(-item.cost, `Bought ${item.name}`, '🛒')
+      if (item.type === 'permanent') {
+        setOwnedItems(prev => [...prev, item.id])
+      }
+    }
+  }, [points, awardCustomPoints])
+
   const handleToggleSidebar = useCallback(() => {
     setSidebarCollapsed(prev => {
       const next = !prev
@@ -359,6 +372,8 @@ function App() {
           lastHeartbeat={lastHeartbeat}
           userId={userId}
           onOpenAvatarEditor={() => setAvatarEditorOpen(true)}
+          onOpenShop={() => setShopOpen(true)}
+          points={points}
         />
 
         {/* Main Content */}
@@ -554,6 +569,15 @@ function App() {
         points={points}
         onSpendPoints={(amount) => awardCustomPoints(-amount, 'Purchase', '🛒')}
         onSave={() => { setAvatarVersion(v => v + 1); refreshPresence(); }}
+      />
+
+      {/* Item Shop */}
+      <ShopModal
+        open={shopOpen}
+        onClose={() => setShopOpen(false)}
+        points={points}
+        onBuy={handleBuyItem}
+        ownedItems={ownedItems}
       />
 
       {/* Points economy info modal */}

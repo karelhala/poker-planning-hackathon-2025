@@ -31,6 +31,8 @@ interface HeaderProps {
   lastHeartbeat?: number
   userId?: string
   onOpenAvatarEditor?: () => void
+  onOpenShop?: () => void
+  points?: number
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -43,6 +45,8 @@ export const Header: React.FC<HeaderProps> = ({
   lastHeartbeat,
   userId,
   onOpenAvatarEditor,
+  onOpenShop,
+  points = 0,
 }) => {
   const [elapsed, setElapsed] = useState(0);
   const avatarDataUri = userId ? generateAvatarDataUri(userId, loadAvatarConfig()) : undefined;
@@ -102,6 +106,24 @@ export const Header: React.FC<HeaderProps> = ({
         <IconButton onClick={onToggleTheme} color="inherit">
           {mode === 'dark' ? <Brightness7Icon /> : <Brightness4Icon />}
         </IconButton>
+        <Tooltip title="Item Shop">
+          <Chip
+            icon={<span style={{ fontSize: '0.9rem' }}>🏪</span>}
+            label={`🪙 ${points}`}
+            size="small"
+            onClick={onOpenShop}
+            sx={{
+              mr: 1,
+              cursor: 'pointer',
+              fontWeight: 700,
+              fontSize: '0.75rem',
+              bgcolor: 'rgba(255,193,7,0.12)',
+              color: '#FFC107',
+              border: '1px solid rgba(255,193,7,0.25)',
+              '&:hover': { bgcolor: 'rgba(255,193,7,0.25)' },
+            }}
+          />
+        </Tooltip>
         <Tooltip title="Settings & JIRA">
           <IconButton onClick={onOpenJiraModal} color="inherit" sx={{ mr: 0.5 }}>
             <Badge
