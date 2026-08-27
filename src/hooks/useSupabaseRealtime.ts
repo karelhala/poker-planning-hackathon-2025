@@ -199,6 +199,7 @@ export const useSupabaseRealtime = () => {
   const [tomatoSplats, setTomatoSplats] = useState<Map<string, { thrownBy: string; id: string }>>(new Map())
   const [applauseEvents, setApplauseEvents] = useState<Map<string, { userName: string; id: string }>>(new Map())
   const [megaphoneEvents, setMegaphoneEvents] = useState<Map<string, { userName: string; id: string }>>(new Map())
+  const [earthquakeActive, setEarthquakeActive] = useState(false)
   const [votingMode, setVotingMode] = useState<VotingMode>('fibonacci')
   const [lastHeartbeat, setLastHeartbeat] = useState<number>(Date.now())
   const [isProcessing, setIsProcessing] = useState(false)
@@ -577,7 +578,8 @@ export const useSupabaseRealtime = () => {
       setCopyVoteRelations([])
       setCopyRevealEffects([])
       setShuffleEffect(null)
-      
+      setEarthquakeActive(false)
+
       // Reset our own voting state (keep current available cards)
       if (channelRef.current) {
         channelRef.current.track(buildPresence({ hasVoted: false, vote: null }))
@@ -1007,6 +1009,17 @@ export const useSupabaseRealtime = () => {
       }, 3000)
     })
 
+    channel.on('broadcast', { event: 'earthquake' }, (payload) => {
+      const senderName = payload.payload.userName || 'Someone'
+      setEarthquakeActive(true)
+      addLogEntry('info', `🌍 ${senderName} triggered an earthquake! Seats shuffling!`, senderName)
+      setNotification({
+        open: true,
+        message: `🌍 ${senderName} caused an earthquake! Hold on!`,
+        severity: 'info',
+      })
+    })
+
     const trackPresence = async () => {
       const presenceData = buildPresence()
       console.log('Tracking presence:', presenceData)
@@ -1192,6 +1205,7 @@ export const useSupabaseRealtime = () => {
     setCopyVoteRelations([])
     setCopyRevealEffects([])
     setShuffleEffect(null)
+    setEarthquakeActive(false)
 
     if (channelRef.current) {
       channelRef.current.track(buildPresence({ hasVoted: false, vote: null }))
@@ -1778,6 +1792,13 @@ export const useSupabaseRealtime = () => {
     }, 3000)
   }
 
+  const handleEarthquake = () => {
+    sendEvent('earthquake', {})
+    setEarthquakeActive(true)
+    addLogEntry('info', '🌍 You triggered an earthquake!', userNameRef.current)
+    setNotification({ open: true, message: '🌍 EARTHQUAKE! Seats keep shuffling!', severity: 'info' })
+  }
+
   const handleThrowTomato = (targetUserId: string, targetUserName: string | null) => {
     sendEvent('tomato_throw', { targetUserId, targetUserName, thrownByName: userNameRef.current })
     setTomatoSplats(prev => {
@@ -1871,9 +1892,11 @@ export const useSupabaseRealtime = () => {
     handleThrowTomato,
     handleApplause,
     handleMegaphoneVote,
+    handleEarthquake,
     tomatoSplats,
     applauseEvents,
     megaphoneEvents,
+    earthquakeActive,
     refreshPresence,
     setItemCount,
     setGhostChipCount,

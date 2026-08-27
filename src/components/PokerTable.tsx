@@ -59,6 +59,7 @@ interface PokerTableProps {
   tomatoSplats?: Map<string, { thrownBy: string; id: string }>;
   applauseEvents?: Map<string, { userName: string; id: string }>;
   megaphoneEvents?: Map<string, { userName: string; id: string }>;
+  earthquakeActive?: boolean;
   itemTargeting?: string | null;
   onItemTargetSelect?: (userId: string, userName: string | null) => void;
 }
@@ -97,6 +98,19 @@ const megaphoneBanner = keyframes`
   30% { transform: translateX(-50%) scale(1); opacity: 1; }
   80% { transform: translateX(-50%) scale(1); opacity: 1; }
   100% { transform: translateX(-50%) scale(0.5); opacity: 0; }
+`;
+
+const earthquakeShake = keyframes`
+  0%, 100% { transform: translate(0, 0) rotate(0); }
+  10% { transform: translate(-3px, -2px) rotate(-0.5deg); }
+  20% { transform: translate(4px, 1px) rotate(0.5deg); }
+  30% { transform: translate(-2px, 3px) rotate(-0.3deg); }
+  40% { transform: translate(3px, -1px) rotate(0.4deg); }
+  50% { transform: translate(-4px, 2px) rotate(-0.5deg); }
+  60% { transform: translate(2px, -3px) rotate(0.3deg); }
+  70% { transform: translate(-3px, 1px) rotate(-0.4deg); }
+  80% { transform: translate(4px, 2px) rotate(0.5deg); }
+  90% { transform: translate(-1px, -2px) rotate(-0.2deg); }
 `;
 
 const revealPulse = keyframes`
@@ -168,6 +182,7 @@ export const PokerTable: React.FC<PokerTableProps> = ({
   tomatoSplats = new Map(),
   applauseEvents = new Map(),
   megaphoneEvents = new Map(),
+  earthquakeActive = false,
   itemTargeting = null,
   onItemTargetSelect,
 }) => {
@@ -189,6 +204,72 @@ export const PokerTable: React.FC<PokerTableProps> = ({
     }
     prevGameState.current = gameState;
   }, [gameState]);
+
+  const [isEarthquake, setIsEarthquake] = useState(false);
+  const [earthquakeSeatIndices, setEarthquakeSeatIndices] = useState<number[]>([]);
+  const earthquakeIdRef = useRef(0);
+
+  useEffect(() => {
+    if (!earthquakeActive || players.length < 2) {
+      // Keep seat indices (frozen positions) — only clear on round reset
+      if (!earthquakeActive) setEarthquakeSeatIndices([]);
+      setIsEarthquake(false);
+      return;
+    }
+
+    const id = ++earthquakeIdRef.current;
+    setIsEarthquake(true);
+
+    const doShuffle = () => {
+      if (earthquakeIdRef.current !== id) return;
+      setEarthquakeSeatIndices(prev => {
+        const current = prev.length === players.length
+          ? [...prev]
+          : players.map((_, i) => i);
+
+        // Random count of players to swap (2 to all)
+        const count = 2 + Math.floor(Math.random() * (players.length - 1));
+        const shuffleCount = Math.min(count, players.length);
+
+        // Pick random positions
+        const positions = current.map((_, i) => i);
+        for (let i = positions.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [positions[i], positions[j]] = [positions[j], positions[i]];
+        }
+        const selected = positions.slice(0, shuffleCount);
+
+        // Shuffle seat values among selected positions
+        const values = selected.map(pos => current[pos]);
+        for (let i = values.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [values[i], values[j]] = [values[j], values[i]];
+        }
+        selected.forEach((pos, i) => {
+          current[pos] = values[i];
+        });
+
+        return current;
+      });
+    };
+
+    doShuffle();
+    const interval = setInterval(doShuffle, 1000);
+
+    // Stop shuffling after 5s — seats freeze where they are
+    const stopTimer = setTimeout(() => {
+      clearInterval(interval);
+    }, 5000);
+
+    // Shake animation runs full 5s independently
+    const shakeTimer = setTimeout(() => setIsEarthquake(false), 5000);
+
+    return () => {
+      clearInterval(interval);
+      clearTimeout(stopTimer);
+      clearTimeout(shakeTimer);
+    };
+  }, [earthquakeActive, players.length]);
 
   const myAvatarConfig = useMemo(() => loadAvatarConfig(), [avatarVersion]);
 
@@ -414,7 +495,10 @@ export const PokerTable: React.FC<PokerTableProps> = ({
   };
 
   const renderSeat = (player: Player, index: number) => {
-    const pos = seats[index];
+    const seatIdx = earthquakeSeatIndices.length === players.length
+      ? earthquakeSeatIndices[index]
+      : index;
+    const pos = seats[seatIdx];
     if (!pos) return null;
 
     const isCurrentUser = player.userId === currentUserId;
@@ -437,7 +521,7 @@ export const PokerTable: React.FC<PokerTableProps> = ({
           alignItems: 'center',
           gap: 0.5,
           cursor: canInteract ? 'pointer' : 'default',
-          transition: 'transform 0.2s ease',
+          transition: 'left 0.8s cubic-bezier(0.34, 1.56, 0.64, 1), top 0.8s cubic-bezier(0.34, 1.56, 0.64, 1), transform 0.2s ease',
           zIndex: isCurrentUser ? 10 : 5,
           '&:hover': canInteract
             ? { transform: 'translate(-50%, -50%) scale(1.1)' }
@@ -1036,6 +1120,9 @@ export const PokerTable: React.FC<PokerTableProps> = ({
         margin: '0 auto',
         aspectRatio: '16 / 9',
         minHeight: 420,
+        ...(isEarthquake && {
+          animation: `${earthquakeShake} 0.4s ease-in-out infinite`,
+        }),
       }}
     >
       {/* Wood border ring */}

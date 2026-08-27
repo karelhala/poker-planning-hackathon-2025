@@ -96,9 +96,11 @@ function App() {
     handleThrowTomato,
     handleApplause,
     handleMegaphoneVote,
+    handleEarthquake,
     tomatoSplats,
     applauseEvents,
     megaphoneEvents,
+    earthquakeActive,
     refreshPresence,
     setItemCount,
     setGhostChipCount,
@@ -408,8 +410,15 @@ function App() {
         if (idx >= 0) return [...prev.slice(0, idx), ...prev.slice(idx + 1)]
         return prev
       })
+    } else if (itemId === 'earthquake') {
+      handleEarthquake()
+      setConsumableItems(prev => {
+        const idx = prev.indexOf('earthquake')
+        if (idx >= 0) return [...prev.slice(0, idx), ...prev.slice(idx + 1)]
+        return prev
+      })
     }
-  }, [handleApplause, megaphoneActive])
+  }, [handleApplause, megaphoneActive, handleEarthquake])
 
   const handleItemTargetSelect = useCallback((targetUserId: string, targetUserName: string | null) => {
     if (itemTargeting === 'tomato') {
@@ -538,6 +547,7 @@ function App() {
                   tomatoSplats={tomatoSplats}
                   applauseEvents={applauseEvents}
                   megaphoneEvents={megaphoneEvents}
+                  earthquakeActive={earthquakeActive}
                   itemTargeting={itemTargeting}
                   onItemTargetSelect={handleItemTargetSelect}
                 />
