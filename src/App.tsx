@@ -28,6 +28,7 @@ import { TomatoSplash } from './components/TomatoSplash'
 import { ShopModal } from './components/ShopModal'
 import { ChipStack } from './components/ChipStack'
 import type { ShopItem } from './data/shopItems'
+import { GHOST_STACK_CHIPS } from './data/shopItems'
 import { supabase } from './supabaseClient'
 
 function App() {
@@ -95,6 +96,7 @@ function App() {
     tomatoSplats,
     refreshPresence,
     setItemCount,
+    setGhostChipCount,
     rainEvent,
     clearRainEvent,
     votingMode,
@@ -320,11 +322,22 @@ function App() {
     }
   }, [gameState])
 
-  // Sync item count to presence
+  // Derive ghost chip count from owned permanent ghost stacks (largest wins)
+  const ghostChipCount = useMemo(() => {
+    let max = 0
+    for (const id of ownedItems) {
+      const chips = GHOST_STACK_CHIPS[id]
+      if (chips && chips > max) max = chips
+    }
+    return max
+  }, [ownedItems])
+
+  // Sync item count + ghost chip count to presence
   useEffect(() => {
     setItemCount(consumableItems.length)
+    setGhostChipCount(ghostChipCount)
     if (roomId) refreshPresence()
-  }, [consumableItems.length])
+  }, [consumableItems.length, ghostChipCount])
 
   // Reset points when leaving room
   useEffect(() => {
@@ -595,7 +608,7 @@ function App() {
       />
 
       {/* Chip Stack (consumable items) */}
-      {roomId && <ChipStack items={consumableItems} onUseItem={handleUseItem} />}
+      {roomId && <ChipStack items={consumableItems} onUseItem={handleUseItem} ghostChipCount={ghostChipCount} />}
 
       {/* Make It Rain overlay */}
       <MakeItRain

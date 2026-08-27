@@ -8,13 +8,19 @@ const popIn = keyframes`
   100% { transform: scale(1); opacity: 1; }
 `;
 
+const ghostShimmer = keyframes`
+  0%, 100% { opacity: 0.35; }
+  50% { opacity: 0.55; }
+`;
+
 interface ChipStackProps {
   items: string[];
   onUseItem: (itemId: string) => void;
+  ghostChipCount?: number;
 }
 
-export const ChipStack: React.FC<ChipStackProps> = ({ items, onUseItem }) => {
-  if (items.length === 0) return null;
+export const ChipStack: React.FC<ChipStackProps> = ({ items, onUseItem, ghostChipCount = 0 }) => {
+  if (items.length === 0 && ghostChipCount === 0) return null;
 
   const grouped = items.reduce<Record<string, number>>((acc, id) => {
     acc[id] = (acc[id] || 0) + 1;
@@ -34,6 +40,7 @@ export const ChipStack: React.FC<ChipStackProps> = ({ items, onUseItem }) => {
         zIndex: 1200,
       }}
     >
+      {/* Real consumable chips on top */}
       {Object.entries(grouped).map(([itemId, count]) => {
         const item = SHOP_ITEMS.find(i => i.id === itemId);
         if (!item) return null;
@@ -98,6 +105,39 @@ export const ChipStack: React.FC<ChipStackProps> = ({ items, onUseItem }) => {
           </Tooltip>
         );
       })}
+
+      {/* Ghost chips at bottom — translucent, not clickable */}
+      {ghostChipCount > 0 && (
+        <Tooltip title={`Ghost Stack — ${ghostChipCount} fake chips (bluff)`} placement="left" arrow>
+          <Box sx={{ display: 'flex', flexDirection: 'column-reverse', alignItems: 'center', mt: items.length > 0 ? 0.5 : 0 }}>
+            {Array.from({ length: Math.min(ghostChipCount, 15) }).map((_, i) => (
+              <Box
+                key={`ghost-${i}`}
+                sx={{
+                  width: 38,
+                  height: 10,
+                  borderRadius: '50%',
+                  bgcolor: i % 2 === 0 ? 'rgba(255,193,7,0.25)' : 'rgba(255,179,0,0.2)',
+                  border: '1px solid rgba(255,143,0,0.3)',
+                  mt: i > 0 ? '-4px' : 0,
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.15)',
+                  animation: `${ghostShimmer} 3s ease-in-out ${i * 0.15}s infinite`,
+                  pointerEvents: 'none',
+                }}
+              />
+            ))}
+            <Box sx={{
+              fontSize: '0.7rem',
+              mt: 0.5,
+              color: 'rgba(255,255,255,0.4)',
+              pointerEvents: 'none',
+              textAlign: 'center',
+            }}>
+              👻
+            </Box>
+          </Box>
+        </Tooltip>
+      )}
     </Box>
   );
 };

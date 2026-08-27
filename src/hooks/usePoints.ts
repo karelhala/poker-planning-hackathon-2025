@@ -20,7 +20,7 @@ const POINT_RULES = {
   FIRST_TO_VOTE: { amount: 1, reason: 'First to vote', icon: '⚡' },
   CLOSEST_TO_AVG: { amount: 1, reason: 'Closest to average', icon: '🎯' },
   STREAK_BONUS: { amount: 1, reason: 'Voting streak', icon: '🔥' },
-  SESSION_JOIN: { amount: 5, reason: 'Session started', icon: '👋' },
+  SESSION_JOIN: { amount: 100, reason: 'Session started', icon: '👋' },
   QUICK_DRAW_JOIN: { amount: 2, reason: 'Quick Draw', icon: '⚡' },
   QUICK_DRAW_WIN: { amount: 3, reason: 'Quick Draw winner', icon: '🏆' },
 } as const

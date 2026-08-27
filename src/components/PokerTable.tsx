@@ -463,8 +463,8 @@ export const PokerTable: React.FC<PokerTableProps> = ({
           />
         </Tooltip>
 
-        {/* Mini chip stack (items count) */}
-        {(player.itemCount || 0) > 0 && (
+        {/* Mini chip stack (real items + ghost chips) */}
+        {((player.itemCount || 0) + (player.ghostChipCount || 0)) > 0 && (
           <Box sx={{
             position: 'absolute',
             top: -4,
@@ -475,14 +475,31 @@ export const PokerTable: React.FC<PokerTableProps> = ({
             gap: '-2px',
             pointerEvents: 'none',
           }}>
+            {/* Ghost chips at bottom — other players see solid, you see translucent */}
+            {Array.from({ length: Math.min(player.ghostChipCount || 0, 15) }).map((_, i) => (
+              <Box key={`g${i}`} sx={{
+                width: 14,
+                height: 6,
+                borderRadius: '50%',
+                bgcolor: player.userId === currentUserId
+                  ? (i % 2 === 0 ? 'rgba(255,193,7,0.3)' : 'rgba(255,179,0,0.25)')
+                  : (i % 2 === 0 ? '#FFC107' : '#FFB300'),
+                border: player.userId === currentUserId
+                  ? '1px solid rgba(255,143,0,0.3)'
+                  : '1px solid #FF8F00',
+                mt: i > 0 ? '-2px' : 0,
+                boxShadow: '0 1px 2px rgba(0,0,0,0.15)',
+              }} />
+            ))}
+            {/* Real chips on top */}
             {Array.from({ length: Math.min(player.itemCount || 0, 6) }).map((_, i) => (
-              <Box key={i} sx={{
+              <Box key={`r${i}`} sx={{
                 width: 14,
                 height: 6,
                 borderRadius: '50%',
                 bgcolor: i % 2 === 0 ? '#FFC107' : '#FFB300',
                 border: '1px solid #FF8F00',
-                mt: i > 0 ? '-2px' : 0,
+                mt: '-2px',
                 boxShadow: '0 1px 2px rgba(0,0,0,0.2)',
               }} />
             ))}

@@ -26,6 +26,7 @@ export interface Player {
   availableCards: SpecialCardType[]
   avatarConfig?: Record<string, unknown>
   itemCount?: number
+  ghostChipCount?: number
 }
 
 interface MemberRecord {
@@ -39,6 +40,7 @@ interface MemberRecord {
   graceTimerId: ReturnType<typeof setTimeout> | null
   avatarConfig?: Record<string, unknown>
   itemCount?: number
+  ghostChipCount?: number
 }
 
 const GRACE_PERIOD_MS = 900_000
@@ -265,6 +267,7 @@ export const useSupabaseRealtime = () => {
   const hasVotedRef = useRef(false)
   const currentVoteRef = useRef<string | null>(null)
   const itemCountRef = useRef(0)
+  const ghostChipCountRef = useRef(0)
 
   const buildPresence = (overrides?: Record<string, unknown>) => ({
     userId,
@@ -276,6 +279,7 @@ export const useSupabaseRealtime = () => {
       : ALL_SPECIAL_CARD_TYPES,
     avatarConfig: loadAvatarConfig(),
     itemCount: itemCountRef.current,
+    ghostChipCount: ghostChipCountRef.current,
     online_at: new Date().toISOString(),
     ...overrides,
   })
@@ -301,6 +305,7 @@ export const useSupabaseRealtime = () => {
         availableCards: record.availableCards,
         avatarConfig: record.avatarConfig,
         itemCount: record.itemCount,
+        ghostChipCount: record.ghostChipCount,
       })
     })
 
@@ -399,6 +404,7 @@ export const useSupabaseRealtime = () => {
               availableCards: presence.availableCards || [],
               avatarConfig: presence.avatarConfig || undefined,
               itemCount: presence.itemCount || 0,
+              ghostChipCount: presence.ghostChipCount || 0,
               isOnline: true,
               lastSeen: Date.now(),
               graceTimerId: null,
@@ -1719,6 +1725,10 @@ export const useSupabaseRealtime = () => {
     itemCountRef.current = count
   }
 
+  const setGhostChipCount = (count: number) => {
+    ghostChipCountRef.current = count
+  }
+
   const refreshPresence = () => {
     if (channelRef.current) {
       channelRef.current.track(buildPresence())
@@ -1787,6 +1797,7 @@ export const useSupabaseRealtime = () => {
     tomatoSplats,
     refreshPresence,
     setItemCount,
+    setGhostChipCount,
     rainEvent,
     clearRainEvent: () => setRainEvent(null),
     clearActionLog,

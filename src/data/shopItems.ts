@@ -152,7 +152,7 @@ export const SHOP_ITEMS: ShopItem[] = [
     cost: 3,
     rarity: 'normal',
     type: 'permanent',
-    implemented: false,
+    implemented: true,
   },
 
   // ── Rare Items ──
@@ -184,7 +184,7 @@ export const SHOP_ITEMS: ShopItem[] = [
     cost: 6,
     rarity: 'rare',
     type: 'permanent',
-    implemented: false,
+    implemented: true,
   },
   {
     id: 'time_bomb',
@@ -256,7 +256,7 @@ export const SHOP_ITEMS: ShopItem[] = [
     cost: 12,
     rarity: 'legendary',
     type: 'permanent',
-    implemented: false,
+    implemented: true,
   },
   {
     id: 'table_flip_immunity',
@@ -309,6 +309,13 @@ export const SHOP_ITEMS: ShopItem[] = [
     implemented: false,
   },
 ];
+
+/** Number of fake chips each ghost stack size renders */
+export const GHOST_STACK_CHIPS: Record<string, number> = {
+  ghost_stack_small: 3,
+  ghost_stack_medium: 6,
+  ghost_stack_large: 15,
+};
 
 export const RARITY_COLORS: Record<ItemRarity, { bg: string; border: string; text: string; label: string }> = {
   normal: { bg: 'rgba(255,255,255,0.05)', border: 'rgba(255,255,255,0.12)', text: '#B0BEC5', label: 'Normal' },
