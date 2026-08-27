@@ -27,6 +27,7 @@ import { MakeItRain } from './components/MakeItRain'
 import { TomatoSplash } from './components/TomatoSplash'
 import { ShopModal } from './components/ShopModal'
 import { FeltColorPicker } from './components/FeltColorPicker'
+import { ConfettiEffect } from './components/ConfettiEffect'
 import { ChipStack } from './components/ChipStack'
 import type { ShopItem } from './data/shopItems'
 import { GHOST_STACK_CHIPS } from './data/shopItems'
@@ -52,6 +53,7 @@ function App() {
   const [itemTargeting, setItemTargeting] = useState<string | null>(null)
   const [megaphoneActive, setMegaphoneActive] = useState(false)
   const [feltPickerOpen, setFeltPickerOpen] = useState(false)
+  const [confettiActive, setConfettiActive] = useState(false)
 
   // Custom hooks
   const { mode, toggleColorMode } = useThemeMode()
@@ -333,6 +335,16 @@ function App() {
           players.map(p => ({ userId: p.userId, vote: p.vote })),
           spread.average
         )
+      }
+    }
+  }, [gameState])
+
+  // Confetti cannon — auto-fire on consensus if player owns item
+  useEffect(() => {
+    if (gameState === 'REVEALED' && ownedItems.includes('confetti')) {
+      const spread = calculateVoteSpread()
+      if (spread && spread.spread === 0) {
+        setConfettiActive(true)
       }
     }
   }, [gameState])
@@ -709,6 +721,9 @@ function App() {
         onClose={() => setFeltPickerOpen(false)}
         onSelectColor={handleFeltColorSelect}
       />
+
+      {/* Confetti cannon effect */}
+      <ConfettiEffect active={confettiActive} onEnd={() => setConfettiActive(false)} />
 
       {/* Points economy info modal */}
       <PointsEconomyModal
