@@ -856,6 +856,20 @@ export const PokerTable: React.FC<PokerTableProps> = ({
                 }}
               />
             )}
+            {player.shieldActive && (
+              <Chip
+                label="🛡️"
+                size="small"
+                sx={{
+                  height: 15,
+                  fontSize: '0.5rem',
+                  bgcolor: 'rgba(30,136,229,0.25)',
+                  color: '#42A5F5',
+                  fontWeight: 700,
+                  border: '1px solid rgba(66,165,245,0.4)',
+                }}
+              />
+            )}
             {isBlocked && gameState === 'VOTING' && (
               <Chip
                 label="Blocked"

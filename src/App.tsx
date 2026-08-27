@@ -118,6 +118,7 @@ function App() {
     setPokerFaceActive,
     setInvisibleInkActive,
     setDisguiseActive,
+    setShieldActive,
     resetRound,
     rainEvent,
     clearRainEvent,
@@ -488,6 +489,14 @@ function App() {
         if (idx >= 0) return [...prev.slice(0, idx), ...prev.slice(idx + 1)]
         return prev
       })
+    } else if (itemId === 'shield') {
+      setShieldActive(true)
+      showNotification('🛡️ Shield up! Blocks the next special card or tomato aimed at you.', 'success')
+      setConsumableItems(prev => {
+        const idx = prev.indexOf('shield')
+        if (idx >= 0) return [...prev.slice(0, idx), ...prev.slice(idx + 1)]
+        return prev
+      })
     } else if (itemId === 'dice') {
       if (gameState !== 'VOTING') {
         showNotification('🎲 Can only roll dice during voting!', 'error')
@@ -506,7 +515,7 @@ function App() {
         return prev
       })
     }
-  }, [handleApplause, megaphoneActive, handleEarthquake, handleSetFeltColor, gameState, votingMode, diceRollEvent, handleDiceRoll, setPokerFaceActive, setInvisibleInkActive, setDisguiseActive])
+  }, [handleApplause, megaphoneActive, handleEarthquake, handleSetFeltColor, gameState, votingMode, diceRollEvent, handleDiceRoll, setPokerFaceActive, setInvisibleInkActive, setDisguiseActive, setShieldActive])
 
   const handleFeltColorSelect = useCallback((color: string) => {
     handleSetFeltColor(color)

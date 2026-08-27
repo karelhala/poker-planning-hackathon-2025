@@ -29,6 +29,7 @@ export interface Player {
   ghostChipCount?: number
   invisibleInkActive?: boolean
   disguiseActive?: boolean
+  shieldActive?: boolean
 }
 
 interface MemberRecord {
@@ -46,6 +47,7 @@ interface MemberRecord {
   pokerFaceActive?: boolean
   invisibleInkActive?: boolean
   disguiseActive?: boolean
+  shieldActive?: boolean
 }
 
 const GRACE_PERIOD_MS = 900_000
@@ -283,6 +285,7 @@ export const useSupabaseRealtime = () => {
   const pokerFaceActiveRef = useRef(false)
   const invisibleInkActiveRef = useRef(false)
   const disguiseActiveRef = useRef(false)
+  const shieldActiveRef = useRef(false)
   const isCleaningUpRef = useRef(false)
 
   const buildPresence = (overrides?: Record<string, unknown>) => ({
@@ -299,6 +302,7 @@ export const useSupabaseRealtime = () => {
     pokerFaceActive: pokerFaceActiveRef.current,
     invisibleInkActive: invisibleInkActiveRef.current,
     disguiseActive: disguiseActiveRef.current,
+    shieldActive: shieldActiveRef.current,
     online_at: new Date().toISOString(),
     ...overrides,
   })
@@ -331,6 +335,7 @@ export const useSupabaseRealtime = () => {
         ghostChipCount: record.ghostChipCount,
         invisibleInkActive: record.invisibleInkActive,
         disguiseActive: record.disguiseActive,
+        shieldActive: record.shieldActive,
       })
     })
 
@@ -433,6 +438,7 @@ export const useSupabaseRealtime = () => {
               pokerFaceActive: presence.pokerFaceActive || false,
               invisibleInkActive: presence.invisibleInkActive || false,
               disguiseActive: presence.disguiseActive || false,
+              shieldActive: presence.shieldActive || false,
               isOnline: true,
               lastSeen: Date.now(),
               graceTimerId: null,
@@ -737,16 +743,26 @@ export const useSupabaseRealtime = () => {
       const { targetUserId, targetUserName } = payload.payload
       const blockerName = payload.payload.userName || 'Someone'
       const blockerId = payload.payload.userId
-      
+
+      // Shield check — if target has shield, block is deflected
+      if (targetUserId === userId && shieldActiveRef.current) {
+        shieldActiveRef.current = false
+        if (channelRef.current) channelRef.current.track(buildPresence())
+        sendEvent('shield_blocked', { blockedEffect: 'block', attackerUserId: blockerId, attackerName: blockerName, targetUserName: userNameRef.current })
+        addLogEntry('info', `🛡️ Your Shield blocked ${blockerName}'s Block card!`, userNameRef.current)
+        setNotification({ open: true, message: `🛡️ Shield absorbed ${blockerName}'s Block! Shield consumed.`, severity: 'success' })
+        return
+      }
+
       // Add to blocked players map
       setBlockedPlayers((prev) => {
         const newMap = new Map(prev)
         newMap.set(targetUserId, { blockedBy: blockerId, blockedByName: blockerName })
         return newMap
       })
-      
+
       addLogEntry('block', `${blockerName} blocked ${targetUserName || 'someone'} from voting`, blockerName)
-      
+
       // If we are the target, show notification
       if (targetUserId === userId) {
         setNotification({
@@ -769,13 +785,23 @@ export const useSupabaseRealtime = () => {
       const { targetUserId, targetUserName } = payload.payload
       const copierUserId = payload.payload.userId
       const copierUserName = payload.payload.userName || 'Someone'
-      
+
+      // Shield check — if target has shield, copy is deflected
+      if (targetUserId === userId && shieldActiveRef.current) {
+        shieldActiveRef.current = false
+        if (channelRef.current) channelRef.current.track(buildPresence())
+        sendEvent('shield_blocked', { blockedEffect: 'copy', attackerUserId: copierUserId, attackerName: copierUserName, targetUserName: userNameRef.current })
+        addLogEntry('info', `🛡️ Your Shield blocked ${copierUserName}'s Copy card!`, userNameRef.current)
+        setNotification({ open: true, message: `🛡️ Shield absorbed ${copierUserName}'s Copy! Shield consumed.`, severity: 'success' })
+        return
+      }
+
       // Store the copy relationship - will be revealed later
       setCopyVoteRelations((prev) => [
         ...prev,
         { copierUserId, copierUserName, targetUserId, targetUserName }
       ])
-      
+
       // Log the copy action (secretly noted in log)
       addLogEntry('copy', `${copierUserName} is copying ${targetUserName || 'someone'}`, copierUserName)
       
@@ -791,9 +817,19 @@ export const useSupabaseRealtime = () => {
       const { targetUserId, cardOrder, targetUserName } = payload.payload
       const shufflerName = payload.payload.userName || 'Someone'
       const shufflerId = payload.payload.userId
-      
+
+      // Shield check — if target has shield, shuffle is deflected
+      if (targetUserId === userId && shieldActiveRef.current) {
+        shieldActiveRef.current = false
+        if (channelRef.current) channelRef.current.track(buildPresence())
+        sendEvent('shield_blocked', { blockedEffect: 'shuffle', attackerUserId: shufflerId, attackerName: shufflerName, targetUserName: userNameRef.current })
+        addLogEntry('info', `🛡️ Your Shield blocked ${shufflerName}'s Shuffle card!`, userNameRef.current)
+        setNotification({ open: true, message: `🛡️ Shield absorbed ${shufflerName}'s Shuffle! Shield consumed.`, severity: 'success' })
+        return
+      }
+
       addLogEntry('shuffle', `${shufflerName} shuffled ${targetUserName || 'someone'}'s cards`, shufflerName)
-      
+
       // Only apply shuffle effect if we are the target
       if (targetUserId === userId) {
         setShuffleEffect({
@@ -996,6 +1032,18 @@ export const useSupabaseRealtime = () => {
 
     channel.on('broadcast', { event: 'tomato_throw' }, (payload) => {
       const { targetUserId, thrownByName } = payload.payload
+      const thrownById = payload.payload.userId
+
+      // Shield check — if target has shield, tomato is deflected
+      if (targetUserId === userId && shieldActiveRef.current) {
+        shieldActiveRef.current = false
+        if (channelRef.current) channelRef.current.track(buildPresence())
+        sendEvent('shield_blocked', { blockedEffect: 'tomato', attackerUserId: thrownById, attackerName: thrownByName, targetUserName: userNameRef.current })
+        addLogEntry('info', `🛡️ Your Shield blocked ${thrownByName}'s Tomato!`, userNameRef.current)
+        setNotification({ open: true, message: `🛡️ Shield deflected ${thrownByName}'s Tomato! Shield consumed.`, severity: 'success' })
+        return
+      }
+
       const splatId = `${Date.now()}`
       setTomatoSplats(prev => {
         const next = new Map(prev)
@@ -1013,6 +1061,19 @@ export const useSupabaseRealtime = () => {
           return next
         })
       }, 3000)
+    })
+
+    // Listen for shield blocked events (attacker and others see this)
+    channel.on('broadcast', { event: 'shield_blocked' }, (payload) => {
+      const { blockedEffect, attackerUserId, attackerName, targetUserName } = payload.payload
+      const effectLabels: Record<string, string> = { block: 'Block 🚫', copy: 'Copy 📋', shuffle: 'Shuffle 🔀', tomato: 'Tomato 🍅' }
+      const label = effectLabels[blockedEffect] || blockedEffect
+      addLogEntry('info', `🛡️ ${targetUserName || 'Someone'}'s Shield blocked ${attackerName}'s ${label}!`, targetUserName)
+      if (attackerUserId === userId) {
+        setNotification({ open: true, message: `🛡️ ${targetUserName || 'Someone'}'s Shield blocked your ${label}!`, severity: 'info' })
+      } else {
+        setNotification({ open: true, message: `🛡️ ${targetUserName || 'Someone'}'s Shield blocked ${attackerName}'s ${label}!`, severity: 'info' })
+      }
     })
 
     channel.on('broadcast', { event: 'applause' }, (payload) => {
@@ -1980,6 +2041,13 @@ export const useSupabaseRealtime = () => {
     }
   }
 
+  const setShieldActive = (active: boolean) => {
+    shieldActiveRef.current = active
+    if (channelRef.current) {
+      channelRef.current.track(buildPresence())
+    }
+  }
+
   const refreshPresence = () => {
     if (channelRef.current) {
       channelRef.current.track(buildPresence())
@@ -2063,6 +2131,7 @@ export const useSupabaseRealtime = () => {
     setPokerFaceActive,
     setInvisibleInkActive,
     setDisguiseActive,
+    setShieldActive,
     resetRound,
     rainEvent,
     clearRainEvent: () => setRainEvent(null),
