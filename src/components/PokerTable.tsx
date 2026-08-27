@@ -120,6 +120,12 @@ const earthquakeShake = keyframes`
   90% { transform: translate(-1px, -2px) rotate(-0.2deg); }
 `;
 
+const inkFadeIn = keyframes`
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(0.5); filter: blur(4px); }
+  60% { opacity: 0.8; transform: translate(-50%, -50%) scale(1.05); filter: blur(1px); }
+  100% { opacity: 1; transform: translate(-50%, -50%) scale(1); filter: blur(0); }
+`;
+
 const revealPulse = keyframes`
   0%, 100% { box-shadow: 0 0 20px rgba(211, 47, 47, 0.4), 0 0 40px rgba(211, 47, 47, 0.2); }
   50% { box-shadow: 0 0 30px rgba(211, 47, 47, 0.6), 0 0 60px rgba(211, 47, 47, 0.3); }
@@ -198,6 +204,7 @@ export const PokerTable: React.FC<PokerTableProps> = ({
   const isDark = theme.palette.mode === 'dark';
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [isFlipping, setIsFlipping] = useState(false);
+  const [inkRevealed, setInkRevealed] = useState(false);
   const prevGameState = useRef(gameState);
   const [grantMenuAnchor, setGrantMenuAnchor] = useState<{
     element: HTMLElement;
@@ -211,6 +218,20 @@ export const PokerTable: React.FC<PokerTableProps> = ({
       return () => clearTimeout(timer);
     }
     prevGameState.current = gameState;
+  }, [gameState]);
+
+  // Invisible Ink: reveal hidden cards 5s after cards are shown
+  useEffect(() => {
+    if (gameState === 'REVEALED') {
+      setInkRevealed(false);
+      const hasInkPlayers = players.some(p => p.invisibleInkActive);
+      if (hasInkPlayers) {
+        const timer = setTimeout(() => setInkRevealed(true), 5000);
+        return () => clearTimeout(timer);
+      }
+    } else {
+      setInkRevealed(false);
+    }
   }, [gameState]);
 
   const [isEarthquake, setIsEarthquake] = useState(false);
@@ -443,60 +464,74 @@ export const PokerTable: React.FC<PokerTableProps> = ({
           </Box>
 
           {/* Card front */}
-          <Box
-            sx={{
-              position: 'absolute',
-              inset: 0,
-              backfaceVisibility: 'hidden',
-              transform: 'rotateY(180deg)',
-              borderRadius: '6px',
-              bgcolor: '#FFFDE7',
-              border: `2px solid ${frontBorder}`,
-              boxShadow: '0 4px 14px rgba(0,0,0,0.3)',
-              overflow: 'hidden',
-            }}
-          >
-            <Typography sx={{
-              position: 'absolute', top: 3, left: 5,
-              fontSize: '0.5rem', fontWeight: 700, color: textColor, lineHeight: 1,
-            }}>
-              {vote || '—'}
-            </Typography>
-            <Typography sx={{
-              position: 'absolute', bottom: 3, right: 5,
-              fontSize: '0.5rem', fontWeight: 700, color: textColor, lineHeight: 1,
-              transform: 'rotate(180deg)',
-            }}>
-              {vote || '—'}
-            </Typography>
-            <Typography sx={{
-              position: 'absolute', top: '50%', left: '50%',
-              transform: 'translate(-50%, -50%)',
-              fontSize: '2.2rem', color: textColor, opacity: 0.05,
-              lineHeight: 1, pointerEvents: 'none',
-            }}>
-              ♠
-            </Typography>
-            <Box sx={{
-              position: 'absolute', top: '50%', left: '50%',
-              transform: 'translate(-50%, -50%)',
-              display: 'flex', flexDirection: 'column', alignItems: 'center',
-            }}>
-              {copyInfo && (
-                <Typography sx={{ fontSize: '0.5rem', lineHeight: 1, mb: 0.25 }}>📋</Typography>
-              )}
-              {isBlocked && (
-                <Typography sx={{ fontSize: '0.5rem', lineHeight: 1, mb: 0.25 }}>🚫</Typography>
-              )}
-              <Typography sx={{
-                fontWeight: 800,
-                fontSize: vote && vote.length > 2 ? '0.9rem' : '1.2rem',
-                color: textColor, lineHeight: 1,
-              }}>
-                {vote || '—'}
-              </Typography>
-            </Box>
-          </Box>
+          {(() => {
+            const isInkHidden = player.invisibleInkActive && !inkRevealed;
+            const displayVote = isInkHidden ? '🫥' : (vote || '—');
+            const cornerVote = isInkHidden ? '?' : (vote || '—');
+            return (
+              <Box
+                sx={{
+                  position: 'absolute',
+                  inset: 0,
+                  backfaceVisibility: 'hidden',
+                  transform: 'rotateY(180deg)',
+                  borderRadius: '6px',
+                  bgcolor: '#FFFDE7',
+                  border: `2px solid ${frontBorder}`,
+                  boxShadow: '0 4px 14px rgba(0,0,0,0.3)',
+                  overflow: 'hidden',
+                }}
+              >
+                <Typography sx={{
+                  position: 'absolute', top: 3, left: 5,
+                  fontSize: '0.5rem', fontWeight: 700, color: isInkHidden ? 'rgba(0,0,0,0.15)' : textColor, lineHeight: 1,
+                  transition: 'color 0.5s ease',
+                }}>
+                  {cornerVote}
+                </Typography>
+                <Typography sx={{
+                  position: 'absolute', bottom: 3, right: 5,
+                  fontSize: '0.5rem', fontWeight: 700, color: isInkHidden ? 'rgba(0,0,0,0.15)' : textColor, lineHeight: 1,
+                  transform: 'rotate(180deg)',
+                  transition: 'color 0.5s ease',
+                }}>
+                  {cornerVote}
+                </Typography>
+                <Typography sx={{
+                  position: 'absolute', top: '50%', left: '50%',
+                  transform: 'translate(-50%, -50%)',
+                  fontSize: '2.2rem', color: textColor, opacity: 0.05,
+                  lineHeight: 1, pointerEvents: 'none',
+                }}>
+                  ♠
+                </Typography>
+                <Box sx={{
+                  position: 'absolute', top: '50%', left: '50%',
+                  transform: 'translate(-50%, -50%)',
+                  display: 'flex', flexDirection: 'column', alignItems: 'center',
+                  ...(player.invisibleInkActive && inkRevealed && {
+                    animation: `${inkFadeIn} 0.8s ease-out forwards`,
+                  }),
+                }}>
+                  {copyInfo && !isInkHidden && (
+                    <Typography sx={{ fontSize: '0.5rem', lineHeight: 1, mb: 0.25 }}>📋</Typography>
+                  )}
+                  {isBlocked && !isInkHidden && (
+                    <Typography sx={{ fontSize: '0.5rem', lineHeight: 1, mb: 0.25 }}>🚫</Typography>
+                  )}
+                  <Typography sx={{
+                    fontWeight: 800,
+                    fontSize: isInkHidden ? '1.6rem' : (vote && vote.length > 2 ? '0.9rem' : '1.2rem'),
+                    color: isInkHidden ? 'rgba(0,0,0,0.2)' : textColor,
+                    lineHeight: 1,
+                    transition: 'color 0.5s ease',
+                  }}>
+                    {displayVote}
+                  </Typography>
+                </Box>
+              </Box>
+            );
+          })()}
         </Box>
       </Box>
     );

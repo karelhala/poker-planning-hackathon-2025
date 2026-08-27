@@ -27,6 +27,7 @@ export interface Player {
   avatarConfig?: Record<string, unknown>
   itemCount?: number
   ghostChipCount?: number
+  invisibleInkActive?: boolean
 }
 
 interface MemberRecord {
@@ -42,6 +43,7 @@ interface MemberRecord {
   itemCount?: number
   ghostChipCount?: number
   pokerFaceActive?: boolean
+  invisibleInkActive?: boolean
 }
 
 const GRACE_PERIOD_MS = 900_000
@@ -204,6 +206,7 @@ export const useSupabaseRealtime = () => {
   const [feltColor, setFeltColor] = useState<string | null>(null)
   const [diceRollEvent, setDiceRollEvent] = useState<{ userName: string; value: string; scale: string[] } | null>(null)
   const [resetRound, setResetRound] = useState(0)
+  const [reconnectCounter, setReconnectCounter] = useState(0)
   const [votingMode, setVotingMode] = useState<VotingMode>('fibonacci')
   const [lastHeartbeat, setLastHeartbeat] = useState<number>(Date.now())
   const [isProcessing, setIsProcessing] = useState(false)
@@ -276,6 +279,8 @@ export const useSupabaseRealtime = () => {
   const itemCountRef = useRef(0)
   const ghostChipCountRef = useRef(0)
   const pokerFaceActiveRef = useRef(false)
+  const invisibleInkActiveRef = useRef(false)
+  const isCleaningUpRef = useRef(false)
 
   const buildPresence = (overrides?: Record<string, unknown>) => ({
     userId,
@@ -289,6 +294,7 @@ export const useSupabaseRealtime = () => {
     itemCount: itemCountRef.current,
     ghostChipCount: ghostChipCountRef.current,
     pokerFaceActive: pokerFaceActiveRef.current,
+    invisibleInkActive: invisibleInkActiveRef.current,
     online_at: new Date().toISOString(),
     ...overrides,
   })
@@ -319,6 +325,7 @@ export const useSupabaseRealtime = () => {
         avatarConfig: record.avatarConfig,
         itemCount: record.itemCount,
         ghostChipCount: record.ghostChipCount,
+        invisibleInkActive: record.invisibleInkActive,
       })
     })
 
@@ -419,6 +426,7 @@ export const useSupabaseRealtime = () => {
               itemCount: presence.itemCount || 0,
               ghostChipCount: presence.ghostChipCount || 0,
               pokerFaceActive: presence.pokerFaceActive || false,
+              invisibleInkActive: presence.invisibleInkActive || false,
               isOnline: true,
               lastSeen: Date.now(),
               graceTimerId: null,
@@ -591,13 +599,24 @@ export const useSupabaseRealtime = () => {
       setShuffleEffect(null)
       setEarthquakeActive(false)
       pokerFaceActiveRef.current = false
+      invisibleInkActiveRef.current = false
       hasVotedRef.current = false
       currentVoteRef.current = null
       setResetRound(r => r + 1)
 
+      // Directly update member map to prevent stale data on channel failures
+      const myRecord = memberMapRef.current.get(userId)
+      if (myRecord) {
+        myRecord.hasVoted = false
+        myRecord.vote = null
+        myRecord.pokerFaceActive = false
+        myRecord.invisibleInkActive = false
+      }
+      syncStateFromMemberMap()
+
       // Reset our own voting state (keep current available cards)
       if (channelRef.current) {
-        channelRef.current.track(buildPresence({ hasVoted: false, vote: null, pokerFaceActive: false }))
+        channelRef.current.track(buildPresence({ hasVoted: false, vote: null, pokerFaceActive: false, invisibleInkActive: false }))
       }
 
       addLogEntry('reset', `${senderName} started a new round`, senderName)
@@ -1094,11 +1113,34 @@ export const useSupabaseRealtime = () => {
           message: 'Connection lost. Reconnecting...',
           severity: 'error',
         })
+        // Full teardown+rebuild via reconnect counter
+        if (!isCleaningUpRef.current) {
+          if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current)
+          reconnectTimerRef.current = setTimeout(() => {
+            console.log('Full reconnect after channel error...')
+            setReconnectCounter(c => c + 1)
+          }, 2000)
+        }
       }
 
       if (status === 'CLOSED') {
-        console.log('Channel closed')
-        isReconnectingRef.current = false
+        // Only auto-reconnect on UNEXPECTED closure (not cleanup)
+        if (!isCleaningUpRef.current) {
+          console.warn('Channel closed unexpectedly, full reconnect in 1.5s...')
+          isReconnectingRef.current = true
+          if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current)
+          reconnectTimerRef.current = setTimeout(() => {
+            console.log('Full reconnect after unexpected closure...')
+            const socket = (supabase as any).realtime
+            if (socket && !socket.isConnected?.()) {
+              socket.connect?.()
+            }
+            setReconnectCounter(c => c + 1)
+          }, 1500)
+        } else {
+          console.log('Channel closed (cleanup)')
+          isReconnectingRef.current = false
+        }
       }
     }
 
@@ -1109,6 +1151,15 @@ export const useSupabaseRealtime = () => {
     const sendHeartbeat = async () => {
       if (!channelRef.current) return
       try {
+        // Check if channel is still alive before tracking
+        const state = (channelRef.current as any).state
+        if (state === 'closed' || state === 'errored') {
+          console.warn('Heartbeat detected dead channel, triggering full reconnect...')
+          if (!isCleaningUpRef.current) {
+            setReconnectCounter(c => c + 1)
+          }
+          return
+        }
         await channelRef.current.track(buildPresence())
         setLastHeartbeat(Date.now())
       } catch (err) {
@@ -1143,11 +1194,8 @@ export const useSupabaseRealtime = () => {
         try {
           await sendHeartbeat()
         } catch (err) {
-          console.error('Failed to re-track presence, forcing reconnect:', err)
-          channel.unsubscribe()
-          setTimeout(() => {
-            channel.subscribe(handleSubscriptionStatus)
-          }, 1000)
+          console.error('Failed to re-track presence, forcing full reconnect:', err)
+          setReconnectCounter(c => c + 1)
         }
       } else {
         startHeartbeat(BG_HEARTBEAT_INTERVAL_MS)
@@ -1156,7 +1204,10 @@ export const useSupabaseRealtime = () => {
 
     document.addEventListener('visibilitychange', handleVisibilityChange)
 
+    isCleaningUpRef.current = false
+
     return () => {
+      isCleaningUpRef.current = true
       if (heartbeatIntervalRef.current) {
         clearInterval(heartbeatIntervalRef.current)
         heartbeatIntervalRef.current = null
@@ -1172,7 +1223,7 @@ export const useSupabaseRealtime = () => {
       }
       channel.unsubscribe()
     }
-  }, [roomId, userId])
+  }, [roomId, userId, reconnectCounter])
 
   const sendEvent = async (eventType: string, eventData: any, maxRetries = 3): Promise<boolean> => {
     const retryDelayMs = 500
@@ -1241,12 +1292,24 @@ export const useSupabaseRealtime = () => {
     setShuffleEffect(null)
     setEarthquakeActive(false)
     pokerFaceActiveRef.current = false
+    invisibleInkActiveRef.current = false
     hasVotedRef.current = false
     currentVoteRef.current = null
     setResetRound(r => r + 1)
 
+    // Directly update member map so stale data can't survive channel failures
+    // (broadcast self:false means sender never gets own reset event)
+    const myRecord = memberMapRef.current.get(userId)
+    if (myRecord) {
+      myRecord.hasVoted = false
+      myRecord.vote = null
+      myRecord.pokerFaceActive = false
+      myRecord.invisibleInkActive = false
+    }
+    syncStateFromMemberMap()
+
     if (channelRef.current) {
-      channelRef.current.track(buildPresence({ hasVoted: false, vote: null, pokerFaceActive: false }))
+      channelRef.current.track(buildPresence({ hasVoted: false, vote: null, pokerFaceActive: false, invisibleInkActive: false }))
     }
     setIsProcessing(false)
   }
@@ -1267,6 +1330,14 @@ export const useSupabaseRealtime = () => {
   }
 
   const updateVotingStatus = async (hasVoted: boolean, vote: string | null = null) => {
+    // Update member map directly to survive channel failures
+    const myRecord = memberMapRef.current.get(userId)
+    if (myRecord) {
+      myRecord.hasVoted = hasVoted
+      myRecord.vote = vote
+    }
+    syncStateFromMemberMap()
+
     if (channelRef.current) {
       await channelRef.current.track(buildPresence({ hasVoted, vote }))
       console.log(`Updated voting status: ${hasVoted ? 'Voted' : 'Thinking'}`, vote ? `Vote: ${vote}` : '')
@@ -1885,6 +1956,13 @@ export const useSupabaseRealtime = () => {
     }
   }
 
+  const setInvisibleInkActive = (active: boolean) => {
+    invisibleInkActiveRef.current = active
+    if (channelRef.current) {
+      channelRef.current.track(buildPresence())
+    }
+  }
+
   const refreshPresence = () => {
     if (channelRef.current) {
       channelRef.current.track(buildPresence())
@@ -1966,6 +2044,7 @@ export const useSupabaseRealtime = () => {
     setItemCount,
     setGhostChipCount,
     setPokerFaceActive,
+    setInvisibleInkActive,
     resetRound,
     rainEvent,
     clearRainEvent: () => setRainEvent(null),

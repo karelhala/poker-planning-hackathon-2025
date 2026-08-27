@@ -116,6 +116,7 @@ function App() {
     setItemCount,
     setGhostChipCount,
     setPokerFaceActive,
+    setInvisibleInkActive,
     resetRound,
     rainEvent,
     clearRainEvent,
@@ -462,6 +463,18 @@ function App() {
         if (idx >= 0) return [...prev.slice(0, idx), ...prev.slice(idx + 1)]
         return prev
       })
+    } else if (itemId === 'invisible_ink') {
+      if (gameState !== 'VOTING') {
+        showNotification('🫥 Can only use Invisible Ink during voting!', 'error')
+        return
+      }
+      setInvisibleInkActive(true)
+      showNotification('🫥 Invisible Ink! Your card will appear blank on reveal for 5 seconds.', 'success')
+      setConsumableItems(prev => {
+        const idx = prev.indexOf('invisible_ink')
+        if (idx >= 0) return [...prev.slice(0, idx), ...prev.slice(idx + 1)]
+        return prev
+      })
     } else if (itemId === 'dice') {
       if (gameState !== 'VOTING') {
         showNotification('🎲 Can only roll dice during voting!', 'error')
@@ -480,7 +493,7 @@ function App() {
         return prev
       })
     }
-  }, [handleApplause, megaphoneActive, handleEarthquake, handleSetFeltColor, gameState, votingMode, diceRollEvent, handleDiceRoll, setPokerFaceActive])
+  }, [handleApplause, megaphoneActive, handleEarthquake, handleSetFeltColor, gameState, votingMode, diceRollEvent, handleDiceRoll, setPokerFaceActive, setInvisibleInkActive])
 
   const handleFeltColorSelect = useCallback((color: string) => {
     handleSetFeltColor(color)
