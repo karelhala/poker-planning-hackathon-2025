@@ -264,6 +264,21 @@ export const useSupabaseRealtime = () => {
 
   const hasVotedRef = useRef(false)
   const currentVoteRef = useRef<string | null>(null)
+  const itemCountRef = useRef(0)
+
+  const buildPresence = (overrides?: Record<string, unknown>) => ({
+    userId,
+    userName: userNameRef.current || null,
+    hasVoted: hasVotedRef.current,
+    vote: currentVoteRef.current,
+    availableCards: specialCardsRef.current.length > 0
+      ? specialCardsRef.current.map(c => c.type)
+      : ALL_SPECIAL_CARD_TYPES,
+    avatarConfig: loadAvatarConfig(),
+    itemCount: itemCountRef.current,
+    online_at: new Date().toISOString(),
+    ...overrides,
+  })
   useEffect(() => {
     const myPlayer = players.find(p => p.userId === userId)
     hasVotedRef.current = myPlayer?.hasVoted ?? false
@@ -557,14 +572,7 @@ export const useSupabaseRealtime = () => {
       
       // Reset our own voting state (keep current available cards)
       if (channelRef.current) {
-        channelRef.current.track({
-          userId,
-          userName: userNameRef.current || null,
-          hasVoted: false,
-          vote: null,
-          availableCards: specialCardsRef.current.map(c => c.type),
-          online_at: new Date().toISOString(),
-        })
+        channelRef.current.track(buildPresence({ hasVoted: false, vote: null }))
       }
       
       addLogEntry('reset', `${senderName} started a new round`, senderName)
@@ -811,14 +819,7 @@ export const useSupabaseRealtime = () => {
       // Update current user's vote if they participated
       const myVote = participantVotes?.[userId]
       if (myVote && channelRef.current) {
-        channelRef.current.track({
-          userId,
-          userName: userNameRef.current || null,
-          hasVoted: true,
-          vote: myVote,
-          availableCards: specialCardsRef.current.map(c => c.type),
-          online_at: new Date().toISOString(),
-        })
+        channelRef.current.track(buildPresence({ hasVoted: true, vote: myVote }))
       }
       
       // Check if current user participated
@@ -963,17 +964,7 @@ export const useSupabaseRealtime = () => {
     })
 
     const trackPresence = async () => {
-      const presenceData = {
-        userId,
-        userName: userNameRef.current || null,
-        hasVoted: hasVotedRef.current,
-        vote: currentVoteRef.current,
-        availableCards: specialCardsRef.current.length > 0
-          ? specialCardsRef.current.map(c => c.type)
-          : ALL_SPECIAL_CARD_TYPES,
-        avatarConfig: loadAvatarConfig(),
-        online_at: new Date().toISOString(),
-      }
+      const presenceData = buildPresence()
       console.log('Tracking presence:', presenceData)
       await channel.track(presenceData)
       console.log('Presence tracked successfully')
@@ -1027,16 +1018,7 @@ export const useSupabaseRealtime = () => {
     const sendHeartbeat = async () => {
       if (!channelRef.current) return
       try {
-        await channelRef.current.track({
-          userId,
-          userName: userNameRef.current || null,
-          hasVoted: hasVotedRef.current,
-          vote: currentVoteRef.current,
-          availableCards: specialCardsRef.current.length > 0
-            ? specialCardsRef.current.map(c => c.type)
-            : ALL_SPECIAL_CARD_TYPES,
-          online_at: new Date().toISOString(),
-        })
+        await channelRef.current.track(buildPresence())
         setLastHeartbeat(Date.now())
       } catch (err) {
         console.warn('Heartbeat track failed:', err)
@@ -1168,14 +1150,7 @@ export const useSupabaseRealtime = () => {
     setShuffleEffect(null)
 
     if (channelRef.current) {
-      channelRef.current.track({
-        userId,
-        userName: userName || null,
-        hasVoted: false,
-        vote: null,
-        availableCards: getAvailableCardTypes(),
-        online_at: new Date().toISOString(),
-      })
+      channelRef.current.track(buildPresence({ hasVoted: false, vote: null }))
     }
     setIsProcessing(false)
   }
@@ -1195,22 +1170,9 @@ export const useSupabaseRealtime = () => {
     }
   }
 
-  // Get available card types from current special cards
-  const getAvailableCardTypes = (): SpecialCardType[] => {
-    return specialCardsRef.current.map(c => c.type)
-  }
-
   const updateVotingStatus = async (hasVoted: boolean, vote: string | null = null) => {
     if (channelRef.current) {
-      await channelRef.current.track({
-        userId,
-        userName: userName || null,
-        hasVoted,
-        vote,
-        availableCards: getAvailableCardTypes(),
-        avatarConfig: loadAvatarConfig(),
-        online_at: new Date().toISOString(),
-      })
+      await channelRef.current.track(buildPresence({ hasVoted, vote }))
       console.log(`Updated voting status: ${hasVoted ? 'Voted' : 'Thinking'}`, vote ? `Vote: ${vote}` : '')
     }
   }
@@ -1330,12 +1292,7 @@ export const useSupabaseRealtime = () => {
       
       // Update presence with new available cards
       if (channelRef.current) {
-        const currentPresence = channelRef.current.presenceState()[userId]?.[0] as any
-        channelRef.current.track({
-          ...currentPresence,
-          availableCards: newCards.map(c => c.type),
-          online_at: new Date().toISOString(),
-        })
+        channelRef.current.track(buildPresence({ availableCards: newCards.map(c => c.type) }))
       }
     }
     
@@ -1421,12 +1378,7 @@ export const useSupabaseRealtime = () => {
       
       // Update presence with new available cards
       if (channelRef.current) {
-        const currentPresence = channelRef.current.presenceState()[userId]?.[0] as any
-        channelRef.current.track({
-          ...currentPresence,
-          availableCards: newCards.map(c => c.type),
-          online_at: new Date().toISOString(),
-        })
+        channelRef.current.track(buildPresence({ availableCards: newCards.map(c => c.type) }))
       }
     }
     
@@ -1464,12 +1416,7 @@ export const useSupabaseRealtime = () => {
       
       // Update presence with new available cards
       if (channelRef.current) {
-        const currentPresence = channelRef.current.presenceState()[userId]?.[0] as any
-        channelRef.current.track({
-          ...currentPresence,
-          availableCards: newCards.map(c => c.type),
-          online_at: new Date().toISOString(),
-        })
+        channelRef.current.track(buildPresence({ availableCards: newCards.map(c => c.type) }))
       }
     }
     
@@ -1663,16 +1610,9 @@ export const useSupabaseRealtime = () => {
     // Update current user's vote if they participated
     const myVote = currentQuickDraw.participants.get(userId)
     if (myVote && channelRef.current) {
-      channelRef.current.track({
-        userId,
-        userName: userNameRef.current || null,
-        hasVoted: true,
-        vote: myVote,
-        availableCards: getAvailableCardTypes(),
-        online_at: new Date().toISOString(),
-      })
+      channelRef.current.track(buildPresence({ hasVoted: true, vote: myVote }))
     }
-    
+
     // Set to REVEALED to show results
     setGameState('REVEALED')
     setQuickDraw({
@@ -1775,24 +1715,13 @@ export const useSupabaseRealtime = () => {
     addLogEntry('info', `🍅 You threw a tomato at ${targetUserName || 'someone'}!`, userNameRef.current)
   }
 
-  const itemCountRef = useRef(0)
-
   const setItemCount = (count: number) => {
     itemCountRef.current = count
   }
 
   const refreshPresence = () => {
     if (channelRef.current) {
-      channelRef.current.track({
-        userId,
-        userName: userNameRef.current || null,
-        hasVoted: hasVotedRef.current,
-        vote: currentVoteRef.current,
-        availableCards: specialCardsRef.current.map(c => c.type),
-        avatarConfig: loadAvatarConfig(),
-        itemCount: itemCountRef.current,
-        online_at: new Date().toISOString(),
-      })
+      channelRef.current.track(buildPresence())
     }
   }
 
