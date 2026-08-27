@@ -548,7 +548,8 @@ export const PokerTable: React.FC<PokerTableProps> = ({
     const isCreator = player.userId === roomCreator;
     const isBlocked = blockedPlayers.has(player.userId);
     const canInteract = !isCurrentUser;
-    const displayName = player.userName || 'Anon';
+    const isDisguised = !isCurrentUser && player.disguiseActive;
+    const displayName = isDisguised ? '???' : (player.userName || 'Anon');
 
     return (
       <Box
@@ -589,23 +590,30 @@ export const PokerTable: React.FC<PokerTableProps> = ({
           placement="top"
         >
           <Avatar
-            src={avatarCache[player.userId]}
+            src={isDisguised ? undefined : avatarCache[player.userId]}
             sx={{
               width: isCurrentUser ? 64 : 56,
               height: isCurrentUser ? 64 : 56,
-              bgcolor: '#546E7A',
-              border: isCreator
-                ? '3px solid gold'
-                : isCurrentUser
-                  ? '3px solid #42A5F5'
-                  : '2px solid rgba(255,255,255,0.15)',
+              bgcolor: isDisguised ? '#263238' : '#546E7A',
+              border: isDisguised
+                ? '2px solid rgba(255,255,255,0.08)'
+                : isCreator
+                  ? '3px solid gold'
+                  : isCurrentUser
+                    ? '3px solid #42A5F5'
+                    : '2px solid rgba(255,255,255,0.15)',
               opacity: player.isOnline ? 1 : 0.35,
-              filter: player.isOnline ? 'none' : 'grayscale(80%)',
-              boxShadow: '0 3px 12px rgba(0,0,0,0.4)',
+              filter: player.isOnline ? (isDisguised ? 'brightness(0.6)' : 'none') : 'grayscale(80%)',
+              boxShadow: isDisguised
+                ? '0 3px 12px rgba(0,0,0,0.6), inset 0 0 20px rgba(0,0,0,0.4)'
+                : '0 3px 12px rgba(0,0,0,0.4)',
               transition: 'all 0.3s ease',
+              fontSize: isDisguised ? '1.6rem' : undefined,
               '& img': { imageRendering: 'pixelated' },
             }}
-          />
+          >
+            {isDisguised && '🥸'}
+          </Avatar>
         </Tooltip>
 
         {/* Mini chip stack (real items + ghost chips) */}

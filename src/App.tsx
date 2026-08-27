@@ -117,6 +117,7 @@ function App() {
     setGhostChipCount,
     setPokerFaceActive,
     setInvisibleInkActive,
+    setDisguiseActive,
     resetRound,
     rainEvent,
     clearRainEvent,
@@ -475,6 +476,18 @@ function App() {
         if (idx >= 0) return [...prev.slice(0, idx), ...prev.slice(idx + 1)]
         return prev
       })
+    } else if (itemId === 'disguise') {
+      if (gameState !== 'VOTING') {
+        showNotification('🥸 Can only use Disguise during voting!', 'error')
+        return
+      }
+      setDisguiseActive(true)
+      showNotification('🥸 Disguise on! Others see you as "???" this round.', 'success')
+      setConsumableItems(prev => {
+        const idx = prev.indexOf('disguise')
+        if (idx >= 0) return [...prev.slice(0, idx), ...prev.slice(idx + 1)]
+        return prev
+      })
     } else if (itemId === 'dice') {
       if (gameState !== 'VOTING') {
         showNotification('🎲 Can only roll dice during voting!', 'error')
@@ -493,7 +506,7 @@ function App() {
         return prev
       })
     }
-  }, [handleApplause, megaphoneActive, handleEarthquake, handleSetFeltColor, gameState, votingMode, diceRollEvent, handleDiceRoll, setPokerFaceActive, setInvisibleInkActive])
+  }, [handleApplause, megaphoneActive, handleEarthquake, handleSetFeltColor, gameState, votingMode, diceRollEvent, handleDiceRoll, setPokerFaceActive, setInvisibleInkActive, setDisguiseActive])
 
   const handleFeltColorSelect = useCallback((color: string) => {
     handleSetFeltColor(color)

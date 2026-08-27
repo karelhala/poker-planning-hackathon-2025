@@ -51,9 +51,8 @@ Player uses item → sets flag in own state → flag changes how game renders/be
 | 6 | ✅ Dice 🎲 | 3 pts | Trivial | Pick random from current scale, call `onVote(random)` |
 | 7 | ✅ Poker Face 🃏 | 3 pts | Small | Override `hasVoted: false` in presence even after voting |
 | 8 | ✅ Invisible Ink 🫥 | 4 pts | Small | Card blank on reveal, CSS fade-in after 5s |
-| 9 | ⬜ Disguise 🥸 | 4 pts | Small | Override name → "???" and avatar → silhouette in presence |
-| 10 | ⬜ Table Flip Immunity 🛑 | 15 pts | Small | Skip vote clear in reset handler, consume on next reset |
-| 11 | ⬜ Shield 🛡️ | 3 pts | Medium | Check flag in ALL special card handlers, shield icon at seat |
+| 9 | ✅ Disguise 🥸 | 4 pts | Small | Override name → "???" and avatar → silhouette in presence |
+| 10 | ⬜ Shield 🛡️ | 3 pts | Medium | Check flag in ALL special card handlers, shield icon at seat |
 
 **Notes:**
 - Dice is near-zero — existing `?` random card does same thing, just auto-trigger it
@@ -130,10 +129,10 @@ These are independent feature tracks, not individual shop items. Plan separately
 | Batch | Items | Est. Effort | Cumulative |
 |-------|-------|-------------|------------|
 | 1 — Broadcast Effects | 5 | Small | 5 items |
-| 2 — Self-Flag Items | 6 | Small-Medium | 11 items |
-| 3 — Targeting Effects | 4 | Small-Medium | 15 items |
-| 4 — Cosmetic Permanents | 3 | Small-Medium | 18 items |
-| 5 — Complex Mechanics | 7 | Medium-High | 25 items |
-| **Total** | **25** | | |
+| 2 — Self-Flag Items | 5 | Small-Medium | 10 items |
+| 3 — Targeting Effects | 4 | Small-Medium | 14 items |
+| 4 — Cosmetic Permanents | 3 | Small-Medium | 17 items |
+| 5 — Complex Mechanics | 7 | Medium-High | 24 items |
+| **Total** | **24** | | |
 
 **Start with Batch 1.** Highest fun-per-effort ratio. 5 items, each ~30 min.

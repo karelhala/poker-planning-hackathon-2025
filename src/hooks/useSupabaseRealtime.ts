@@ -28,6 +28,7 @@ export interface Player {
   itemCount?: number
   ghostChipCount?: number
   invisibleInkActive?: boolean
+  disguiseActive?: boolean
 }
 
 interface MemberRecord {
@@ -44,6 +45,7 @@ interface MemberRecord {
   ghostChipCount?: number
   pokerFaceActive?: boolean
   invisibleInkActive?: boolean
+  disguiseActive?: boolean
 }
 
 const GRACE_PERIOD_MS = 900_000
@@ -280,6 +282,7 @@ export const useSupabaseRealtime = () => {
   const ghostChipCountRef = useRef(0)
   const pokerFaceActiveRef = useRef(false)
   const invisibleInkActiveRef = useRef(false)
+  const disguiseActiveRef = useRef(false)
   const isCleaningUpRef = useRef(false)
 
   const buildPresence = (overrides?: Record<string, unknown>) => ({
@@ -295,6 +298,7 @@ export const useSupabaseRealtime = () => {
     ghostChipCount: ghostChipCountRef.current,
     pokerFaceActive: pokerFaceActiveRef.current,
     invisibleInkActive: invisibleInkActiveRef.current,
+    disguiseActive: disguiseActiveRef.current,
     online_at: new Date().toISOString(),
     ...overrides,
   })
@@ -326,6 +330,7 @@ export const useSupabaseRealtime = () => {
         itemCount: record.itemCount,
         ghostChipCount: record.ghostChipCount,
         invisibleInkActive: record.invisibleInkActive,
+        disguiseActive: record.disguiseActive,
       })
     })
 
@@ -427,6 +432,7 @@ export const useSupabaseRealtime = () => {
               ghostChipCount: presence.ghostChipCount || 0,
               pokerFaceActive: presence.pokerFaceActive || false,
               invisibleInkActive: presence.invisibleInkActive || false,
+              disguiseActive: presence.disguiseActive || false,
               isOnline: true,
               lastSeen: Date.now(),
               graceTimerId: null,
@@ -600,6 +606,7 @@ export const useSupabaseRealtime = () => {
       setEarthquakeActive(false)
       pokerFaceActiveRef.current = false
       invisibleInkActiveRef.current = false
+      disguiseActiveRef.current = false
       hasVotedRef.current = false
       currentVoteRef.current = null
       setResetRound(r => r + 1)
@@ -611,12 +618,13 @@ export const useSupabaseRealtime = () => {
         myRecord.vote = null
         myRecord.pokerFaceActive = false
         myRecord.invisibleInkActive = false
+        myRecord.disguiseActive = false
       }
       syncStateFromMemberMap()
 
       // Reset our own voting state (keep current available cards)
       if (channelRef.current) {
-        channelRef.current.track(buildPresence({ hasVoted: false, vote: null, pokerFaceActive: false, invisibleInkActive: false }))
+        channelRef.current.track(buildPresence({ hasVoted: false, vote: null, pokerFaceActive: false, invisibleInkActive: false, disguiseActive: false }))
       }
 
       addLogEntry('reset', `${senderName} started a new round`, senderName)
@@ -1293,6 +1301,7 @@ export const useSupabaseRealtime = () => {
     setEarthquakeActive(false)
     pokerFaceActiveRef.current = false
     invisibleInkActiveRef.current = false
+    disguiseActiveRef.current = false
     hasVotedRef.current = false
     currentVoteRef.current = null
     setResetRound(r => r + 1)
@@ -1305,11 +1314,12 @@ export const useSupabaseRealtime = () => {
       myRecord.vote = null
       myRecord.pokerFaceActive = false
       myRecord.invisibleInkActive = false
+      myRecord.disguiseActive = false
     }
     syncStateFromMemberMap()
 
     if (channelRef.current) {
-      channelRef.current.track(buildPresence({ hasVoted: false, vote: null, pokerFaceActive: false, invisibleInkActive: false }))
+      channelRef.current.track(buildPresence({ hasVoted: false, vote: null, pokerFaceActive: false, invisibleInkActive: false, disguiseActive: false }))
     }
     setIsProcessing(false)
   }
@@ -1963,6 +1973,13 @@ export const useSupabaseRealtime = () => {
     }
   }
 
+  const setDisguiseActive = (active: boolean) => {
+    disguiseActiveRef.current = active
+    if (channelRef.current) {
+      channelRef.current.track(buildPresence())
+    }
+  }
+
   const refreshPresence = () => {
     if (channelRef.current) {
       channelRef.current.track(buildPresence())
@@ -2045,6 +2062,7 @@ export const useSupabaseRealtime = () => {
     setGhostChipCount,
     setPokerFaceActive,
     setInvisibleInkActive,
+    setDisguiseActive,
     resetRound,
     rainEvent,
     clearRainEvent: () => setRainEvent(null),

@@ -224,7 +224,7 @@ export const SHOP_ITEMS: ShopItem[] = [
     cost: 4,
     rarity: 'rare',
     type: 'consumable',
-    implemented: false,
+    implemented: true,
   },
   {
     id: 'jumping_button',
@@ -257,16 +257,6 @@ export const SHOP_ITEMS: ShopItem[] = [
     rarity: 'legendary',
     type: 'permanent',
     implemented: true,
-  },
-  {
-    id: 'table_flip_immunity',
-    name: 'Table Flip Immunity',
-    icon: '🛑',
-    description: 'Your vote carries over when admin resets the round.',
-    cost: 15,
-    rarity: 'legendary',
-    type: 'consumable',
-    implemented: false,
   },
   {
     id: 'table_cloth',
