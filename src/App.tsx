@@ -101,6 +101,7 @@ function App() {
     handleMakeItRain,
     handleThrowTomato,
     handleSpotlight,
+    handleMirror,
     handleApplause,
     handleDiceRoll,
     handleMegaphoneVote,
@@ -108,6 +109,7 @@ function App() {
     handleSetFeltColor,
     tomatoSplats,
     spotlightTargets,
+    mirrorTargets,
     applauseEvents,
     diceRollEvent,
     clearDiceRollEvent,
@@ -502,6 +504,9 @@ function App() {
     } else if (itemId === 'spotlight') {
       setItemTargeting('spotlight')
       showNotification('🔦 Click on a player to spotlight them!', 'info')
+    } else if (itemId === 'mirror') {
+      setItemTargeting('mirror')
+      showNotification('🪞 Click on a player to mirror their card!', 'info')
     } else if (itemId === 'dice') {
       if (gameState !== 'VOTING') {
         showNotification('🎲 Can only roll dice during voting!', 'error')
@@ -548,8 +553,16 @@ function App() {
         return prev
       })
       setItemTargeting(null)
+    } else if (itemTargeting === 'mirror') {
+      handleMirror(targetUserId, targetUserName)
+      setConsumableItems(prev => {
+        const idx = prev.indexOf('mirror')
+        if (idx >= 0) return [...prev.slice(0, idx), ...prev.slice(idx + 1)]
+        return prev
+      })
+      setItemTargeting(null)
     }
-  }, [itemTargeting, handleThrowTomato, handleSpotlight])
+  }, [itemTargeting, handleThrowTomato, handleSpotlight, handleMirror])
 
   const handleToggleSidebar = useCallback(() => {
     setSidebarCollapsed(prev => {
@@ -665,6 +678,7 @@ function App() {
                   onMakeItRain={handleMakeItRain}
                   tomatoSplats={tomatoSplats}
                   spotlightTargets={spotlightTargets}
+                  mirrorTargets={mirrorTargets}
                   applauseEvents={applauseEvents}
                   megaphoneEvents={megaphoneEvents}
                   earthquakeActive={earthquakeActive}

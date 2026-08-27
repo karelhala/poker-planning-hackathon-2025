@@ -59,6 +59,7 @@ interface PokerTableProps {
   onMakeItRain?: (size: 'small' | 'medium' | 'large') => void;
   tomatoSplats?: Map<string, { thrownBy: string; id: string }>;
   spotlightTargets?: Map<string, { spottedBy: string; id: string }>;
+  mirrorTargets?: Map<string, { mirroredBy: string; id: string }>;
   applauseEvents?: Map<string, { userName: string; id: string }>;
   megaphoneEvents?: Map<string, { userName: string; id: string }>;
   earthquakeActive?: boolean;
@@ -122,6 +123,12 @@ const spotlightAppear = keyframes`
   0% { transform: translate(-50%, -50%) scale(0); opacity: 0; }
   40% { transform: translate(-50%, -50%) scale(1.2); opacity: 1; }
   100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+`;
+
+const mirrorFlip = keyframes`
+  0% { transform: scaleX(1) scaleY(1); }
+  30% { transform: scaleX(-1.1) scaleY(-1.1); }
+  100% { transform: scaleX(-1) scaleY(-1); }
 `;
 
 const earthquakeShake = keyframes`
@@ -211,6 +218,7 @@ export const PokerTable: React.FC<PokerTableProps> = ({
   onMakeItRain,
   tomatoSplats = new Map(),
   spotlightTargets = new Map(),
+  mirrorTargets = new Map(),
   applauseEvents = new Map(),
   megaphoneEvents = new Map(),
   earthquakeActive = false,
@@ -384,6 +392,7 @@ export const PokerTable: React.FC<PokerTableProps> = ({
     const vote = effVote(player.userId);
     const isBlocked = blockedPlayers.has(player.userId);
     const copyInfo = getCopyInfo(player.userId);
+    const isMirrored = mirrorTargets.has(player.userId);
 
     let backColor = '#1a237e';
     let backBorder = '#0d1642';
@@ -404,7 +413,36 @@ export const PokerTable: React.FC<PokerTableProps> = ({
     const flipDelay = seatIndex * 0.08;
 
     return (
-      <Box sx={{ width: 56, height: 78, perspective: '800px', flexShrink: 0 }}>
+      <Box sx={{
+        width: 56, height: 78, perspective: '800px', flexShrink: 0,
+        position: 'relative',
+        ...(isMirrored && {
+          animation: `${mirrorFlip} 0.5s ease-out forwards`,
+        }),
+      }}>
+        {/* Mirror label */}
+        {isMirrored && (
+          <Box sx={{
+            position: 'absolute',
+            top: -14,
+            left: '50%',
+            transform: 'translateX(-50%) scaleX(-1) scaleY(-1)',
+            background: 'linear-gradient(135deg, rgba(100,181,246,0.9), rgba(30,136,229,0.9))',
+            color: '#fff',
+            fontWeight: 800,
+            fontSize: '0.55rem',
+            px: 0.75,
+            py: 0.15,
+            borderRadius: '6px',
+            whiteSpace: 'nowrap',
+            textShadow: '0 1px 2px rgba(0,0,0,0.4)',
+            boxShadow: '0 2px 8px rgba(30,136,229,0.5)',
+            letterSpacing: '0.05em',
+            zIndex: 5,
+          }}>
+            🪞 MIRRORED
+          </Box>
+        )}
         <Box
           sx={{
             width: '100%',

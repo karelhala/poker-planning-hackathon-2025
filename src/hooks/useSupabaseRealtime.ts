@@ -204,6 +204,7 @@ export const useSupabaseRealtime = () => {
   const [halfPowerPlayers, setHalfPowerPlayers] = useState<Set<string>>(new Set())
   const [rainEvent, setRainEvent] = useState<{ size: 'small' | 'medium' | 'large'; id: string } | null>(null)
   const [spotlightTargets, setSpotlightTargets] = useState<Map<string, { spottedBy: string; id: string }>>(new Map())
+  const [mirrorTargets, setMirrorTargets] = useState<Map<string, { mirroredBy: string; id: string }>>(new Map())
   const [tomatoSplats, setTomatoSplats] = useState<Map<string, { thrownBy: string; id: string }>>(new Map())
   const [applauseEvents, setApplauseEvents] = useState<Map<string, { userName: string; id: string }>>(new Map())
   const [megaphoneEvents, setMegaphoneEvents] = useState<Map<string, { userName: string; id: string }>>(new Map())
@@ -612,6 +613,7 @@ export const useSupabaseRealtime = () => {
       setShuffleEffect(null)
       setEarthquakeActive(false)
       setSpotlightTargets(new Map())
+      setMirrorTargets(new Map())
       pokerFaceActiveRef.current = false
       invisibleInkActiveRef.current = false
       disguiseActiveRef.current = false
@@ -1143,6 +1145,21 @@ export const useSupabaseRealtime = () => {
       addLogEntry('info', `🔦 ${senderName} put a spotlight on ${targetUserId === userId ? 'you' : (targetUserName || 'someone')}!`, senderName)
       if (targetUserId === userId) {
         setNotification({ open: true, message: `🔦 ${senderName} put a spotlight on you!`, severity: 'info' })
+      }
+    })
+
+    channel.on('broadcast', { event: 'mirror' }, (payload) => {
+      const { targetUserId, targetUserName } = payload.payload
+      const senderName = payload.payload.userName || 'Someone'
+      const mirId = `${Date.now()}`
+      setMirrorTargets(prev => {
+        const next = new Map(prev)
+        next.set(targetUserId, { mirroredBy: senderName, id: mirId })
+        return next
+      })
+      addLogEntry('info', `🪞 ${senderName} mirrored ${targetUserId === userId ? 'your' : (targetUserName || "someone's")} card!`, senderName)
+      if (targetUserId === userId) {
+        setNotification({ open: true, message: `🪞 ${senderName} mirrored your card!`, severity: 'info' })
       }
     })
 
@@ -2041,6 +2058,17 @@ export const useSupabaseRealtime = () => {
     addLogEntry('info', `🔦 You put a spotlight on ${targetUserName || 'someone'}!`, userNameRef.current)
   }
 
+  const handleMirror = (targetUserId: string, targetUserName: string | null) => {
+    sendEvent('mirror', { targetUserId, targetUserName })
+    const mirId = `${Date.now()}`
+    setMirrorTargets(prev => {
+      const next = new Map(prev)
+      next.set(targetUserId, { mirroredBy: userNameRef.current || 'You', id: mirId })
+      return next
+    })
+    addLogEntry('info', `🪞 You mirrored ${targetUserName || "someone's"} card!`, userNameRef.current)
+  }
+
   const setItemCount = (count: number) => {
     itemCountRef.current = count
   }
@@ -2143,6 +2171,7 @@ export const useSupabaseRealtime = () => {
     handleMakeItRain,
     handleThrowTomato,
     handleSpotlight,
+    handleMirror,
     handleApplause,
     handleDiceRoll,
     handleMegaphoneVote,
@@ -2150,6 +2179,7 @@ export const useSupabaseRealtime = () => {
     handleSetFeltColor,
     tomatoSplats,
     spotlightTargets,
+    mirrorTargets,
     applauseEvents,
     diceRollEvent,
     clearDiceRollEvent: () => setDiceRollEvent(null),
