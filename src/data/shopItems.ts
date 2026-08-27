@@ -272,11 +272,11 @@ export const SHOP_ITEMS: ShopItem[] = [
     id: 'table_cloth',
     name: 'Table Cloth',
     icon: '🟩',
-    description: 'Change the felt color for ALL players this round.',
+    description: 'Change the felt color for ALL players. Pick from 8 colors!',
     cost: 15,
     rarity: 'legendary',
     type: 'consumable',
-    implemented: false,
+    implemented: true,
   },
   {
     id: 'dealer_hat',
@@ -296,7 +296,7 @@ export const SHOP_ITEMS: ShopItem[] = [
     cost: 30,
     rarity: 'legendary',
     type: 'consumable',
-    implemented: false,
+    implemented: true,
   },
   {
     id: 'golden_ticket',

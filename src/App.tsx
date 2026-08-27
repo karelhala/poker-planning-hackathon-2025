@@ -26,6 +26,7 @@ import { AvatarEditor } from './components/AvatarEditor'
 import { MakeItRain } from './components/MakeItRain'
 import { TomatoSplash } from './components/TomatoSplash'
 import { ShopModal } from './components/ShopModal'
+import { FeltColorPicker } from './components/FeltColorPicker'
 import { ChipStack } from './components/ChipStack'
 import type { ShopItem } from './data/shopItems'
 import { GHOST_STACK_CHIPS } from './data/shopItems'
@@ -50,6 +51,7 @@ function App() {
   const [consumableItems, setConsumableItems] = useState<string[]>([])
   const [itemTargeting, setItemTargeting] = useState<string | null>(null)
   const [megaphoneActive, setMegaphoneActive] = useState(false)
+  const [feltPickerOpen, setFeltPickerOpen] = useState(false)
 
   // Custom hooks
   const { mode, toggleColorMode } = useThemeMode()
@@ -97,10 +99,12 @@ function App() {
     handleApplause,
     handleMegaphoneVote,
     handleEarthquake,
+    handleSetFeltColor,
     tomatoSplats,
     applauseEvents,
     megaphoneEvents,
     earthquakeActive,
+    feltColor,
     refreshPresence,
     setItemCount,
     setGhostChipCount,
@@ -417,8 +421,26 @@ function App() {
         if (idx >= 0) return [...prev.slice(0, idx), ...prev.slice(idx + 1)]
         return prev
       })
+    } else if (itemId === 'table_cloth') {
+      setFeltPickerOpen(true)
+    } else if (itemId === 'rainbow_table') {
+      handleSetFeltColor('rainbow')
+      setConsumableItems(prev => {
+        const idx = prev.indexOf('rainbow_table')
+        if (idx >= 0) return [...prev.slice(0, idx), ...prev.slice(idx + 1)]
+        return prev
+      })
     }
-  }, [handleApplause, megaphoneActive, handleEarthquake])
+  }, [handleApplause, megaphoneActive, handleEarthquake, handleSetFeltColor])
+
+  const handleFeltColorSelect = useCallback((color: string) => {
+    handleSetFeltColor(color)
+    setConsumableItems(prev => {
+      const idx = prev.indexOf('table_cloth')
+      if (idx >= 0) return [...prev.slice(0, idx), ...prev.slice(idx + 1)]
+      return prev
+    })
+  }, [handleSetFeltColor])
 
   const handleItemTargetSelect = useCallback((targetUserId: string, targetUserName: string | null) => {
     if (itemTargeting === 'tomato') {
@@ -548,6 +570,7 @@ function App() {
                   applauseEvents={applauseEvents}
                   megaphoneEvents={megaphoneEvents}
                   earthquakeActive={earthquakeActive}
+                  feltColor={feltColor}
                   itemTargeting={itemTargeting}
                   onItemTargetSelect={handleItemTargetSelect}
                 />
@@ -678,6 +701,13 @@ function App() {
         points={points}
         onBuy={handleBuyItem}
         ownedItems={ownedItems}
+      />
+
+      {/* Felt Color Picker */}
+      <FeltColorPicker
+        open={feltPickerOpen}
+        onClose={() => setFeltPickerOpen(false)}
+        onSelectColor={handleFeltColorSelect}
       />
 
       {/* Points economy info modal */}

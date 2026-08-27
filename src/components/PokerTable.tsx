@@ -23,6 +23,7 @@ import {
   NUMERIC_TSHIRT_MAP,
 } from '../hooks/useSupabaseRealtime';
 import type { Ticket } from './IssuesSidebar';
+import { FELT_COLOR_MAP } from './FeltColorPicker';
 
 export type GameState = 'VOTING' | 'REVEALED' | 'QUICK_DRAW';
 
@@ -60,6 +61,7 @@ interface PokerTableProps {
   applauseEvents?: Map<string, { userName: string; id: string }>;
   megaphoneEvents?: Map<string, { userName: string; id: string }>;
   earthquakeActive?: boolean;
+  feltColor?: string | null;
   itemTargeting?: string | null;
   onItemTargetSelect?: (userId: string, userName: string | null) => void;
 }
@@ -98,6 +100,11 @@ const megaphoneBanner = keyframes`
   30% { transform: translateX(-50%) scale(1); opacity: 1; }
   80% { transform: translateX(-50%) scale(1); opacity: 1; }
   100% { transform: translateX(-50%) scale(0.5); opacity: 0; }
+`;
+
+const rainbowCycle = keyframes`
+  0% { filter: hue-rotate(0deg); }
+  100% { filter: hue-rotate(360deg); }
 `;
 
 const earthquakeShake = keyframes`
@@ -183,6 +190,7 @@ export const PokerTable: React.FC<PokerTableProps> = ({
   applauseEvents = new Map(),
   megaphoneEvents = new Map(),
   earthquakeActive = false,
+  feltColor = null,
   itemTargeting = null,
   onItemTargetSelect,
 }) => {
@@ -1154,14 +1162,22 @@ export const PokerTable: React.FC<PokerTableProps> = ({
             width: '100%',
             height: '100%',
             borderRadius: '50%',
-            background:
-              'radial-gradient(ellipse at 35% 35%, #388E3C 0%, #2E7D32 30%, #1B5E20 60%, #145214 100%)',
+            background: (() => {
+              const colors = feltColor && feltColor !== 'rainbow' && FELT_COLOR_MAP[feltColor]
+                ? FELT_COLOR_MAP[feltColor]
+                : ['#388E3C', '#2E7D32', '#1B5E20', '#145214'];
+              return `radial-gradient(ellipse at 35% 35%, ${colors[0]} 0%, ${colors[1]} 30%, ${colors[2]} 60%, ${colors[3]} 100%)`;
+            })(),
             boxShadow: 'inset 0 0 60px rgba(0,0,0,0.35), inset 0 0 15px rgba(0,0,0,0.2)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             position: 'relative',
             overflow: 'hidden',
+            transition: 'background 1s ease',
+            ...(feltColor === 'rainbow' && {
+              animation: `${rainbowCycle} 3s linear infinite`,
+            }),
             '&::before': {
               content: '""',
               position: 'absolute',

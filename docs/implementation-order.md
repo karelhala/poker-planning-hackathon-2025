@@ -24,7 +24,7 @@ No targeting needed. Player uses item, everyone sees effect.
 | 1 | ✅ Applause 👏 | 2 pts | Trivial | Floating 👏 emojis from user's seat, 2s duration |
 | 2 | ✅ Megaphone 📢 | 3 pts | Trivial | Flag on use, "VOTED!" banner flash on next vote |
 | 3 | ✅ Earthquake 🌍 | 5 pts | Small | Randomize seat positions, CSS transition, reset next round |
-| 4 | ⬜ Rainbow Table 🌈 | 30 pts | Small | CSS `hue-rotate` animation on felt, persists until session end |
+| 4 | ✅ Rainbow Table 🌈 | 30 pts | Small | CSS `hue-rotate` animation on felt, persists until session end |
 | 5 | ⬜ Confetti Cannon 🎉 | 5 pts | Small | Particle effect on consensus (spread === 0), permanent item |
 
 **Broadcast event shape:**
@@ -100,7 +100,7 @@ Each needs unique logic. Implement one at a time. Ordered by fun-to-effort ratio
 | # | Item | Cost | Effort | Key Implementation |
 |---|------|------|--------|--------------------|
 | 19 | ⬜ Swap 🔄 | 5 pts | Medium | After voting, swap vote with random player on reveal |
-| 20 | ⬜ Table Cloth 🟩 | 15 pts | Medium | Color picker + broadcast felt color change to all |
+| 20 | ✅ Table Cloth 🟩 | 15 pts | Medium | Color picker + broadcast felt color change to all |
 | 21 | ⬜ Golden Ticket 🎫 | 50 pts | Medium | 3× vote weight in average calculation |
 | 22 | ⬜ Magnet 🧲 | 6 pts | Medium-High | Nudge nearby votes ±1 in displayed average |
 | 23 | ⬜ Time Bomb 💣 | 7 pts | High | 30s countdown, auto-reveal, timer sync across clients |

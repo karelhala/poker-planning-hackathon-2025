@@ -200,6 +200,7 @@ export const useSupabaseRealtime = () => {
   const [applauseEvents, setApplauseEvents] = useState<Map<string, { userName: string; id: string }>>(new Map())
   const [megaphoneEvents, setMegaphoneEvents] = useState<Map<string, { userName: string; id: string }>>(new Map())
   const [earthquakeActive, setEarthquakeActive] = useState(false)
+  const [feltColor, setFeltColor] = useState<string | null>(null)
   const [votingMode, setVotingMode] = useState<VotingMode>('fibonacci')
   const [lastHeartbeat, setLastHeartbeat] = useState<number>(Date.now())
   const [isProcessing, setIsProcessing] = useState(false)
@@ -1020,6 +1021,19 @@ export const useSupabaseRealtime = () => {
       })
     })
 
+    channel.on('broadcast', { event: 'felt_color' }, (payload) => {
+      const senderName = payload.payload.userName || 'Someone'
+      const color = payload.payload.color as string
+      setFeltColor(color)
+      const label = color === 'rainbow' ? '🌈 Rainbow Table' : `🟩 ${color} felt`
+      addLogEntry('info', `${senderName} changed the table to ${label}!`, senderName)
+      setNotification({
+        open: true,
+        message: `${senderName} changed the felt to ${label}!`,
+        severity: 'info',
+      })
+    })
+
     const trackPresence = async () => {
       const presenceData = buildPresence()
       console.log('Tracking presence:', presenceData)
@@ -1799,6 +1813,14 @@ export const useSupabaseRealtime = () => {
     setNotification({ open: true, message: '🌍 EARTHQUAKE! Seats keep shuffling!', severity: 'info' })
   }
 
+  const handleSetFeltColor = (color: string) => {
+    sendEvent('felt_color', { color })
+    setFeltColor(color)
+    const label = color === 'rainbow' ? '🌈 Rainbow Table' : `🟩 ${color} felt`
+    addLogEntry('info', `You changed the table to ${label}!`, userNameRef.current)
+    setNotification({ open: true, message: `Table felt changed to ${label}!`, severity: 'info' })
+  }
+
   const handleThrowTomato = (targetUserId: string, targetUserName: string | null) => {
     sendEvent('tomato_throw', { targetUserId, targetUserName, thrownByName: userNameRef.current })
     setTomatoSplats(prev => {
@@ -1893,10 +1915,12 @@ export const useSupabaseRealtime = () => {
     handleApplause,
     handleMegaphoneVote,
     handleEarthquake,
+    handleSetFeltColor,
     tomatoSplats,
     applauseEvents,
     megaphoneEvents,
     earthquakeActive,
+    feltColor,
     refreshPresence,
     setItemCount,
     setGhostChipCount,
