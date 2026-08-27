@@ -201,6 +201,7 @@ export const useSupabaseRealtime = () => {
   const [megaphoneEvents, setMegaphoneEvents] = useState<Map<string, { userName: string; id: string }>>(new Map())
   const [earthquakeActive, setEarthquakeActive] = useState(false)
   const [feltColor, setFeltColor] = useState<string | null>(null)
+  const [diceRollEvent, setDiceRollEvent] = useState<{ userName: string; value: string; scale: string[] } | null>(null)
   const [votingMode, setVotingMode] = useState<VotingMode>('fibonacci')
   const [lastHeartbeat, setLastHeartbeat] = useState<number>(Date.now())
   const [isProcessing, setIsProcessing] = useState(false)
@@ -990,6 +991,12 @@ export const useSupabaseRealtime = () => {
           return next
         })
       }, 2500)
+    })
+
+    channel.on('broadcast', { event: 'dice_roll' }, (payload) => {
+      const { userName: senderName, value, scale } = payload.payload
+      setDiceRollEvent({ userName: senderName || 'Someone', value, scale })
+      addLogEntry('info', `🎲 ${senderName || 'Someone'} rolled the dice!`, senderName)
     })
 
     channel.on('broadcast', { event: 'megaphone_vote' }, (payload) => {
@@ -1788,6 +1795,13 @@ export const useSupabaseRealtime = () => {
     }, 2500)
   }
 
+  const handleDiceRoll = (value: string, scale: string[]) => {
+    sendEvent('dice_roll', { value, scale })
+    // Show locally too (self:false means sender doesn't get own broadcast)
+    setDiceRollEvent({ userName: userNameRef.current || 'You', value, scale })
+    addLogEntry('info', `🎲 You rolled the dice!`, userNameRef.current)
+  }
+
   const handleMegaphoneVote = () => {
     const eventId = `${Date.now()}`
     sendEvent('megaphone_vote', {})
@@ -1913,11 +1927,14 @@ export const useSupabaseRealtime = () => {
     handleMakeItRain,
     handleThrowTomato,
     handleApplause,
+    handleDiceRoll,
     handleMegaphoneVote,
     handleEarthquake,
     handleSetFeltColor,
     tomatoSplats,
     applauseEvents,
+    diceRollEvent,
+    clearDiceRollEvent: () => setDiceRollEvent(null),
     megaphoneEvents,
     earthquakeActive,
     feltColor,

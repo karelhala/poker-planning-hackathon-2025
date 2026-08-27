@@ -28,6 +28,7 @@ import { TomatoSplash } from './components/TomatoSplash'
 import { ShopModal } from './components/ShopModal'
 import { FeltColorPicker } from './components/FeltColorPicker'
 import { ConfettiEffect } from './components/ConfettiEffect'
+import { DiceRollEffect } from './components/DiceRollEffect'
 import { ChipStack } from './components/ChipStack'
 import type { ShopItem } from './data/shopItems'
 import { GHOST_STACK_CHIPS } from './data/shopItems'
@@ -54,6 +55,7 @@ function App() {
   const [megaphoneActive, setMegaphoneActive] = useState(false)
   const [feltPickerOpen, setFeltPickerOpen] = useState(false)
   const [confettiActive, setConfettiActive] = useState(false)
+  const [myDiceValue, setMyDiceValue] = useState<string | null>(null)
 
   // Custom hooks
   const { mode, toggleColorMode } = useThemeMode()
@@ -99,11 +101,14 @@ function App() {
     handleMakeItRain,
     handleThrowTomato,
     handleApplause,
+    handleDiceRoll,
     handleMegaphoneVote,
     handleEarthquake,
     handleSetFeltColor,
     tomatoSplats,
     applauseEvents,
+    diceRollEvent,
+    clearDiceRollEvent,
     megaphoneEvents,
     earthquakeActive,
     feltColor,
@@ -442,8 +447,25 @@ function App() {
         if (idx >= 0) return [...prev.slice(0, idx), ...prev.slice(idx + 1)]
         return prev
       })
+    } else if (itemId === 'dice') {
+      if (gameState !== 'VOTING') {
+        showNotification('🎲 Can only roll dice during voting!', 'error')
+        return
+      }
+      if (diceRollEvent) return
+      const pool = votingMode === 'tshirt'
+        ? ['S', 'M', 'L', 'XL']
+        : ['0', '1', '2', '3', '5', '8', '13', '21']
+      const randomValue = pool[Math.floor(Math.random() * pool.length)]
+      setMyDiceValue(randomValue)
+      handleDiceRoll(randomValue, pool)
+      setConsumableItems(prev => {
+        const idx = prev.indexOf('dice')
+        if (idx >= 0) return [...prev.slice(0, idx), ...prev.slice(idx + 1)]
+        return prev
+      })
     }
-  }, [handleApplause, megaphoneActive, handleEarthquake, handleSetFeltColor])
+  }, [handleApplause, megaphoneActive, handleEarthquake, handleSetFeltColor, gameState, votingMode, diceRollEvent, handleDiceRoll])
 
   const handleFeltColorSelect = useCallback((color: string) => {
     handleSetFeltColor(color)
@@ -721,6 +743,23 @@ function App() {
         onClose={() => setFeltPickerOpen(false)}
         onSelectColor={handleFeltColorSelect}
       />
+
+      {/* Dice roll animation — visible to all players */}
+      {diceRollEvent && (
+        <DiceRollEffect
+          active
+          value={diceRollEvent.value}
+          scale={diceRollEvent.scale}
+          userName={diceRollEvent.userName}
+          onEnd={() => {
+            if (myDiceValue) {
+              handleVote(myDiceValue)
+              setMyDiceValue(null)
+            }
+            clearDiceRollEvent()
+          }}
+        />
+      )}
 
       {/* Confetti cannon effect */}
       <ConfettiEffect active={confettiActive} onEnd={() => setConfettiActive(false)} />
