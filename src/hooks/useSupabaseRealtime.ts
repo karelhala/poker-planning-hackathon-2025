@@ -41,6 +41,7 @@ interface MemberRecord {
   avatarConfig?: Record<string, unknown>
   itemCount?: number
   ghostChipCount?: number
+  pokerFaceActive?: boolean
 }
 
 const GRACE_PERIOD_MS = 900_000
@@ -202,6 +203,7 @@ export const useSupabaseRealtime = () => {
   const [earthquakeActive, setEarthquakeActive] = useState(false)
   const [feltColor, setFeltColor] = useState<string | null>(null)
   const [diceRollEvent, setDiceRollEvent] = useState<{ userName: string; value: string; scale: string[] } | null>(null)
+  const [resetRound, setResetRound] = useState(0)
   const [votingMode, setVotingMode] = useState<VotingMode>('fibonacci')
   const [lastHeartbeat, setLastHeartbeat] = useState<number>(Date.now())
   const [isProcessing, setIsProcessing] = useState(false)
@@ -273,6 +275,7 @@ export const useSupabaseRealtime = () => {
   const currentVoteRef = useRef<string | null>(null)
   const itemCountRef = useRef(0)
   const ghostChipCountRef = useRef(0)
+  const pokerFaceActiveRef = useRef(false)
 
   const buildPresence = (overrides?: Record<string, unknown>) => ({
     userId,
@@ -285,6 +288,7 @@ export const useSupabaseRealtime = () => {
     avatarConfig: loadAvatarConfig(),
     itemCount: itemCountRef.current,
     ghostChipCount: ghostChipCountRef.current,
+    pokerFaceActive: pokerFaceActiveRef.current,
     online_at: new Date().toISOString(),
     ...overrides,
   })
@@ -301,10 +305,14 @@ export const useSupabaseRealtime = () => {
 
     map.forEach((record) => {
       newActiveUsers.push({ userId: record.userId, userName: record.userName })
+      // Poker Face: hide voted status from other players (not from self)
+      const effectiveHasVoted = record.pokerFaceActive && record.userId !== userId
+        ? false
+        : record.hasVoted
       newPlayers.push({
         userId: record.userId,
         userName: record.userName,
-        hasVoted: record.hasVoted,
+        hasVoted: effectiveHasVoted,
         vote: record.vote,
         isOnline: record.isOnline,
         availableCards: record.availableCards,
@@ -410,6 +418,7 @@ export const useSupabaseRealtime = () => {
               avatarConfig: presence.avatarConfig || undefined,
               itemCount: presence.itemCount || 0,
               ghostChipCount: presence.ghostChipCount || 0,
+              pokerFaceActive: presence.pokerFaceActive || false,
               isOnline: true,
               lastSeen: Date.now(),
               graceTimerId: null,
@@ -573,7 +582,7 @@ export const useSupabaseRealtime = () => {
       console.log('Received reset voting event:', payload)
       const senderName = payload.payload.userName || 'Admin'
       setGameState('VOTING')
-      
+
       // Clear blocked players, copy relations, and shuffle for new round
       // Note: Special cards are NOT refreshed - they persist from game start
       setBlockedPlayers(new Map())
@@ -581,12 +590,16 @@ export const useSupabaseRealtime = () => {
       setCopyRevealEffects([])
       setShuffleEffect(null)
       setEarthquakeActive(false)
+      pokerFaceActiveRef.current = false
+      hasVotedRef.current = false
+      currentVoteRef.current = null
+      setResetRound(r => r + 1)
 
       // Reset our own voting state (keep current available cards)
       if (channelRef.current) {
-        channelRef.current.track(buildPresence({ hasVoted: false, vote: null }))
+        channelRef.current.track(buildPresence({ hasVoted: false, vote: null, pokerFaceActive: false }))
       }
-      
+
       addLogEntry('reset', `${senderName} started a new round`, senderName)
       setNotification({
         open: true,
@@ -1227,9 +1240,13 @@ export const useSupabaseRealtime = () => {
     setCopyRevealEffects([])
     setShuffleEffect(null)
     setEarthquakeActive(false)
+    pokerFaceActiveRef.current = false
+    hasVotedRef.current = false
+    currentVoteRef.current = null
+    setResetRound(r => r + 1)
 
     if (channelRef.current) {
-      channelRef.current.track(buildPresence({ hasVoted: false, vote: null }))
+      channelRef.current.track(buildPresence({ hasVoted: false, vote: null, pokerFaceActive: false }))
     }
     setIsProcessing(false)
   }
@@ -1861,6 +1878,13 @@ export const useSupabaseRealtime = () => {
     ghostChipCountRef.current = count
   }
 
+  const setPokerFaceActive = (active: boolean) => {
+    pokerFaceActiveRef.current = active
+    if (channelRef.current) {
+      channelRef.current.track(buildPresence())
+    }
+  }
+
   const refreshPresence = () => {
     if (channelRef.current) {
       channelRef.current.track(buildPresence())
@@ -1941,6 +1965,8 @@ export const useSupabaseRealtime = () => {
     refreshPresence,
     setItemCount,
     setGhostChipCount,
+    setPokerFaceActive,
+    resetRound,
     rainEvent,
     clearRainEvent: () => setRainEvent(null),
     clearActionLog,

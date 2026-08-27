@@ -115,6 +115,8 @@ function App() {
     refreshPresence,
     setItemCount,
     setGhostChipCount,
+    setPokerFaceActive,
+    resetRound,
     rainEvent,
     clearRainEvent,
     votingMode,
@@ -216,11 +218,12 @@ function App() {
   }
 
   // Reset selected vote when voting is reset
+  // resetRound ensures clearing even when gameState is already VOTING (e.g. reset without reveal)
   useEffect(() => {
     if (gameState === 'VOTING') {
       setSelectedVote(null)
     }
-  }, [gameState])
+  }, [gameState, resetRound])
 
   // Auto-set vote for blocked players when cards are revealed
   useEffect(() => {
@@ -447,6 +450,18 @@ function App() {
         if (idx >= 0) return [...prev.slice(0, idx), ...prev.slice(idx + 1)]
         return prev
       })
+    } else if (itemId === 'poker_face') {
+      if (gameState !== 'VOTING') {
+        showNotification('🃏 Can only use Poker Face during voting!', 'error')
+        return
+      }
+      setPokerFaceActive(true)
+      showNotification('🃏 Poker Face! Others can\'t see you\'ve voted.', 'success')
+      setConsumableItems(prev => {
+        const idx = prev.indexOf('poker_face')
+        if (idx >= 0) return [...prev.slice(0, idx), ...prev.slice(idx + 1)]
+        return prev
+      })
     } else if (itemId === 'dice') {
       if (gameState !== 'VOTING') {
         showNotification('🎲 Can only roll dice during voting!', 'error')
@@ -465,7 +480,7 @@ function App() {
         return prev
       })
     }
-  }, [handleApplause, megaphoneActive, handleEarthquake, handleSetFeltColor, gameState, votingMode, diceRollEvent, handleDiceRoll])
+  }, [handleApplause, megaphoneActive, handleEarthquake, handleSetFeltColor, gameState, votingMode, diceRollEvent, handleDiceRoll, setPokerFaceActive])
 
   const handleFeltColorSelect = useCallback((color: string) => {
     handleSetFeltColor(color)
