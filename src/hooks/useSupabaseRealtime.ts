@@ -203,6 +203,7 @@ export const useSupabaseRealtime = () => {
   const [doublePowerPlayers, setDoublePowerPlayers] = useState<Set<string>>(new Set())
   const [halfPowerPlayers, setHalfPowerPlayers] = useState<Set<string>>(new Set())
   const [rainEvent, setRainEvent] = useState<{ size: 'small' | 'medium' | 'large'; id: string } | null>(null)
+  const [spotlightTargets, setSpotlightTargets] = useState<Map<string, { spottedBy: string; id: string }>>(new Map())
   const [tomatoSplats, setTomatoSplats] = useState<Map<string, { thrownBy: string; id: string }>>(new Map())
   const [applauseEvents, setApplauseEvents] = useState<Map<string, { userName: string; id: string }>>(new Map())
   const [megaphoneEvents, setMegaphoneEvents] = useState<Map<string, { userName: string; id: string }>>(new Map())
@@ -610,6 +611,7 @@ export const useSupabaseRealtime = () => {
       setCopyRevealEffects([])
       setShuffleEffect(null)
       setEarthquakeActive(false)
+      setSpotlightTargets(new Map())
       pokerFaceActiveRef.current = false
       invisibleInkActiveRef.current = false
       disguiseActiveRef.current = false
@@ -1129,6 +1131,21 @@ export const useSupabaseRealtime = () => {
       })
     })
 
+    channel.on('broadcast', { event: 'spotlight' }, (payload) => {
+      const { targetUserId, targetUserName } = payload.payload
+      const senderName = payload.payload.userName || 'Someone'
+      const spotId = `${Date.now()}`
+      setSpotlightTargets(prev => {
+        const next = new Map(prev)
+        next.set(targetUserId, { spottedBy: senderName, id: spotId })
+        return next
+      })
+      addLogEntry('info', `🔦 ${senderName} put a spotlight on ${targetUserId === userId ? 'you' : (targetUserName || 'someone')}!`, senderName)
+      if (targetUserId === userId) {
+        setNotification({ open: true, message: `🔦 ${senderName} put a spotlight on you!`, severity: 'info' })
+      }
+    })
+
     channel.on('broadcast', { event: 'felt_color' }, (payload) => {
       const senderName = payload.payload.userName || 'Someone'
       const color = payload.payload.color as string
@@ -1360,6 +1377,7 @@ export const useSupabaseRealtime = () => {
     setCopyRevealEffects([])
     setShuffleEffect(null)
     setEarthquakeActive(false)
+    setSpotlightTargets(new Map())
     pokerFaceActiveRef.current = false
     invisibleInkActiveRef.current = false
     disguiseActiveRef.current = false
@@ -2012,6 +2030,17 @@ export const useSupabaseRealtime = () => {
     addLogEntry('info', `🍅 You threw a tomato at ${targetUserName || 'someone'}!`, userNameRef.current)
   }
 
+  const handleSpotlight = (targetUserId: string, targetUserName: string | null) => {
+    sendEvent('spotlight', { targetUserId, targetUserName })
+    const spotId = `${Date.now()}`
+    setSpotlightTargets(prev => {
+      const next = new Map(prev)
+      next.set(targetUserId, { spottedBy: userNameRef.current || 'You', id: spotId })
+      return next
+    })
+    addLogEntry('info', `🔦 You put a spotlight on ${targetUserName || 'someone'}!`, userNameRef.current)
+  }
+
   const setItemCount = (count: number) => {
     itemCountRef.current = count
   }
@@ -2113,12 +2142,14 @@ export const useSupabaseRealtime = () => {
     handleSetVotingMode,
     handleMakeItRain,
     handleThrowTomato,
+    handleSpotlight,
     handleApplause,
     handleDiceRoll,
     handleMegaphoneVote,
     handleEarthquake,
     handleSetFeltColor,
     tomatoSplats,
+    spotlightTargets,
     applauseEvents,
     diceRollEvent,
     clearDiceRollEvent: () => setDiceRollEvent(null),

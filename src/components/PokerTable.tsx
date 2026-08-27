@@ -58,6 +58,7 @@ interface PokerTableProps {
   avatarVersion?: number;
   onMakeItRain?: (size: 'small' | 'medium' | 'large') => void;
   tomatoSplats?: Map<string, { thrownBy: string; id: string }>;
+  spotlightTargets?: Map<string, { spottedBy: string; id: string }>;
   applauseEvents?: Map<string, { userName: string; id: string }>;
   megaphoneEvents?: Map<string, { userName: string; id: string }>;
   earthquakeActive?: boolean;
@@ -105,6 +106,22 @@ const megaphoneBanner = keyframes`
 const rainbowCycle = keyframes`
   0% { filter: hue-rotate(0deg); }
   100% { filter: hue-rotate(360deg); }
+`;
+
+const spotlightPulse = keyframes`
+  0%, 100% { opacity: 0.75; transform: translate(-50%, -50%) scale(1); }
+  50% { opacity: 1; transform: translate(-50%, -50%) scale(1.08); }
+`;
+
+const spotlightSweep = keyframes`
+  0% { transform: translate(-50%, -50%) rotate(0deg); }
+  100% { transform: translate(-50%, -50%) rotate(360deg); }
+`;
+
+const spotlightAppear = keyframes`
+  0% { transform: translate(-50%, -50%) scale(0); opacity: 0; }
+  40% { transform: translate(-50%, -50%) scale(1.2); opacity: 1; }
+  100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
 `;
 
 const earthquakeShake = keyframes`
@@ -193,6 +210,7 @@ export const PokerTable: React.FC<PokerTableProps> = ({
   avatarVersion = 0,
   onMakeItRain,
   tomatoSplats = new Map(),
+  spotlightTargets = new Map(),
   applauseEvents = new Map(),
   megaphoneEvents = new Map(),
   earthquakeActive = false,
@@ -777,6 +795,70 @@ export const PokerTable: React.FC<PokerTableProps> = ({
               letterSpacing: '0.1em',
             }}>
               📢 VOTED!
+            </Box>
+          </Box>
+        )}
+
+        {/* Spotlight overlay */}
+        {spotlightTargets.has(player.userId) && (
+          <Box sx={{
+            position: 'absolute',
+            top: '50%',
+            left: '50%',
+            width: 220,
+            height: 220,
+            pointerEvents: 'none',
+            zIndex: 30,
+            animation: `${spotlightAppear} 0.5s ease-out forwards`,
+          }}>
+            {/* Outer glow ring */}
+            <Box sx={{
+              position: 'absolute',
+              inset: 0,
+              borderRadius: '50%',
+              background: 'radial-gradient(circle, rgba(255,235,59,0.45) 0%, rgba(255,193,7,0.25) 30%, rgba(255,193,7,0.08) 50%, transparent 65%)',
+              animation: `${spotlightPulse} 2s ease-in-out infinite`,
+              boxShadow: '0 0 60px rgba(255,235,59,0.5), 0 0 120px rgba(255,193,7,0.2), inset 0 0 40px rgba(255,235,59,0.2)',
+            }} />
+            {/* Rotating light cone */}
+            <Box sx={{
+              position: 'absolute',
+              inset: -10,
+              borderRadius: '50%',
+              background: 'conic-gradient(from 0deg, transparent 0deg, rgba(255,235,59,0.15) 30deg, transparent 60deg, transparent 180deg, rgba(255,235,59,0.1) 210deg, transparent 240deg)',
+              animation: `${spotlightSweep} 4s linear infinite`,
+            }} />
+            {/* Bright center disc */}
+            <Box sx={{
+              position: 'absolute',
+              top: '50%',
+              left: '50%',
+              width: 100,
+              height: 100,
+              borderRadius: '50%',
+              transform: 'translate(-50%, -50%)',
+              background: 'radial-gradient(circle, rgba(255,255,255,0.2) 0%, rgba(255,235,59,0.3) 40%, transparent 70%)',
+              border: '2px solid rgba(255,235,59,0.35)',
+            }} />
+            {/* Label */}
+            <Box sx={{
+              position: 'absolute',
+              bottom: 8,
+              left: '50%',
+              transform: 'translateX(-50%)',
+              background: 'linear-gradient(135deg, rgba(255,193,7,0.9), rgba(255,143,0,0.9))',
+              color: '#fff',
+              fontWeight: 800,
+              fontSize: '0.65rem',
+              px: 1,
+              py: 0.25,
+              borderRadius: '8px',
+              whiteSpace: 'nowrap',
+              textShadow: '0 1px 2px rgba(0,0,0,0.4)',
+              boxShadow: '0 2px 8px rgba(255,193,7,0.5)',
+              letterSpacing: '0.05em',
+            }}>
+              🔦 SPOTLIGHT
             </Box>
           </Box>
         )}

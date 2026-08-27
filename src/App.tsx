@@ -100,12 +100,14 @@ function App() {
     handleSetVotingMode,
     handleMakeItRain,
     handleThrowTomato,
+    handleSpotlight,
     handleApplause,
     handleDiceRoll,
     handleMegaphoneVote,
     handleEarthquake,
     handleSetFeltColor,
     tomatoSplats,
+    spotlightTargets,
     applauseEvents,
     diceRollEvent,
     clearDiceRollEvent,
@@ -497,6 +499,9 @@ function App() {
         if (idx >= 0) return [...prev.slice(0, idx), ...prev.slice(idx + 1)]
         return prev
       })
+    } else if (itemId === 'spotlight') {
+      setItemTargeting('spotlight')
+      showNotification('🔦 Click on a player to spotlight them!', 'info')
     } else if (itemId === 'dice') {
       if (gameState !== 'VOTING') {
         showNotification('🎲 Can only roll dice during voting!', 'error')
@@ -535,8 +540,16 @@ function App() {
         return prev
       })
       setItemTargeting(null)
+    } else if (itemTargeting === 'spotlight') {
+      handleSpotlight(targetUserId, targetUserName)
+      setConsumableItems(prev => {
+        const idx = prev.indexOf('spotlight')
+        if (idx >= 0) return [...prev.slice(0, idx), ...prev.slice(idx + 1)]
+        return prev
+      })
+      setItemTargeting(null)
     }
-  }, [itemTargeting, handleThrowTomato])
+  }, [itemTargeting, handleThrowTomato, handleSpotlight])
 
   const handleToggleSidebar = useCallback(() => {
     setSidebarCollapsed(prev => {
@@ -651,6 +664,7 @@ function App() {
                   avatarVersion={avatarVersion}
                   onMakeItRain={handleMakeItRain}
                   tomatoSplats={tomatoSplats}
+                  spotlightTargets={spotlightTargets}
                   applauseEvents={applauseEvents}
                   megaphoneEvents={megaphoneEvents}
                   earthquakeActive={earthquakeActive}

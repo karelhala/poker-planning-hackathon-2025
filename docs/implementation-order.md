@@ -69,7 +69,7 @@ Player uses item → sets flag in own state → flag changes how game renders/be
 
 | # | Item | Cost | Effort | Key Implementation |
 |---|------|------|--------|--------------------|
-| 12 | ⬜ Spotlight 🔦 | 3 pts | Trivial | CSS radial gradient overlay on target seat, 10s duration |
+| 12 | ✅ Spotlight 🔦 | 3 pts | Trivial | CSS radial gradient overlay on target seat, 10s duration |
 | 13 | ⬜ Mirror 🪞 | 4 pts | Small | 
 `transform: scaleX(-1) scaleY(-1)` on target's VotingCards |
 | 14 | ⬜ Smoke Bomb 💨 | 5 pts | Medium | Smoke overlay on target cards, click 5-8× to clear |
