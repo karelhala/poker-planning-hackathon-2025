@@ -56,6 +56,9 @@ interface PokerTableProps {
   onOpenEconomyModal?: () => void;
   avatarVersion?: number;
   onMakeItRain?: (size: 'small' | 'medium' | 'large') => void;
+  tomatoSplats?: Map<string, { thrownBy: string; id: string }>;
+  itemTargeting?: string | null;
+  onItemTargetSelect?: (userId: string, userName: string | null) => void;
 }
 
 const targetGlow = keyframes`
@@ -72,6 +75,12 @@ const cardAppear = keyframes`
 const votedGlow = keyframes`
   0%, 100% { box-shadow: 0 4px 14px rgba(21, 101, 192, 0.3); }
   50% { box-shadow: 0 4px 20px rgba(21, 101, 192, 0.6); }
+`;
+
+const tomatoSplat = keyframes`
+  0% { transform: translate(-50%, -50%) scale(0); opacity: 1; }
+  20% { transform: translate(-50%, -50%) scale(1.3); opacity: 1; }
+  100% { transform: translate(-50%, -50%) scale(1); opacity: 0.85; }
 `;
 
 const revealPulse = keyframes`
@@ -140,6 +149,9 @@ export const PokerTable: React.FC<PokerTableProps> = ({
   onOpenEconomyModal,
   avatarVersion = 0,
   onMakeItRain,
+  tomatoSplats = new Map(),
+  itemTargeting = null,
+  onItemTargetSelect,
 }) => {
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
@@ -191,6 +203,10 @@ export const PokerTable: React.FC<PokerTableProps> = ({
 
   const handleSeatClick = (player: Player) => {
     if (player.userId === currentUserId) return;
+    if (itemTargeting) {
+      onItemTargetSelect?.(player.userId, player.userName);
+      return;
+    }
     if (isTargetingMode) {
       onTargetSelect?.(player.userId, player.userName);
     } else {
@@ -408,7 +424,7 @@ export const PokerTable: React.FC<PokerTableProps> = ({
           '&:hover': canInteract
             ? { transform: 'translate(-50%, -50%) scale(1.1)' }
             : {},
-          ...(isTargetingMode &&
+          ...((isTargetingMode || itemTargeting) &&
             canInteract && {
               animation: `${targetGlow} 1.5s ease-in-out infinite`,
               borderRadius: 2,
@@ -446,6 +462,92 @@ export const PokerTable: React.FC<PokerTableProps> = ({
             }}
           />
         </Tooltip>
+
+        {/* Mini chip stack (items count) */}
+        {(player.itemCount || 0) > 0 && (
+          <Box sx={{
+            position: 'absolute',
+            top: -4,
+            right: -16,
+            display: 'flex',
+            flexDirection: 'column-reverse',
+            alignItems: 'center',
+            gap: '-2px',
+            pointerEvents: 'none',
+          }}>
+            {Array.from({ length: Math.min(player.itemCount || 0, 6) }).map((_, i) => (
+              <Box key={i} sx={{
+                width: 14,
+                height: 6,
+                borderRadius: '50%',
+                bgcolor: i % 2 === 0 ? '#FFC107' : '#FFB300',
+                border: '1px solid #FF8F00',
+                mt: i > 0 ? '-2px' : 0,
+                boxShadow: '0 1px 2px rgba(0,0,0,0.2)',
+              }} />
+            ))}
+          </Box>
+        )}
+
+        {/* Tomato splat */}
+        {tomatoSplats.has(player.userId) && (
+          <Box sx={{
+            position: 'absolute',
+            top: '20%',
+            left: '50%',
+            transform: 'translate(-50%, -50%)',
+            zIndex: 20,
+            pointerEvents: 'none',
+            width: 90,
+            height: 90,
+          }}>
+            {/* Red splat background */}
+            <Box sx={{
+              position: 'absolute',
+              top: '50%',
+              left: '50%',
+              width: 70,
+              height: 70,
+              borderRadius: '50%',
+              bgcolor: 'rgba(211, 47, 47, 0.55)',
+              transform: 'translate(-50%, -50%)',
+              animation: `${tomatoSplat} 0.4s ease-out forwards`,
+              boxShadow: '0 0 20px rgba(211, 47, 47, 0.4)',
+            }} />
+            {/* Center tomato */}
+            <Box sx={{
+              position: 'absolute',
+              top: '50%',
+              left: '50%',
+              transform: 'translate(-50%, -50%)',
+              fontSize: '2.2rem',
+              animation: `${tomatoSplat} 0.4s ease-out forwards`,
+              filter: 'drop-shadow(0 2px 8px rgba(0,0,0,0.4))',
+            }}>
+              🍅
+            </Box>
+            {/* Splatter spots */}
+            {[
+              { x: -30, y: -20, s: 14 },
+              { x: 25, y: -15, s: 10 },
+              { x: -15, y: 25, s: 12 },
+              { x: 30, y: 20, s: 8 },
+              { x: -25, y: 5, s: 9 },
+              { x: 10, y: -28, s: 11 },
+            ].map((spot, i) => (
+              <Box key={i} sx={{
+                position: 'absolute',
+                top: `calc(50% + ${spot.y}px)`,
+                left: `calc(50% + ${spot.x}px)`,
+                width: spot.s,
+                height: spot.s,
+                borderRadius: '50%',
+                bgcolor: i % 2 === 0 ? 'rgba(198, 40, 40, 0.6)' : 'rgba(229, 57, 53, 0.5)',
+                animation: `${tomatoSplat} 0.35s ease-out ${0.05 * i}s forwards`,
+              }} />
+            ))}
+          </Box>
+        )}
 
         {/* Card */}
         {renderCard(player, index)}

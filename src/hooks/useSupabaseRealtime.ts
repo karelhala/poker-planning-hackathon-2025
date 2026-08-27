@@ -25,6 +25,7 @@ export interface Player {
   isOnline: boolean
   availableCards: SpecialCardType[]
   avatarConfig?: Record<string, unknown>
+  itemCount?: number
 }
 
 interface MemberRecord {
@@ -37,6 +38,7 @@ interface MemberRecord {
   lastSeen: number
   graceTimerId: ReturnType<typeof setTimeout> | null
   avatarConfig?: Record<string, unknown>
+  itemCount?: number
 }
 
 const GRACE_PERIOD_MS = 900_000
@@ -192,6 +194,7 @@ export const useSupabaseRealtime = () => {
   const [doublePowerPlayers, setDoublePowerPlayers] = useState<Set<string>>(new Set())
   const [halfPowerPlayers, setHalfPowerPlayers] = useState<Set<string>>(new Set())
   const [rainEvent, setRainEvent] = useState<{ size: 'small' | 'medium' | 'large'; id: string } | null>(null)
+  const [tomatoSplats, setTomatoSplats] = useState<Map<string, { thrownBy: string; id: string }>>(new Map())
   const [votingMode, setVotingMode] = useState<VotingMode>('fibonacci')
   const [lastHeartbeat, setLastHeartbeat] = useState<number>(Date.now())
   const [isProcessing, setIsProcessing] = useState(false)
@@ -282,6 +285,7 @@ export const useSupabaseRealtime = () => {
         isOnline: record.isOnline,
         availableCards: record.availableCards,
         avatarConfig: record.avatarConfig,
+        itemCount: record.itemCount,
       })
     })
 
@@ -379,6 +383,7 @@ export const useSupabaseRealtime = () => {
               vote: presence.vote || null,
               availableCards: presence.availableCards || [],
               avatarConfig: presence.avatarConfig || undefined,
+              itemCount: presence.itemCount || 0,
               isOnline: true,
               lastSeen: Date.now(),
               graceTimerId: null,
@@ -934,6 +939,27 @@ export const useSupabaseRealtime = () => {
         message: `💰 ${senderName || 'Admin'} made it rain! Catch the chips!`,
         severity: 'info',
       })
+    })
+
+    channel.on('broadcast', { event: 'tomato_throw' }, (payload) => {
+      const { targetUserId, thrownByName } = payload.payload
+      const splatId = `${Date.now()}`
+      setTomatoSplats(prev => {
+        const next = new Map(prev)
+        next.set(targetUserId, { thrownBy: thrownByName, id: splatId })
+        return next
+      })
+      addLogEntry('info', `🍅 ${thrownByName || 'Someone'} threw a tomato at ${targetUserId === userId ? 'you' : 'someone'}!`, thrownByName)
+      if (targetUserId === userId) {
+        setNotification({ open: true, message: `🍅 ${thrownByName || 'Someone'} threw a tomato at you!`, severity: 'info' })
+      }
+      setTimeout(() => {
+        setTomatoSplats(prev => {
+          const next = new Map(prev)
+          if (next.get(targetUserId)?.id === splatId) next.delete(targetUserId)
+          return next
+        })
+      }, 3000)
     })
 
     const trackPresence = async () => {
@@ -1731,6 +1757,30 @@ export const useSupabaseRealtime = () => {
     })
   }
 
+  const handleThrowTomato = (targetUserId: string, targetUserName: string | null) => {
+    sendEvent('tomato_throw', { targetUserId, targetUserName, thrownByName: userNameRef.current })
+    setTomatoSplats(prev => {
+      const next = new Map(prev)
+      const splatId = `${Date.now()}`
+      next.set(targetUserId, { thrownBy: userNameRef.current || 'You', id: splatId })
+      setTimeout(() => {
+        setTomatoSplats(p => {
+          const n = new Map(p)
+          if (n.get(targetUserId)?.id === splatId) n.delete(targetUserId)
+          return n
+        })
+      }, 3000)
+      return next
+    })
+    addLogEntry('info', `🍅 You threw a tomato at ${targetUserName || 'someone'}!`, userNameRef.current)
+  }
+
+  const itemCountRef = useRef(0)
+
+  const setItemCount = (count: number) => {
+    itemCountRef.current = count
+  }
+
   const refreshPresence = () => {
     if (channelRef.current) {
       channelRef.current.track({
@@ -1740,6 +1790,7 @@ export const useSupabaseRealtime = () => {
         vote: currentVoteRef.current,
         availableCards: specialCardsRef.current.map(c => c.type),
         avatarConfig: loadAvatarConfig(),
+        itemCount: itemCountRef.current,
         online_at: new Date().toISOString(),
       })
     }
@@ -1803,7 +1854,10 @@ export const useSupabaseRealtime = () => {
     handleGrantHalfPower,
     handleSetVotingMode,
     handleMakeItRain,
+    handleThrowTomato,
+    tomatoSplats,
     refreshPresence,
+    setItemCount,
     rainEvent,
     clearRainEvent: () => setRainEvent(null),
     clearActionLog,

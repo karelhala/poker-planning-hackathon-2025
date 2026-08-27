@@ -24,7 +24,9 @@ import { PointsFloater } from './components/PointsFloater'
 import { PointsEconomyModal } from './components/PointsEconomyModal'
 import { AvatarEditor } from './components/AvatarEditor'
 import { MakeItRain } from './components/MakeItRain'
+import { TomatoSplash } from './components/TomatoSplash'
 import { ShopModal } from './components/ShopModal'
+import { ChipStack } from './components/ChipStack'
 import type { ShopItem } from './data/shopItems'
 import { supabase } from './supabaseClient'
 
@@ -44,6 +46,8 @@ function App() {
   const [avatarVersion, setAvatarVersion] = useState(0)
   const [shopOpen, setShopOpen] = useState(false)
   const [ownedItems, setOwnedItems] = useState<string[]>([])
+  const [consumableItems, setConsumableItems] = useState<string[]>([])
+  const [itemTargeting, setItemTargeting] = useState<string | null>(null)
 
   // Custom hooks
   const { mode, toggleColorMode } = useThemeMode()
@@ -87,7 +91,10 @@ function App() {
     handleGrantHalfPower,
     handleSetVotingMode,
     handleMakeItRain,
+    handleThrowTomato,
+    tomatoSplats,
     refreshPresence,
+    setItemCount,
     rainEvent,
     clearRainEvent,
     votingMode,
@@ -313,6 +320,12 @@ function App() {
     }
   }, [gameState])
 
+  // Sync item count to presence
+  useEffect(() => {
+    setItemCount(consumableItems.length)
+    if (roomId) refreshPresence()
+  }, [consumableItems.length])
+
   // Reset points when leaving room
   useEffect(() => {
     if (!roomId) {
@@ -344,9 +357,30 @@ function App() {
       awardCustomPoints(-item.cost, `Bought ${item.name}`, '🛒')
       if (item.type === 'permanent') {
         setOwnedItems(prev => [...prev, item.id])
+      } else {
+        setConsumableItems(prev => [...prev, item.id])
       }
     }
   }, [points, awardCustomPoints])
+
+  const handleUseItem = useCallback((itemId: string) => {
+    if (itemId === 'tomato') {
+      setItemTargeting('tomato')
+      showNotification('🍅 Click on a player to throw a tomato!', 'info')
+    }
+  }, [])
+
+  const handleItemTargetSelect = useCallback((targetUserId: string, targetUserName: string | null) => {
+    if (itemTargeting === 'tomato') {
+      handleThrowTomato(targetUserId, targetUserName)
+      setConsumableItems(prev => {
+        const idx = prev.indexOf('tomato')
+        if (idx >= 0) return [...prev.slice(0, idx), ...prev.slice(idx + 1)]
+        return prev
+      })
+      setItemTargeting(null)
+    }
+  }, [itemTargeting, handleThrowTomato])
 
   const handleToggleSidebar = useCallback(() => {
     setSidebarCollapsed(prev => {
@@ -460,6 +494,9 @@ function App() {
                   onOpenEconomyModal={() => setEconomyModalOpen(true)}
                   avatarVersion={avatarVersion}
                   onMakeItRain={handleMakeItRain}
+                  tomatoSplats={tomatoSplats}
+                  itemTargeting={itemTargeting}
+                  onItemTargetSelect={handleItemTargetSelect}
                 />
               </Box>
 
@@ -549,6 +586,16 @@ function App() {
         onVote={handleQuickDrawVote}
         currentUserId={userId}
       />
+
+      {/* Tomato splash (full screen on target) */}
+      <TomatoSplash
+        active={tomatoSplats.has(userId)}
+        thrownBy={tomatoSplats.get(userId)?.thrownBy || ''}
+        onEnd={() => {}}
+      />
+
+      {/* Chip Stack (consumable items) */}
+      {roomId && <ChipStack items={consumableItems} onUseItem={handleUseItem} />}
 
       {/* Make It Rain overlay */}
       <MakeItRain
