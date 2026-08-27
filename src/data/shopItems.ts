@@ -122,7 +122,7 @@ export const SHOP_ITEMS: ShopItem[] = [
     cost: 2,
     rarity: 'normal',
     type: 'consumable',
-    implemented: false,
+    implemented: true,
   },
   {
     id: 'megaphone',

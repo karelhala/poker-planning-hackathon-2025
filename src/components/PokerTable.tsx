@@ -57,6 +57,7 @@ interface PokerTableProps {
   avatarVersion?: number;
   onMakeItRain?: (size: 'small' | 'medium' | 'large') => void;
   tomatoSplats?: Map<string, { thrownBy: string; id: string }>;
+  applauseEvents?: Map<string, { userName: string; id: string }>;
   itemTargeting?: string | null;
   onItemTargetSelect?: (userId: string, userName: string | null) => void;
 }
@@ -81,6 +82,12 @@ const tomatoSplat = keyframes`
   0% { transform: translate(-50%, -50%) scale(0); opacity: 1; }
   20% { transform: translate(-50%, -50%) scale(1.3); opacity: 1; }
   100% { transform: translate(-50%, -50%) scale(1); opacity: 0.85; }
+`;
+
+const applauseFloat = keyframes`
+  0% { transform: translateY(0) scale(0); opacity: 1; }
+  20% { transform: translateY(-10px) scale(1.2); opacity: 1; }
+  100% { transform: translateY(-60px) scale(0.6); opacity: 0; }
 `;
 
 const revealPulse = keyframes`
@@ -150,6 +157,7 @@ export const PokerTable: React.FC<PokerTableProps> = ({
   avatarVersion = 0,
   onMakeItRain,
   tomatoSplats = new Map(),
+  applauseEvents = new Map(),
   itemTargeting = null,
   onItemTargetSelect,
 }) => {
@@ -562,6 +570,40 @@ export const PokerTable: React.FC<PokerTableProps> = ({
                 bgcolor: i % 2 === 0 ? 'rgba(198, 40, 40, 0.6)' : 'rgba(229, 57, 53, 0.5)',
                 animation: `${tomatoSplat} 0.35s ease-out ${0.05 * i}s forwards`,
               }} />
+            ))}
+          </Box>
+        )}
+
+        {/* Applause effect */}
+        {applauseEvents.has(player.userId) && (
+          <Box sx={{
+            position: 'absolute',
+            top: '-10%',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            zIndex: 20,
+            pointerEvents: 'none',
+          }}>
+            {[
+              { x: -20, delay: 0 },
+              { x: 0, delay: 0.15 },
+              { x: 20, delay: 0.3 },
+              { x: -10, delay: 0.45 },
+              { x: 10, delay: 0.6 },
+              { x: -25, delay: 0.8 },
+              { x: 5, delay: 0.95 },
+              { x: 15, delay: 1.1 },
+            ].map((cfg, i) => (
+              <Box key={i} sx={{
+                position: 'absolute',
+                left: cfg.x,
+                fontSize: '1.4rem',
+                animation: `${applauseFloat} 1.2s ease-out ${cfg.delay}s forwards`,
+                opacity: 0,
+                filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))',
+              }}>
+                👏
+              </Box>
             ))}
           </Box>
         )}

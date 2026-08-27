@@ -197,6 +197,7 @@ export const useSupabaseRealtime = () => {
   const [halfPowerPlayers, setHalfPowerPlayers] = useState<Set<string>>(new Set())
   const [rainEvent, setRainEvent] = useState<{ size: 'small' | 'medium' | 'large'; id: string } | null>(null)
   const [tomatoSplats, setTomatoSplats] = useState<Map<string, { thrownBy: string; id: string }>>(new Map())
+  const [applauseEvents, setApplauseEvents] = useState<Map<string, { userName: string; id: string }>>(new Map())
   const [votingMode, setVotingMode] = useState<VotingMode>('fibonacci')
   const [lastHeartbeat, setLastHeartbeat] = useState<number>(Date.now())
   const [isProcessing, setIsProcessing] = useState(false)
@@ -969,6 +970,24 @@ export const useSupabaseRealtime = () => {
       }, 3000)
     })
 
+    channel.on('broadcast', { event: 'applause' }, (payload) => {
+      const { userId: senderId, userName: senderName } = payload.payload
+      const eventId = `${Date.now()}`
+      setApplauseEvents(prev => {
+        const next = new Map(prev)
+        next.set(senderId, { userName: senderName || 'Someone', id: eventId })
+        return next
+      })
+      addLogEntry('info', `👏 ${senderName || 'Someone'} triggered applause!`, senderName)
+      setTimeout(() => {
+        setApplauseEvents(prev => {
+          const next = new Map(prev)
+          if (next.get(senderId)?.id === eventId) next.delete(senderId)
+          return next
+        })
+      }, 2500)
+    })
+
     const trackPresence = async () => {
       const presenceData = buildPresence()
       console.log('Tracking presence:', presenceData)
@@ -1703,6 +1722,25 @@ export const useSupabaseRealtime = () => {
     })
   }
 
+  const handleApplause = () => {
+    const eventId = `${Date.now()}`
+    sendEvent('applause', {})
+    // Also show locally (broadcast self:false means sender doesn't get own event)
+    setApplauseEvents(prev => {
+      const next = new Map(prev)
+      next.set(userId, { userName: userNameRef.current || 'You', id: eventId })
+      return next
+    })
+    addLogEntry('info', `👏 You triggered applause!`, userNameRef.current)
+    setTimeout(() => {
+      setApplauseEvents(prev => {
+        const next = new Map(prev)
+        if (next.get(userId)?.id === eventId) next.delete(userId)
+        return next
+      })
+    }, 2500)
+  }
+
   const handleThrowTomato = (targetUserId: string, targetUserName: string | null) => {
     sendEvent('tomato_throw', { targetUserId, targetUserName, thrownByName: userNameRef.current })
     setTomatoSplats(prev => {
@@ -1794,7 +1832,9 @@ export const useSupabaseRealtime = () => {
     handleSetVotingMode,
     handleMakeItRain,
     handleThrowTomato,
+    handleApplause,
     tomatoSplats,
+    applauseEvents,
     refreshPresence,
     setItemCount,
     setGhostChipCount,

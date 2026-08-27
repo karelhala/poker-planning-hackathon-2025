@@ -93,7 +93,9 @@ function App() {
     handleSetVotingMode,
     handleMakeItRain,
     handleThrowTomato,
+    handleApplause,
     tomatoSplats,
+    applauseEvents,
     refreshPresence,
     setItemCount,
     setGhostChipCount,
@@ -380,8 +382,15 @@ function App() {
     if (itemId === 'tomato') {
       setItemTargeting('tomato')
       showNotification('🍅 Click on a player to throw a tomato!', 'info')
+    } else if (itemId === 'applause') {
+      handleApplause()
+      setConsumableItems(prev => {
+        const idx = prev.indexOf('applause')
+        if (idx >= 0) return [...prev.slice(0, idx), ...prev.slice(idx + 1)]
+        return prev
+      })
     }
-  }, [])
+  }, [handleApplause])
 
   const handleItemTargetSelect = useCallback((targetUserId: string, targetUserName: string | null) => {
     if (itemTargeting === 'tomato') {
@@ -508,6 +517,7 @@ function App() {
                   avatarVersion={avatarVersion}
                   onMakeItRain={handleMakeItRain}
                   tomatoSplats={tomatoSplats}
+                  applauseEvents={applauseEvents}
                   itemTargeting={itemTargeting}
                   onItemTargetSelect={handleItemTargetSelect}
                 />
