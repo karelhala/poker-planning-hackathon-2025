@@ -102,6 +102,7 @@ function App() {
     handleThrowTomato,
     handleSpotlight,
     handleMirror,
+    handleSmokeBomb,
     handleApplause,
     handleDiceRoll,
     handleMegaphoneVote,
@@ -110,6 +111,7 @@ function App() {
     tomatoSplats,
     spotlightTargets,
     mirrorTargets,
+    smokeBombTargets,
     applauseEvents,
     diceRollEvent,
     clearDiceRollEvent,
@@ -507,6 +509,9 @@ function App() {
     } else if (itemId === 'mirror') {
       setItemTargeting('mirror')
       showNotification('🪞 Click on a player to mirror their card!', 'info')
+    } else if (itemId === 'smoke_bomb') {
+      setItemTargeting('smoke_bomb')
+      showNotification('💨 Click on a player to smoke-bomb their card!', 'info')
     } else if (itemId === 'dice') {
       if (gameState !== 'VOTING') {
         showNotification('🎲 Can only roll dice during voting!', 'error')
@@ -561,8 +566,16 @@ function App() {
         return prev
       })
       setItemTargeting(null)
+    } else if (itemTargeting === 'smoke_bomb') {
+      handleSmokeBomb(targetUserId, targetUserName)
+      setConsumableItems(prev => {
+        const idx = prev.indexOf('smoke_bomb')
+        if (idx >= 0) return [...prev.slice(0, idx), ...prev.slice(idx + 1)]
+        return prev
+      })
+      setItemTargeting(null)
     }
-  }, [itemTargeting, handleThrowTomato, handleSpotlight, handleMirror])
+  }, [itemTargeting, handleThrowTomato, handleSpotlight, handleMirror, handleSmokeBomb])
 
   const handleToggleSidebar = useCallback(() => {
     setSidebarCollapsed(prev => {
@@ -712,6 +725,7 @@ function App() {
                   shuffleEffect={shuffleEffect}
                   onCoffeeSelect={handleCoffeeSelect}
                   votingMode={votingMode}
+                  smokeBomb={smokeBombTargets.get(userId) || null}
                 />
               </Paper>
             </Box>

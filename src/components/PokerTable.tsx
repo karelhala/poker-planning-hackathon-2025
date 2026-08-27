@@ -131,6 +131,7 @@ const mirrorFlip = keyframes`
   100% { transform: scaleX(-1) scaleY(-1); }
 `;
 
+
 const earthquakeShake = keyframes`
   0%, 100% { transform: translate(0, 0) rotate(0); }
   10% { transform: translate(-3px, -2px) rotate(-0.5deg); }
@@ -393,7 +394,6 @@ export const PokerTable: React.FC<PokerTableProps> = ({
     const isBlocked = blockedPlayers.has(player.userId);
     const copyInfo = getCopyInfo(player.userId);
     const isMirrored = mirrorTargets.has(player.userId);
-
     let backColor = '#1a237e';
     let backBorder = '#0d1642';
     let frontBorder = '#BDBDBD';

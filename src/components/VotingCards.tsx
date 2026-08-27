@@ -26,6 +26,14 @@ const flipCard = keyframes`
   100% { transform: rotateY(180deg); }
 `;
 
+const smokeSwirl = keyframes`
+  0% { opacity: 0.85; filter: blur(8px); transform: scale(1) rotate(0deg); }
+  25% { opacity: 0.95; filter: blur(12px); transform: scale(1.02) rotate(2deg); }
+  50% { opacity: 0.8; filter: blur(10px); transform: scale(0.98) rotate(-1deg); }
+  75% { opacity: 0.9; filter: blur(11px); transform: scale(1.01) rotate(1deg); }
+  100% { opacity: 0.85; filter: blur(8px); transform: scale(1) rotate(0deg); }
+`;
+
 const TSHIRT_COLORS: Record<string, string> = {
   S: '#1976d2',
   M: '#4caf50',
@@ -52,6 +60,11 @@ interface HandCard {
   isDecoy?: boolean;
 }
 
+interface SmokeBombState {
+  smokedBy: string;
+  id: string;
+}
+
 interface VotingCardsProps {
   selectedValue: string | null;
   onVote: (value: string) => void;
@@ -65,6 +78,7 @@ interface VotingCardsProps {
   shuffleEffect?: ShuffleEffect | null;
   onCoffeeSelect?: () => void;
   votingMode?: VotingMode;
+  smokeBomb?: SmokeBombState | null;
 }
 
 function getArcTransform(index: number, total: number, isHovered: boolean, isSelected: boolean) {
@@ -94,6 +108,7 @@ export const VotingCards: React.FC<VotingCardsProps> = ({
   shuffleEffect = null,
   onCoffeeSelect,
   votingMode = 'fibonacci',
+  smokeBomb = null,
 }) => {
   const [lastRandomValue, setLastRandomValue] = useState<string | null>(null);
   const [revealedCards, setRevealedCards] = useState<Set<number>>(new Set());
@@ -502,68 +517,101 @@ export const VotingCards: React.FC<VotingCardsProps> = ({
       </Typography>
 
       {/* Card hand arc */}
-      <Box
-        sx={{
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'flex-end',
-          pt: 5,
-          pb: 1,
-          px: 1,
-          position: 'relative',
-          minHeight: 130,
-        }}
-      >
-        {hand.map((card, index) => {
-          const selected = isCardSelected(card);
-          const hovered = hoveredCard === card.id;
-          const arc = getArcTransform(index, hand.length, hovered, selected);
-          const cardSx = getCardSx(card);
-
-          return (
-            <Box
-              key={card.id}
-              onMouseEnter={() => setHoveredCard(card.id)}
-              onMouseLeave={() => setHoveredCard(null)}
-              sx={{
-                transform: `rotate(${arc.rotation}deg) translateY(${arc.yOffset}px)`,
-                transformOrigin: 'bottom center',
-                transition: 'transform 0.2s ease',
-                mx: '-3px',
-                zIndex: hovered ? 100 : selected ? 50 : hand.length - Math.abs(Math.round(index - (hand.length - 1) / 2)),
-                flexShrink: 0,
-              }}
-            >
-              <Tooltip
-                title={
-                  card.type === 'special'
-                    ? `${SPECIAL_CARD_INFO[card.specialType!].label}: ${SPECIAL_CARD_INFO[card.specialType!].description}`
-                    : card.type === 'random'
-                      ? 'Random vote'
-                      : card.type === 'coffee'
-                        ? 'Pass (0.5x next round)'
-                        : card.type === 'shuffled' && !isCardRevealed(card)
-                          ? 'Click to flip'
-                          : ''
-                }
-                arrow
-                placement="top"
-                disableHoverListener={card.type === 'number' || card.type === 'tshirt'}
-              >
-                <Button
-                  disabled={votingDisabled && card.type !== 'special'}
-                  onClick={() => handleCardClick(card)}
-                  sx={{
-                    ...cardSx,
-                    ...(isBlocked && card.type !== 'special' && { opacity: 0.35, filter: 'grayscale(1)' }),
-                  }}
-                >
-                  {renderCardContent(card)}
-                </Button>
-              </Tooltip>
+      <Box sx={{ position: 'relative' }}>
+        {/* Smoke bomb overlay — visual only, clicks pass through */}
+        {smokeBomb && (
+          <Box
+            sx={{
+              position: 'absolute',
+              inset: 0,
+              zIndex: 200,
+              pointerEvents: 'none',
+              borderRadius: '12px',
+              background: 'radial-gradient(ellipse at center, rgba(100,100,100,0.93) 0%, rgba(70,70,70,0.88) 30%, rgba(50,50,50,0.8) 60%, rgba(30,30,30,0.65) 100%)',
+              animation: `${smokeSwirl} 3s ease-in-out infinite`,
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 1,
+              userSelect: 'none',
+            }}
+          >
+            <Box sx={{ fontSize: '2.5rem' }}>💨</Box>
+            <Box sx={{
+              color: '#fff',
+              fontWeight: 800,
+              fontSize: '0.85rem',
+              textShadow: '0 2px 8px rgba(0,0,0,0.9)',
+              letterSpacing: '0.08em',
+            }}>
+              SMOKE BOMB!
             </Box>
-          );
-        })}
+          </Box>
+        )}
+        <Box
+          sx={{
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'flex-end',
+            pt: 5,
+            pb: 1,
+            px: 1,
+            position: 'relative',
+            minHeight: 130,
+          }}
+        >
+          {hand.map((card, index) => {
+            const selected = isCardSelected(card);
+            const hovered = hoveredCard === card.id;
+            const arc = getArcTransform(index, hand.length, hovered, selected);
+            const cardSx = getCardSx(card);
+
+            return (
+              <Box
+                key={card.id}
+                onMouseEnter={() => setHoveredCard(card.id)}
+                onMouseLeave={() => setHoveredCard(null)}
+                sx={{
+                  transform: `rotate(${arc.rotation}deg) translateY(${arc.yOffset}px)`,
+                  transformOrigin: 'bottom center',
+                  transition: 'transform 0.2s ease',
+                  mx: '-3px',
+                  zIndex: hovered ? 100 : selected ? 50 : hand.length - Math.abs(Math.round(index - (hand.length - 1) / 2)),
+                  flexShrink: 0,
+                }}
+              >
+                <Tooltip
+                  title={
+                    card.type === 'special'
+                      ? `${SPECIAL_CARD_INFO[card.specialType!].label}: ${SPECIAL_CARD_INFO[card.specialType!].description}`
+                      : card.type === 'random'
+                        ? 'Random vote'
+                        : card.type === 'coffee'
+                          ? 'Pass (0.5x next round)'
+                          : card.type === 'shuffled' && !isCardRevealed(card)
+                            ? 'Click to flip'
+                            : ''
+                  }
+                  arrow
+                  placement="top"
+                  disableHoverListener={card.type === 'number' || card.type === 'tshirt'}
+                >
+                  <Button
+                    disabled={votingDisabled && card.type !== 'special'}
+                    onClick={() => handleCardClick(card)}
+                    sx={{
+                      ...cardSx,
+                      ...(isBlocked && card.type !== 'special' && { opacity: 0.35, filter: 'grayscale(1)' }),
+                    }}
+                  >
+                    {renderCardContent(card)}
+                  </Button>
+                </Tooltip>
+              </Box>
+            );
+          })}
+        </Box>
       </Box>
     </Box>
   );

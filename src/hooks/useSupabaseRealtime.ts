@@ -205,6 +205,7 @@ export const useSupabaseRealtime = () => {
   const [rainEvent, setRainEvent] = useState<{ size: 'small' | 'medium' | 'large'; id: string } | null>(null)
   const [spotlightTargets, setSpotlightTargets] = useState<Map<string, { spottedBy: string; id: string }>>(new Map())
   const [mirrorTargets, setMirrorTargets] = useState<Map<string, { mirroredBy: string; id: string }>>(new Map())
+  const [smokeBombTargets, setSmokeBombTargets] = useState<Map<string, { smokedBy: string; id: string }>>(new Map())
   const [tomatoSplats, setTomatoSplats] = useState<Map<string, { thrownBy: string; id: string }>>(new Map())
   const [applauseEvents, setApplauseEvents] = useState<Map<string, { userName: string; id: string }>>(new Map())
   const [megaphoneEvents, setMegaphoneEvents] = useState<Map<string, { userName: string; id: string }>>(new Map())
@@ -614,6 +615,7 @@ export const useSupabaseRealtime = () => {
       setEarthquakeActive(false)
       setSpotlightTargets(new Map())
       setMirrorTargets(new Map())
+      setSmokeBombTargets(new Map())
       pokerFaceActiveRef.current = false
       invisibleInkActiveRef.current = false
       disguiseActiveRef.current = false
@@ -1160,6 +1162,21 @@ export const useSupabaseRealtime = () => {
       addLogEntry('info', `🪞 ${senderName} mirrored ${targetUserId === userId ? 'your' : (targetUserName || "someone's")} card!`, senderName)
       if (targetUserId === userId) {
         setNotification({ open: true, message: `🪞 ${senderName} mirrored your card!`, severity: 'info' })
+      }
+    })
+
+    channel.on('broadcast', { event: 'smoke_bomb' }, (payload) => {
+      const { targetUserId, targetUserName } = payload.payload
+      const senderName = payload.payload.userName || 'Someone'
+      const smokeId = `${Date.now()}`
+      setSmokeBombTargets(prev => {
+        const next = new Map(prev)
+        next.set(targetUserId, { smokedBy: senderName, id: smokeId })
+        return next
+      })
+      addLogEntry('info', `💨 ${senderName} smoke-bombed ${targetUserId === userId ? 'you' : (targetUserName || 'someone')}!`, senderName)
+      if (targetUserId === userId) {
+        setNotification({ open: true, message: `💨 ${senderName} smoke-bombed you! Click the smoke to clear it!`, severity: 'info' })
       }
     })
 
@@ -2069,6 +2086,17 @@ export const useSupabaseRealtime = () => {
     addLogEntry('info', `🪞 You mirrored ${targetUserName || "someone's"} card!`, userNameRef.current)
   }
 
+  const handleSmokeBomb = (targetUserId: string, targetUserName: string | null) => {
+    sendEvent('smoke_bomb', { targetUserId, targetUserName })
+    const smokeId = `${Date.now()}`
+    setSmokeBombTargets(prev => {
+      const next = new Map(prev)
+      next.set(targetUserId, { smokedBy: userNameRef.current || 'You', id: smokeId })
+      return next
+    })
+    addLogEntry('info', `💨 You smoke-bombed ${targetUserName || 'someone'}!`, userNameRef.current)
+  }
+
   const setItemCount = (count: number) => {
     itemCountRef.current = count
   }
@@ -2172,6 +2200,7 @@ export const useSupabaseRealtime = () => {
     handleThrowTomato,
     handleSpotlight,
     handleMirror,
+    handleSmokeBomb,
     handleApplause,
     handleDiceRoll,
     handleMegaphoneVote,
@@ -2180,6 +2209,7 @@ export const useSupabaseRealtime = () => {
     tomatoSplats,
     spotlightTargets,
     mirrorTargets,
+    smokeBombTargets,
     applauseEvents,
     diceRollEvent,
     clearDiceRollEvent: () => setDiceRollEvent(null),
