@@ -22,7 +22,7 @@ No targeting needed. Player uses item, everyone sees effect.
 | # | Item | Cost | Effort | Key Implementation |
 |---|------|------|--------|--------------------|
 | 1 | ✅ Applause 👏 | 2 pts | Trivial | Floating 👏 emojis from user's seat, 2s duration |
-| 2 | ⬜ Megaphone 📢 | 3 pts | Trivial | Flag on use, "VOTED!" banner flash on next vote |
+| 2 | ✅ Megaphone 📢 | 3 pts | Trivial | Flag on use, "VOTED!" banner flash on next vote |
 | 3 | ⬜ Earthquake 🌍 | 5 pts | Small | Randomize seat positions, CSS transition, reset next round |
 | 4 | ⬜ Rainbow Table 🌈 | 30 pts | Small | CSS `hue-rotate` animation on felt, persists until session end |
 | 5 | ⬜ Confetti Cannon 🎉 | 5 pts | Small | Particle effect on consensus (spread === 0), permanent item |

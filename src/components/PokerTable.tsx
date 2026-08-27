@@ -58,6 +58,7 @@ interface PokerTableProps {
   onMakeItRain?: (size: 'small' | 'medium' | 'large') => void;
   tomatoSplats?: Map<string, { thrownBy: string; id: string }>;
   applauseEvents?: Map<string, { userName: string; id: string }>;
+  megaphoneEvents?: Map<string, { userName: string; id: string }>;
   itemTargeting?: string | null;
   onItemTargetSelect?: (userId: string, userName: string | null) => void;
 }
@@ -88,6 +89,14 @@ const applauseFloat = keyframes`
   0% { transform: translateY(0) scale(0); opacity: 1; }
   20% { transform: translateY(-10px) scale(1.2); opacity: 1; }
   100% { transform: translateY(-60px) scale(0.6); opacity: 0; }
+`;
+
+const megaphoneBanner = keyframes`
+  0% { transform: translateX(-50%) scale(0); opacity: 0; }
+  15% { transform: translateX(-50%) scale(1.3); opacity: 1; }
+  30% { transform: translateX(-50%) scale(1); opacity: 1; }
+  80% { transform: translateX(-50%) scale(1); opacity: 1; }
+  100% { transform: translateX(-50%) scale(0.5); opacity: 0; }
 `;
 
 const revealPulse = keyframes`
@@ -158,6 +167,7 @@ export const PokerTable: React.FC<PokerTableProps> = ({
   onMakeItRain,
   tomatoSplats = new Map(),
   applauseEvents = new Map(),
+  megaphoneEvents = new Map(),
   itemTargeting = null,
   onItemTargetSelect,
 }) => {
@@ -605,6 +615,34 @@ export const PokerTable: React.FC<PokerTableProps> = ({
                 👏
               </Box>
             ))}
+          </Box>
+        )}
+
+        {/* Megaphone VOTED! banner */}
+        {megaphoneEvents.has(player.userId) && (
+          <Box sx={{
+            position: 'absolute',
+            top: '-18%',
+            left: '50%',
+            zIndex: 25,
+            pointerEvents: 'none',
+            animation: `${megaphoneBanner} 2.8s ease-out forwards`,
+          }}>
+            <Box sx={{
+              background: 'linear-gradient(135deg, #FF6F00, #FFC107)',
+              color: '#fff',
+              fontWeight: 900,
+              fontSize: '1rem',
+              px: 1.5,
+              py: 0.5,
+              borderRadius: '8px',
+              whiteSpace: 'nowrap',
+              textShadow: '0 1px 3px rgba(0,0,0,0.4)',
+              boxShadow: '0 4px 16px rgba(255,111,0,0.5)',
+              letterSpacing: '0.1em',
+            }}>
+              📢 VOTED!
+            </Box>
           </Box>
         )}
 

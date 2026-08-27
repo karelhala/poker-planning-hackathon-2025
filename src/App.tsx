@@ -49,6 +49,7 @@ function App() {
   const [ownedItems, setOwnedItems] = useState<string[]>([])
   const [consumableItems, setConsumableItems] = useState<string[]>([])
   const [itemTargeting, setItemTargeting] = useState<string | null>(null)
+  const [megaphoneActive, setMegaphoneActive] = useState(false)
 
   // Custom hooks
   const { mode, toggleColorMode } = useThemeMode()
@@ -94,8 +95,10 @@ function App() {
     handleMakeItRain,
     handleThrowTomato,
     handleApplause,
+    handleMegaphoneVote,
     tomatoSplats,
     applauseEvents,
+    megaphoneEvents,
     refreshPresence,
     setItemCount,
     setGhostChipCount,
@@ -192,6 +195,10 @@ function App() {
     updateVotingStatus(true, value)
     if (!wasAlreadyVoted) {
       onVoteCast()
+    }
+    if (megaphoneActive) {
+      handleMegaphoneVote()
+      setMegaphoneActive(false)
     }
   }
 
@@ -389,8 +396,20 @@ function App() {
         if (idx >= 0) return [...prev.slice(0, idx), ...prev.slice(idx + 1)]
         return prev
       })
+    } else if (itemId === 'megaphone') {
+      if (megaphoneActive) {
+        showNotification('📢 Megaphone already armed! Wait until you vote.', 'info')
+        return
+      }
+      setMegaphoneActive(true)
+      showNotification('📢 Megaphone armed! Your next vote will flash "VOTED!" to everyone.', 'info')
+      setConsumableItems(prev => {
+        const idx = prev.indexOf('megaphone')
+        if (idx >= 0) return [...prev.slice(0, idx), ...prev.slice(idx + 1)]
+        return prev
+      })
     }
-  }, [handleApplause])
+  }, [handleApplause, megaphoneActive])
 
   const handleItemTargetSelect = useCallback((targetUserId: string, targetUserName: string | null) => {
     if (itemTargeting === 'tomato') {
@@ -518,6 +537,7 @@ function App() {
                   onMakeItRain={handleMakeItRain}
                   tomatoSplats={tomatoSplats}
                   applauseEvents={applauseEvents}
+                  megaphoneEvents={megaphoneEvents}
                   itemTargeting={itemTargeting}
                   onItemTargetSelect={handleItemTargetSelect}
                 />

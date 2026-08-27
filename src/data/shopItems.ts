@@ -132,7 +132,7 @@ export const SHOP_ITEMS: ShopItem[] = [
     cost: 3,
     rarity: 'normal',
     type: 'consumable',
-    implemented: false,
+    implemented: true,
   },
   {
     id: 'name_color',

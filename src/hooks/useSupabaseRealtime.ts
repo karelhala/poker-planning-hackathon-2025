@@ -198,6 +198,7 @@ export const useSupabaseRealtime = () => {
   const [rainEvent, setRainEvent] = useState<{ size: 'small' | 'medium' | 'large'; id: string } | null>(null)
   const [tomatoSplats, setTomatoSplats] = useState<Map<string, { thrownBy: string; id: string }>>(new Map())
   const [applauseEvents, setApplauseEvents] = useState<Map<string, { userName: string; id: string }>>(new Map())
+  const [megaphoneEvents, setMegaphoneEvents] = useState<Map<string, { userName: string; id: string }>>(new Map())
   const [votingMode, setVotingMode] = useState<VotingMode>('fibonacci')
   const [lastHeartbeat, setLastHeartbeat] = useState<number>(Date.now())
   const [isProcessing, setIsProcessing] = useState(false)
@@ -988,6 +989,24 @@ export const useSupabaseRealtime = () => {
       }, 2500)
     })
 
+    channel.on('broadcast', { event: 'megaphone_vote' }, (payload) => {
+      const { userId: senderId, userName: senderName } = payload.payload
+      const eventId = `${Date.now()}`
+      setMegaphoneEvents(prev => {
+        const next = new Map(prev)
+        next.set(senderId, { userName: senderName || 'Someone', id: eventId })
+        return next
+      })
+      addLogEntry('info', `📢 ${senderName || 'Someone'} VOTED with a megaphone!`, senderName)
+      setTimeout(() => {
+        setMegaphoneEvents(prev => {
+          const next = new Map(prev)
+          if (next.get(senderId)?.id === eventId) next.delete(senderId)
+          return next
+        })
+      }, 3000)
+    })
+
     const trackPresence = async () => {
       const presenceData = buildPresence()
       console.log('Tracking presence:', presenceData)
@@ -1741,6 +1760,24 @@ export const useSupabaseRealtime = () => {
     }, 2500)
   }
 
+  const handleMegaphoneVote = () => {
+    const eventId = `${Date.now()}`
+    sendEvent('megaphone_vote', {})
+    setMegaphoneEvents(prev => {
+      const next = new Map(prev)
+      next.set(userId, { userName: userNameRef.current || 'You', id: eventId })
+      return next
+    })
+    addLogEntry('info', `📢 You VOTED with a megaphone!`, userNameRef.current)
+    setTimeout(() => {
+      setMegaphoneEvents(prev => {
+        const next = new Map(prev)
+        if (next.get(userId)?.id === eventId) next.delete(userId)
+        return next
+      })
+    }, 3000)
+  }
+
   const handleThrowTomato = (targetUserId: string, targetUserName: string | null) => {
     sendEvent('tomato_throw', { targetUserId, targetUserName, thrownByName: userNameRef.current })
     setTomatoSplats(prev => {
@@ -1833,8 +1870,10 @@ export const useSupabaseRealtime = () => {
     handleMakeItRain,
     handleThrowTomato,
     handleApplause,
+    handleMegaphoneVote,
     tomatoSplats,
     applauseEvents,
+    megaphoneEvents,
     refreshPresence,
     setItemCount,
     setGhostChipCount,
