@@ -79,6 +79,7 @@ interface VotingCardsProps {
   onCoffeeSelect?: () => void;
   votingMode?: VotingMode;
   smokeBomb?: SmokeBombState | null;
+  burntRound?: boolean;
 }
 
 function getArcTransform(index: number, total: number, isHovered: boolean, isSelected: boolean) {
@@ -109,6 +110,7 @@ export const VotingCards: React.FC<VotingCardsProps> = ({
   onCoffeeSelect,
   votingMode = 'fibonacci',
   smokeBomb = null,
+  burntRound = false,
 }) => {
   const [lastRandomValue, setLastRandomValue] = useState<string | null>(null);
   const [revealedCards, setRevealedCards] = useState<Set<number>>(new Set());
@@ -369,6 +371,22 @@ export const VotingCards: React.FC<VotingCardsProps> = ({
       transition: 'box-shadow 0.2s ease, border-color 0.2s ease',
       position: 'relative' as const,
       overflow: 'hidden',
+      ...(burntRound && {
+        '&::after': {
+          content: '""',
+          position: 'absolute',
+          inset: 0,
+          borderRadius: 'inherit',
+          background: `
+            radial-gradient(ellipse at 0% 0%, rgba(20,10,0,0.85) 0%, rgba(80,40,0,0.4) 22%, transparent 42%),
+            radial-gradient(ellipse at 100% 0%, rgba(20,10,0,0.75) 0%, rgba(80,40,0,0.35) 18%, transparent 38%),
+            radial-gradient(ellipse at 0% 100%, rgba(20,10,0,0.75) 0%, rgba(80,40,0,0.35) 18%, transparent 38%),
+            radial-gradient(ellipse at 100% 100%, rgba(20,10,0,0.85) 0%, rgba(80,40,0,0.4) 22%, transparent 42%)
+          `,
+          pointerEvents: 'none',
+          zIndex: 10,
+        },
+      }),
     };
 
     if (card.type === 'shuffled' && !revealed) {

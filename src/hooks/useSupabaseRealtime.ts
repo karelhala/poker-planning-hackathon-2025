@@ -206,6 +206,8 @@ export const useSupabaseRealtime = () => {
   const [spotlightTargets, setSpotlightTargets] = useState<Map<string, { spottedBy: string; id: string }>>(new Map())
   const [mirrorTargets, setMirrorTargets] = useState<Map<string, { mirroredBy: string; id: string }>>(new Map())
   const [smokeBombTargets, setSmokeBombTargets] = useState<Map<string, { smokedBy: string; id: string }>>(new Map())
+  const [flamethrowerActive, setFlamethrowerActive] = useState<{ firedBy: string; id: string } | null>(null)
+  const [burntRound, setBurntRound] = useState(false)
   const [tomatoSplats, setTomatoSplats] = useState<Map<string, { thrownBy: string; id: string }>>(new Map())
   const [applauseEvents, setApplauseEvents] = useState<Map<string, { userName: string; id: string }>>(new Map())
   const [megaphoneEvents, setMegaphoneEvents] = useState<Map<string, { userName: string; id: string }>>(new Map())
@@ -616,6 +618,8 @@ export const useSupabaseRealtime = () => {
       setSpotlightTargets(new Map())
       setMirrorTargets(new Map())
       setSmokeBombTargets(new Map())
+      setFlamethrowerActive(null)
+      setBurntRound(false)
       pokerFaceActiveRef.current = false
       invisibleInkActiveRef.current = false
       disguiseActiveRef.current = false
@@ -1180,6 +1184,18 @@ export const useSupabaseRealtime = () => {
       }
     })
 
+    channel.on('broadcast', { event: 'flamethrower' }, (payload) => {
+      const senderName = payload.payload.userName || 'Someone'
+      const fireId = `${Date.now()}`
+      setFlamethrowerActive({ firedBy: senderName, id: fireId })
+      addLogEntry('info', `🔥 ${senderName} used the FLAMETHROWER! The table is on fire!`, senderName)
+      setNotification({ open: true, message: `🔥 ${senderName} set the table on FIRE!`, severity: 'info' })
+      setTimeout(() => {
+        setFlamethrowerActive(prev => prev?.id === fireId ? null : prev)
+        setBurntRound(true)
+      }, 5000)
+    })
+
     channel.on('broadcast', { event: 'felt_color' }, (payload) => {
       const senderName = payload.payload.userName || 'Someone'
       const color = payload.payload.color as string
@@ -1412,6 +1428,10 @@ export const useSupabaseRealtime = () => {
     setShuffleEffect(null)
     setEarthquakeActive(false)
     setSpotlightTargets(new Map())
+    setMirrorTargets(new Map())
+    setSmokeBombTargets(new Map())
+    setFlamethrowerActive(null)
+    setBurntRound(false)
     pokerFaceActiveRef.current = false
     invisibleInkActiveRef.current = false
     disguiseActiveRef.current = false
@@ -2097,6 +2117,17 @@ export const useSupabaseRealtime = () => {
     addLogEntry('info', `💨 You smoke-bombed ${targetUserName || 'someone'}!`, userNameRef.current)
   }
 
+  const handleFlamethrower = (targetUserId: string, targetUserName: string | null) => {
+    sendEvent('flamethrower', { targetUserId, targetUserName })
+    const fireId = `${Date.now()}`
+    setFlamethrowerActive({ firedBy: userNameRef.current || 'You', id: fireId })
+    addLogEntry('info', '🔥 You used the FLAMETHROWER!', userNameRef.current)
+    setTimeout(() => {
+      setFlamethrowerActive(prev => prev?.id === fireId ? null : prev)
+      setBurntRound(true)
+    }, 5000)
+  }
+
   const setItemCount = (count: number) => {
     itemCountRef.current = count
   }
@@ -2201,6 +2232,7 @@ export const useSupabaseRealtime = () => {
     handleSpotlight,
     handleMirror,
     handleSmokeBomb,
+    handleFlamethrower,
     handleApplause,
     handleDiceRoll,
     handleMegaphoneVote,
@@ -2210,6 +2242,8 @@ export const useSupabaseRealtime = () => {
     spotlightTargets,
     mirrorTargets,
     smokeBombTargets,
+    flamethrowerActive,
+    burntRound,
     applauseEvents,
     diceRollEvent,
     clearDiceRollEvent: () => setDiceRollEvent(null),

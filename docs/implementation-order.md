@@ -73,7 +73,7 @@ Player uses item → sets flag in own state → flag changes how game renders/be
 | 13 | ✅ Mirror 🪞 | 4 pts | Small | 
 `transform: scaleX(-1) scaleY(-1)` on target's VotingCards |
 | 14 | ✅ Smoke Bomb 💨 | 5 pts | Medium | Smoke overlay on target cards, click 5-8× to clear |
-| 15 | ⬜ Flamethrower 🔥 | 8 pts | Medium | Fire CSS animation on whole table felt, burnt card edges |
+| 15 | ✅ Flamethrower 🔥 | 8 pts | Medium | Fire CSS animation on whole table felt, burnt card edges |
 
 **Files:** `useSupabaseRealtime.ts` (events), `PokerTable.tsx` (overlays), `VotingCards.tsx` (mirror/smoke on cards)
 

@@ -66,6 +66,8 @@ interface PokerTableProps {
   feltColor?: string | null;
   itemTargeting?: string | null;
   onItemTargetSelect?: (userId: string, userName: string | null) => void;
+  flamethrowerActive?: { firedBy: string; id: string } | null;
+  burntRound?: boolean;
 }
 
 const targetGlow = keyframes`
@@ -173,6 +175,25 @@ const tableFlip = keyframes`
   100% { transform: perspective(1200px) rotateX(0deg) scale(1); }
 `;
 
+const fireFlicker = keyframes`
+  0%, 100% { opacity: 0.8; }
+  10% { opacity: 0.95; }
+  20% { opacity: 0.75; }
+  30% { opacity: 0.92; }
+  40% { opacity: 0.82; }
+  50% { opacity: 0.95; }
+  60% { opacity: 0.7; }
+  70% { opacity: 0.9; }
+  80% { opacity: 0.85; }
+  90% { opacity: 0.95; }
+`;
+
+const emberRise = keyframes`
+  0% { transform: translateY(0) rotate(0deg) scale(1); opacity: 1; }
+  50% { opacity: 0.7; }
+  100% { transform: translateY(-120px) rotate(360deg) scale(0.2); opacity: 0; }
+`;
+
 function getSeatPositions(count: number, currentIndex: number) {
   if (count === 0) return [];
   const radiusX = 46;
@@ -226,6 +247,8 @@ export const PokerTable: React.FC<PokerTableProps> = ({
   feltColor = null,
   itemTargeting = null,
   onItemTargetSelect,
+  flamethrowerActive = null,
+  burntRound = false,
 }) => {
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
@@ -589,6 +612,22 @@ export const PokerTable: React.FC<PokerTableProps> = ({
             );
           })()}
         </Box>
+        {/* Burnt corners overlay */}
+        {burntRound && (
+          <Box sx={{
+            position: 'absolute',
+            inset: 0,
+            borderRadius: '6px',
+            background: `
+              radial-gradient(ellipse at 0% 0%, rgba(20,10,0,0.85) 0%, rgba(80,40,0,0.4) 22%, transparent 42%),
+              radial-gradient(ellipse at 100% 0%, rgba(20,10,0,0.75) 0%, rgba(80,40,0,0.35) 18%, transparent 38%),
+              radial-gradient(ellipse at 0% 100%, rgba(20,10,0,0.75) 0%, rgba(80,40,0,0.35) 18%, transparent 38%),
+              radial-gradient(ellipse at 100% 100%, rgba(20,10,0,0.85) 0%, rgba(80,40,0,0.4) 22%, transparent 42%)
+            `,
+            pointerEvents: 'none',
+            zIndex: 10,
+          }} />
+        )}
       </Box>
     );
   };
@@ -1367,6 +1406,94 @@ export const PokerTable: React.FC<PokerTableProps> = ({
             },
           }}
         >
+          {/* Flamethrower fire overlay */}
+          {flamethrowerActive && (
+            <Box sx={{
+              position: 'absolute',
+              inset: 0,
+              borderRadius: '50%',
+              overflow: 'hidden',
+              zIndex: 50,
+              pointerEvents: 'none',
+            }}>
+              {/* Base fire glow */}
+              <Box sx={{
+                position: 'absolute',
+                inset: 0,
+                background: 'radial-gradient(ellipse at center 80%, rgba(255,80,0,0.85) 0%, rgba(255,40,0,0.6) 25%, rgba(200,0,0,0.35) 50%, rgba(100,0,0,0.15) 75%, transparent 100%)',
+                animation: `${fireFlicker} 0.3s ease-in-out infinite`,
+              }} />
+              {/* Flame layer — wide base */}
+              <Box sx={{
+                position: 'absolute',
+                bottom: 0,
+                left: '5%',
+                width: '90%',
+                height: '80%',
+                background: 'linear-gradient(to top, rgba(255,100,0,0.9) 0%, rgba(255,180,0,0.5) 40%, rgba(255,220,0,0.2) 70%, transparent 100%)',
+                animation: `${fireFlicker} 0.2s ease-in-out infinite alternate`,
+                filter: 'blur(12px)',
+              }} />
+              {/* Flame layer — inner core */}
+              <Box sx={{
+                position: 'absolute',
+                bottom: '10%',
+                left: '15%',
+                width: '70%',
+                height: '65%',
+                background: 'linear-gradient(to top, rgba(255,220,0,0.8) 0%, rgba(255,140,0,0.5) 50%, transparent 100%)',
+                animation: `${fireFlicker} 0.35s ease-in-out infinite`,
+                filter: 'blur(8px)',
+              }} />
+              {/* Embers */}
+              {[
+                { left: '20%', delay: '0s', dur: '1.5s' },
+                { left: '35%', delay: '0.3s', dur: '1.8s' },
+                { left: '50%', delay: '0.1s', dur: '1.3s' },
+                { left: '65%', delay: '0.5s', dur: '1.6s' },
+                { left: '80%', delay: '0.2s', dur: '1.4s' },
+                { left: '30%', delay: '0.7s', dur: '2s' },
+                { left: '70%', delay: '0.4s', dur: '1.7s' },
+                { left: '45%', delay: '0.6s', dur: '1.5s' },
+              ].map((e, i) => (
+                <Box key={i} sx={{
+                  position: 'absolute',
+                  bottom: '20%',
+                  left: e.left,
+                  width: 4,
+                  height: 4,
+                  borderRadius: '50%',
+                  bgcolor: i % 3 === 0 ? '#FFD54F' : i % 3 === 1 ? '#FF8A65' : '#FFF176',
+                  animation: `${emberRise} ${e.dur} ease-out ${e.delay} infinite`,
+                  boxShadow: '0 0 4px rgba(255,200,0,0.8)',
+                }} />
+              ))}
+              {/* Center label */}
+              <Box sx={{
+                position: 'absolute',
+                top: '50%',
+                left: '50%',
+                transform: 'translate(-50%, -50%)',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: 0.5,
+              }}>
+                <Box sx={{ fontSize: '3rem', filter: 'drop-shadow(0 0 20px rgba(255,100,0,0.9))' }}>🔥</Box>
+                <Box sx={{
+                  color: '#fff',
+                  fontWeight: 900,
+                  fontSize: '1.1rem',
+                  textShadow: '0 0 20px rgba(255,100,0,0.9), 0 2px 8px rgba(0,0,0,0.8)',
+                  letterSpacing: '0.15em',
+                  textTransform: 'uppercase',
+                }}>
+                  FLAMETHROWER!
+                </Box>
+              </Box>
+            </Box>
+          )}
+
           {/* Center content */}
           <Box
             sx={{

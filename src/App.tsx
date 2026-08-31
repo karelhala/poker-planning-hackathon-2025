@@ -103,6 +103,7 @@ function App() {
     handleSpotlight,
     handleMirror,
     handleSmokeBomb,
+    handleFlamethrower,
     handleApplause,
     handleDiceRoll,
     handleMegaphoneVote,
@@ -112,6 +113,8 @@ function App() {
     spotlightTargets,
     mirrorTargets,
     smokeBombTargets,
+    flamethrowerActive,
+    burntRound,
     applauseEvents,
     diceRollEvent,
     clearDiceRollEvent,
@@ -512,6 +515,9 @@ function App() {
     } else if (itemId === 'smoke_bomb') {
       setItemTargeting('smoke_bomb')
       showNotification('💨 Click on a player to smoke-bomb their card!', 'info')
+    } else if (itemId === 'flamethrower') {
+      setItemTargeting('flamethrower')
+      showNotification('🔥 Click on a player to unleash the FLAMETHROWER!', 'info')
     } else if (itemId === 'dice') {
       if (gameState !== 'VOTING') {
         showNotification('🎲 Can only roll dice during voting!', 'error')
@@ -574,8 +580,16 @@ function App() {
         return prev
       })
       setItemTargeting(null)
+    } else if (itemTargeting === 'flamethrower') {
+      handleFlamethrower(targetUserId, targetUserName)
+      setConsumableItems(prev => {
+        const idx = prev.indexOf('flamethrower')
+        if (idx >= 0) return [...prev.slice(0, idx), ...prev.slice(idx + 1)]
+        return prev
+      })
+      setItemTargeting(null)
     }
-  }, [itemTargeting, handleThrowTomato, handleSpotlight, handleMirror, handleSmokeBomb])
+  }, [itemTargeting, handleThrowTomato, handleSpotlight, handleMirror, handleSmokeBomb, handleFlamethrower])
 
   const handleToggleSidebar = useCallback(() => {
     setSidebarCollapsed(prev => {
@@ -698,6 +712,8 @@ function App() {
                   feltColor={feltColor}
                   itemTargeting={itemTargeting}
                   onItemTargetSelect={handleItemTargetSelect}
+                  flamethrowerActive={flamethrowerActive}
+                  burntRound={burntRound}
                 />
               </Box>
 
@@ -726,6 +742,7 @@ function App() {
                   onCoffeeSelect={handleCoffeeSelect}
                   votingMode={votingMode}
                   smokeBomb={smokeBombTargets.get(userId) || null}
+                  burntRound={burntRound}
                 />
               </Paper>
             </Box>
